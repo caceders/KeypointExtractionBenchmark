@@ -69,18 +69,36 @@ for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=F
     
     for related_image_idx, related_image in enumerate(image_feature_sequence.rel_images):
         
+        
+        # Reference and related features
         ref_features = image_feature_sequence.ref_image.get_features()
         rel_features = image_feature_sequence.rel_image(related_image_idx).get_features()
 
-        matches = []
+        # Compute pairwise distance matrix
+        ref_pts = np.array([f.pt for f in ref_features], dtype=np.float32)
+        rel_pts = np.array([f.get_pt_after_homography_transform(hom_seq[seq_idx][related_image_idx])
+                            for f in rel_features], dtype=np.float32)
 
-        for ref_feat in ref_features:
-            ref_pt = np.array(ref_feat.pt, dtype=np.float32)
-            for rel_feat in rel_features:
-                rel_pt = np.array(rel_feat.get_pt_after_homography_transform(hom_seq[seq_idx][related_image_idx]),
-                                dtype=np.float32)
-                dist = np.linalg.norm(ref_pt - rel_pt)
-                matches.append((ref_feat, rel_feat, dist))
+        if len(ref_pts) == 0 or len(rel_pts) == 0:
+            matches = []
+        else:
+            dists = np.linalg.norm(ref_pts[:, None, :] - rel_pts[None, :, :], axis=2)
+
+            # Greedy one-to-one matching
+            matches = []
+            used_ref = set()
+            used_rel = set()
+
+            # Sort all pairs by distance
+            pairs = [(i, j, dists[i, j]) for i in range(dists.shape[0]) for j in range(dists.shape[1])]
+            pairs.sort(key=lambda x: x[2])
+
+            for i, j, dist in pairs:
+                if i not in used_ref and j not in used_rel:
+                    matches.append((ref_features[i], rel_features[j], dist))
+                    used_ref.add(i)
+                    used_rel.add(j)
+
 
         matches.sort(key=lambda x: x[2])  # sort by distance
 
