@@ -5,7 +5,7 @@ from benchmark.feature import Feature
 from tqdm import tqdm
 import numpy as np
 from benchmark.image_feature_set import ImageFeatureSet, ImageFeatureSequence, ImageFeatures
-from matching.games import StableMarriage
+from benchmark.matching import Match, homographic_optimal_matching
 
 ## Set constants and configs
 FAST = True
@@ -61,7 +61,6 @@ print(i)
 ## Calculate repeatability based on optimal homographical matching
 nums_possible_correct_matches: list[list[int]] = []
 repeatabilities: list[list[float]] = []
-matcher = cv2.BFMatcher(DISTANCE_TYPE, crossCheck=False)
 for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating optimal matching results")):
 
     num_possible_correct_matches = []
@@ -74,41 +73,14 @@ for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=F
         ref_features = image_feature_sequence.ref_image.get_features()
         rel_features = image_feature_sequence.rel_image(related_image_idx).get_features()
 
-        # Compute pairwise distance matrix
-        ref_pts = np.array([f.pt for f in ref_features], dtype=np.float32)
-        rel_pts = np.array([f.get_pt_after_homography_transform(hom_seq[seq_idx][related_image_idx])
-                            for f in rel_features], dtype=np.float32)
-
-        if len(ref_pts) == 0 or len(rel_pts) == 0:
-            matches = []
-        else:
-            dists = np.linalg.norm(ref_pts[:, None, :] - rel_pts[None, :, :], axis=2)
-
-            # Greedy one-to-one matching
-            matches = []
-            used_ref = set()
-            used_rel = set()
-
-            # Sort all pairs by distance
-            pairs = [(i, j, dists[i, j]) for i in range(dists.shape[0]) for j in range(dists.shape[1])]
-            pairs.sort(key=lambda x: x[2])
-
-            for i, j, dist in pairs:
-                if i not in used_ref and j not in used_rel:
-                    matches.append((ref_features[i], rel_features[j], dist))
-                    used_ref.add(i)
-                    used_rel.add(j)
-
-
-        matches.sort(key=lambda x: x[2])  # sort by distance
+        matches = homographic_optimal_matching(ref_features, rel_features, hom_seq[seq_idx][related_image_idx-1])
 
         correct_matches = 0
-        for _, _, distance in matches:
-            if distance < DISTANCE_THRESHOLD:
+        for match in matches:
+            if match.score < DISTANCE_THRESHOLD:
                 correct_matches += 1 
 
         num_possible_correct_matches.append(correct_matches)
-
         repeatability.append(correct_matches/len(ref_features))
 
     nums_possible_correct_matches.append(num_possible_correct_matches)

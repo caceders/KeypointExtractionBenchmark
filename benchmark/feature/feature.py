@@ -38,5 +38,4 @@ class Feature:
         x, y = self.pt
         v = H @ np.array([x, y, 1.0])
         return v[0] / v[2], v[1] / v[2]
-   
-    
+           
