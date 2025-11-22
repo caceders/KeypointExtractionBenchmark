@@ -8,7 +8,7 @@ class ImageFeatures:
     def add_feature(self, feature : Feature | list[Feature]):
         if isinstance(feature, Feature):
             self._features.append(feature)
-        elif isinstance(feature, list[Feature]):
+        elif isinstance(feature, list):
             self._features += feature
     
     def get_features(self) -> list[Feature]:

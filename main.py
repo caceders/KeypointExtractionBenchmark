@@ -8,21 +8,21 @@ from typing import Callable
 import numpy as np
 from benchmark.image_feature_set import ImageFeatureSet, ImageFeatureSequence, ImageFeatures
 from benchmark.matching import Match, homographic_optimal_matching, greedy_maximum_bipartite_matching
+import sys
 
 ## Set constants and configs
-FAST = False
-OVERLAP_THRESHOLD = 0.4
+FAST = True
 DISTANCE_THRESHOLD = 20
-SQUARED_DISTANCE_THRESHOLD = 10 * 2
-DISTANCE_TYPE = cv2.NORM_HAMMING
+SQUARED_DISTANCE_THRESHOLD = DISTANCE_THRESHOLD ** 2
+DISTANCE_TYPE = cv2.NORM_L2
 
-maching_approach: Callable[[list[Feature], list[Feature]], list[Match]] = greedy_maximum_bipartite_matching
+maching_approach: Callable[[list[Feature], list[Feature], int], list[Match]] = greedy_maximum_bipartite_matching
 match_properties_for_mAP_calculation = ["distance", "average_response", "average_ratio"]
 
 ## Load dataset and setup feature extractor
 img_seqs, hom_seq = load_HPSequences(r"hpatches-sequences-release")
-ORB = cv2.ORB_create()
-keypoint_extractor = FeatureExtractor.from_opencv(ORB.detect, ORB.compute)
+SIFT = cv2.SIFT_create()
+keypoint_extractor = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute)
 
 
 
@@ -36,7 +36,7 @@ for seq_idx, img_seq in enumerate(tqdm(img_seqs, leave=False, desc="Finding all 
         features = [Feature(kp, desc) for _, (kp, desc) in enumerate(zip(kps, descs))]
 
         if FAST:
-            features = features[:50]
+            features = features[:500]
         
         image_feature_set[seq_idx][img_idx].add_feature(features)
 
@@ -57,6 +57,7 @@ for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=F
                 related_feature.store_valid_match_for_image(0, reference_feature, dist_squared)
 
 
+
 ## Calculate repeatability based on optimal homographical matching
 set_possible_correct_matches: list[list[int]] = []
 set_repeatabilities: list[list[float]] = []
@@ -67,8 +68,6 @@ for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=F
     
     for related_image_idx, related_image in enumerate(image_feature_sequence.rel_images):
         
-        
-        # Reference and related features
         ref_features = image_feature_sequence.ref_image.get_features()
         rel_features = image_feature_sequence.rel_image(related_image_idx).get_features()
 
@@ -104,7 +103,9 @@ print(f"rep_total: mean {np.mean(set_repeatabilities)} standard_deviation: {np.s
 ## Do matching
 num_correct_matches = []
 all_matches = []
-all_AP = []
+all_distance_AP = []
+all_keypoint_response_AP = []
+all_ratio_AP = []
 for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
     sequence_matches = []
     for related_image_idx, related_image in enumerate(image_feature_sequence.rel_images):
@@ -112,19 +113,57 @@ for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=F
         ref_features = image_feature_sequence.ref_image.get_features()
         rel_features = image_feature_sequence.rel_image(related_image_idx).get_features()
 
-        matches = maching_approach(ref_features, rel_features)
+        matches = maching_approach(ref_features, rel_features, DISTANCE_TYPE)
         sequence_matches.extend(matches)
 
-    labels = [(1 if match.is_correct else 0) for match in sequence_matches]
-    scores = [match.score for match in sequence_matches]
+    # Calculate APs
 
-    sequence_AP = average_precision_score(labels, scores)
-    all_AP.append(sequence_AP)
+    sequence_matches.sort(key=lambda x: x.custom_properties["distance"])
+    labels = [(1 if match.is_correct else 0) for match in sequence_matches]
+    scores = [1/match.custom_properties["distance"] if match.custom_properties["distance"] != 0 else sys.float_info.max  for match in sequence_matches]
+    sequence_distance_AP = average_precision_score(labels, scores)
+
+    sequence_matches.sort(key=lambda x: x.custom_properties["average_response"])
+    labels = [(1 if match.is_correct else 0) for match in sequence_matches]
+    scores = [match.custom_properties["average_response"] for match in sequence_matches]
+    sequence_keypoint_response_AP = average_precision_score(labels, scores)
+
+    sequence_matches.sort(key=lambda x: x.custom_properties["average_ratio"])
+    labels = [(1 if match.is_correct else 0) for match in sequence_matches]
+    scores = [1/match.custom_properties["average_ratio"] if match.custom_properties["average_ratio"] != 0 else sys.float_info.max for match in sequence_matches]
+    sequence_ratio_AP = average_precision_score(labels, scores)
+
+    all_distance_AP.append(sequence_distance_AP)
+    all_keypoint_response_AP.append(sequence_keypoint_response_AP)
+    all_ratio_AP.append(sequence_ratio_AP)
     all_matches.append(sequence_matches)
 
 
 
-print(f"num matches: {sum(len(sequence_matches) for sequence_matches in all_matches)}")
-mAP = np.average(all_AP)
+print(f"total num matches: {sum(len(sequence_matches) for sequence_matches in all_matches)}")
 
-print(f"mAP: {mAP}")
+total_possible_correct_matches = sum(
+    num_correct_matches
+    for num_correct_sequence_matches in set_possible_correct_matches
+    for num_correct_matches in num_correct_sequence_matches
+)
+
+print(f"num possible correct matches: {total_possible_correct_matches}")
+
+total_correct_matches = sum(
+    1 if match.is_correct else 0
+    for sequence_matches in all_matches
+    for match in sequence_matches
+)
+
+print(f"num correct matches: {total_correct_matches}")
+
+
+distance_mAP = np.average(all_distance_AP)
+print(f"distance mAP: {distance_mAP}")
+
+keypoint_response_mAP = np.average(all_keypoint_response_AP)
+print(f"keypoint response mAP: {keypoint_response_mAP}")
+
+ratio_mAP = np.average(all_ratio_AP)
+print(f"ratio mAP: {ratio_mAP}")

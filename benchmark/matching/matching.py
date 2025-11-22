@@ -1,5 +1,6 @@
 from ..feature import Feature
 import numpy as np
+import cv2
 
 class Match:
     def __init__(self, feature1: Feature, feature2: Feature, score:float = 0):
@@ -39,16 +40,24 @@ def homographic_optimal_matching(features1: list[Feature], features2: list[Featu
     matches.reverse()  # reverse so it is again sorted by distance
     return matches
 
-def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[Feature]) -> list[Match]:
+def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[Feature], distance_type: int) -> list[Match]:
+
+    if not features1 or not features2:
+        return []  # no matches possible
 
     matches: list[Match] = []
 
     # --- Step 1: Build descriptor arrays ---
-    ref_desc = np.array([f.desc for f in features1])  # shape: (N, D)
-    rel_desc = np.array([f.desc for f in features2])  # shape: (M, D)
+    ref_desc = np.stack([f.desc for f in features1])  # shape: (N, D)
+    rel_desc = np.stack([f.desc for f in features2])  # shape: (M, D)
 
     # --- Step 2: Compute pairwise distances ---
-    dists = np.linalg.norm(ref_desc[:, None, :] - rel_desc[None, :, :], axis=2)  # shape: (N, M)
+    dists = []
+    if distance_type == cv2.NORM_L2:
+        dists = np.linalg.norm(ref_desc[:, None, :] - rel_desc[None, :, :], axis=2)  # shape: (N, M)
+    elif distance_type == cv2.NORM_L2:
+        xor = np.bitwise_xor(ref_desc[:, None, :], rel_desc[None, :, :])
+        dists = np.unpackbits(xor, axis=2).sum(axis=2)
 
     # --- Step 3: Greedy maximum bipartite matching ---
     used_ref = set()
@@ -64,8 +73,8 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
         if i not in used_ref and j not in used_rel:
             match = Match(features1[i], features2[j], dist)
             matches.append(match)
-            used_ref.add(i)
-            used_rel.add(j)
+            # used_ref.add(i) # Comment out this to skip matching of next-best pairs
+            # used_rel.add(j) # Comment out this to skip matching of next-best pairs
             ref_to_match[i] = match
             rel_to_match[j] = match
 
@@ -73,6 +82,9 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
             match.custom_properties["distance"] = dist
             match.custom_properties["average_response"] = (features1[i].kp.response + features2[j].kp.response) / 2
             match.custom_properties["average_ratio"] = 0  # to be computed next
+        
+        # used_ref.add(i) # Uncomment this to skip matching of next-best pairs
+        # used_rel.add(j) # Uncomment this to skip matching of next-best pairs
 
     # --- Step 4: Compute next-best distances and average_ratio ---
     for i, match in ref_to_match.items():
