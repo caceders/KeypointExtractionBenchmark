@@ -6,7 +6,7 @@ from tqdm import tqdm
 from sklearn.metrics import average_precision_score
 import numpy as np
 from benchmark.image_feature_set import ImageFeatureSet, ImageFeatureSequence, ImageFeatures
-from benchmark.matching import Match, homographic_optimal_matching, maximum_bipartite_matching
+from benchmark.matching import Match, homographic_optimal_matching, greedy_maximum_bipartite_matching
 
 ## Set constants and configs
 FAST = False
@@ -35,7 +35,7 @@ for seq_idx, img_seq in enumerate(tqdm(img_seqs, leave=False, desc="Finding all 
         if FAST:
             features = features[:50]
         
-        image_feature_set[seq_idx][img_idx].add_features(features)
+        image_feature_set[seq_idx][img_idx].add_feature(features)
 
 
 
@@ -113,7 +113,7 @@ for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=F
         ref_features = image_feature_sequence.ref_image.get_features()
         rel_features = image_feature_sequence.rel_image(related_image_idx).get_features()
 
-        matches = maximum_bipartite_matching(ref_features, rel_features)
+        matches = greedy_maximum_bipartite_matching(ref_features, rel_features)
         sequence_matches.extend(matches)
 
     labels = [(1 if match.is_correct else 0) for match in sequence_matches]

@@ -39,7 +39,7 @@ def homographic_optimal_matching(features1: list[Feature], features2: list[Featu
     matches.reverse()  # reverse so it is again sorted by distance
     return matches
 
-def maximum_bipartite_matching(features1: list[Feature], features2: list[Feature]) -> list[Match]:
+def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[Feature]) -> list[Match]:
     # Compute pairwise distance matrix
     ref_desc = np.array([f.desc for f in features1])
     rel_desc = np.array([f.desc for f in features2])

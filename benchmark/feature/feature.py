@@ -6,6 +6,10 @@ class Feature:
 
     def __init__(self, keypoint: cv2.KeyPoint, descriptor: np.ndarray):
 
+        if not isinstance(keypoint, cv2.KeyPoint): raise(TypeError("Keypoint must be of type cv2.KeyPoint"))
+        if not isinstance(descriptor, np.ndarray): raise(TypeError("Descriptor must be of type np.ndarray"))
+
+
         self.kp: cv2.KeyPoint = keypoint
         self.desc: np.ndarray = descriptor
         self._image_valid_matches: dict["Feature", float] = {}

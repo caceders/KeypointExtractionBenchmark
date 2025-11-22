@@ -5,11 +5,11 @@ class ImageFeatures:
     def __init__(self):
         self._features: list[Feature] = []
     
-    def add_feature(self, feature : Feature):
-        self._features.append(feature)
-    
-    def add_features(self, features : list[Feature]):
-        self._features += features
+    def add_feature(self, feature : Feature | list[Feature]):
+        if isinstance(feature, Feature):
+            self._features.append(feature)
+        elif isinstance(feature, list[Feature]):
+            self._features += feature
     
     def get_features(self) -> list[Feature]:
         return self._features
