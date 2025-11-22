@@ -3,17 +3,17 @@ from benchmark.feature_extractor import FeatureExtractor
 from benchmark.utils import load_HPSequences
 from benchmark.feature import Feature
 from tqdm import tqdm
+from sklearn.metrics import average_precision_score
 import numpy as np
 from benchmark.image_feature_set import ImageFeatureSet, ImageFeatureSequence, ImageFeatures
-from benchmark.matching import Match, homographic_optimal_matching
+from benchmark.matching import Match, homographic_optimal_matching, maximum_bipartite_matching
 
 ## Set constants and configs
-FAST = True
+FAST = False
 OVERLAP_THRESHOLD = 0.4
-DISTANCE_THRESHOLD = 10
+DISTANCE_THRESHOLD = 20
 SQUARED_DISTANCE_THRESHOLD = 10 * 2
 DISTANCE_TYPE = cv2.NORM_HAMMING
-
 
 
 ## Load dataset and setup feature extractor
@@ -33,7 +33,7 @@ for seq_idx, img_seq in enumerate(tqdm(img_seqs, leave=False, desc="Finding all 
         features = [Feature(kp, desc) for _, (kp, desc) in enumerate(zip(kps, descs))]
 
         if FAST:
-            features = features[:100]
+            features = features[:50]
         
         image_feature_set[seq_idx][img_idx].add_features(features)
 
@@ -99,3 +99,33 @@ repeatabilities.flatten()
 
 print(f"cm_total: mean {np.mean(nums_possible_correct_matches)} standard_deviation: {np.std(nums_possible_correct_matches)}")
 print(f"rep_total: mean {np.mean(repeatabilities)} standard_deviation: {np.std(repeatabilities)}")
+
+
+
+## Do matching
+num_correct_matches = []
+all_matches = []
+all_AP = []
+for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
+    sequence_matches = []
+    for related_image_idx, related_image in enumerate(image_feature_sequence.rel_images):
+        # Reference and related features
+        ref_features = image_feature_sequence.ref_image.get_features()
+        rel_features = image_feature_sequence.rel_image(related_image_idx).get_features()
+
+        matches = maximum_bipartite_matching(ref_features, rel_features)
+        sequence_matches.extend(matches)
+
+    labels = [(1 if match.is_correct else 0) for match in sequence_matches]
+    scores = [match.score for match in sequence_matches]
+
+    sequence_AP = average_precision_score(labels, scores)
+    all_AP.append(sequence_AP)
+    all_matches.append(sequence_matches)
+
+
+
+print(f"num matches: {sum(len(sequence_matches) for sequence_matches in all_matches)}")
+mAP = np.average(all_AP)
+
+print(f"mAP: {mAP}")

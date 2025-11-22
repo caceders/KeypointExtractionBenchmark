@@ -6,6 +6,8 @@ class Match:
             self.feature1 = feature1
             self.feature2 = feature2
             self.score = score
+            self.is_correct = feature1.is_match_with_other_valid(feature2)
+            self.custom_properties = {}
 
 def homographic_optimal_matching(features1: list[Feature], features2: list[Feature], homography1to2: np.ndarray) -> list[Match]:
     # Compute pairwise distance matrix
@@ -30,9 +32,38 @@ def homographic_optimal_matching(features1: list[Feature], features2: list[Featu
         for i, j, dist in pairs:
             if i not in used_ref and j not in used_rel:
                 matches.append(Match(features1[i], features2[j], dist))
-                used_ref.add(i)
-                used_rel.add(j)
+            used_ref.add(i)
+            used_rel.add(j)
 
 
     matches.reverse()  # reverse so it is again sorted by distance
+    return matches
+
+def maximum_bipartite_matching(features1: list[Feature], features2: list[Feature]) -> list[Match]:
+    # Compute pairwise distance matrix
+    ref_desc = np.array([f.desc for f in features1])
+    rel_desc = np.array([f.desc for f in features2])
+
+    if len(ref_desc) == 0 or len(rel_desc) == 0:
+        matches: list[Match] = []
+    else:
+        dists = np.linalg.norm(ref_desc[:, None, :] - rel_desc[None, :, :], axis=2)
+
+        # Greedy one-to-one matching
+        matches: list[Match] = []
+        used_ref = set()
+        used_rel = set()
+
+        # Sort all pairs by score
+        pairs = [(i, j, dists[i, j]) for i in range(dists.shape[0]) for j in range(dists.shape[1])]
+        pairs.sort(key=lambda x: x[2])
+
+        for i, j, dist in pairs:
+            if i not in used_ref and j not in used_rel:
+                matches.append(Match(features1[i], features2[j], dist))
+            used_ref.add(i)
+            used_rel.add(j)
+
+
+    matches.reverse()  # reverse so it is again sorted by score
     return matches

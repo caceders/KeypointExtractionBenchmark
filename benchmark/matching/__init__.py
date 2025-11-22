@@ -1,1 +1,1 @@
-from .matching import Match, homographic_optimal_matching
+from .matching import Match, homographic_optimal_matching, maximum_bipartite_matching
