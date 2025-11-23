@@ -40,72 +40,111 @@ def homographic_optimal_matching(features1: list[Feature], features2: list[Featu
     matches.reverse()  # reverse so it is again sorted by distance
     return matches
 
-def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[Feature], distance_type: int) -> list[Match]:
+def greedy_maximum_bipartite_matching(
+        features1: list[Feature],
+        features2: list[Feature],
+        distance_type: int
+    ) -> list[Match]:
 
+    # --- Step 0: empty case ---
     if not features1 or not features2:
-        return []  # no matches possible
+        return []
 
-    matches: list[Match] = []
+    N = len(features1)
+    M = len(features2)
 
-    # --- Step 1: Build descriptor arrays ---
-    ref_desc = np.stack([f.desc for f in features1])  # shape: (N, D)
-    rel_desc = np.stack([f.desc for f in features2])  # shape: (M, D)
+    # Convert to numpy now to avoid repeated conversion later
+    ref_desc = [np.asarray(f.desc) for f in features1]
+    rel_desc = [np.asarray(f.desc) for f in features2]
 
-    # --- Step 2: Compute pairwise distances ---
-    dists = []
-    if distance_type == cv2.NORM_L2:
-        dists = np.linalg.norm(ref_desc[:, None, :] - rel_desc[None, :, :], axis=2)  # shape: (N, M)
-    elif distance_type == cv2.NORM_L2:
-        xor = np.bitwise_xor(ref_desc[:, None, :], rel_desc[None, :, :])
-        dists = np.unpackbits(xor, axis=2).sum(axis=2)
+    # --- Step 1: compute all pairwise distances (without storing NxM arrays) ---
+    pairs = []   # (i, j, dist)
 
-    # --- Step 3: Greedy maximum bipartite matching ---
+    for i in range(N):
+        a = ref_desc[i]
+
+        if distance_type == cv2.NORM_L2:
+            diff = np.stack(rel_desc) - a
+            d = np.linalg.norm(diff, axis=1)      # (M,)
+
+        elif distance_type == cv2.NORM_HAMMING:
+            xor = np.bitwise_xor(np.stack(rel_desc), a)
+            d = np.unpackbits(xor, axis=1).sum(axis=1)   # (M,)
+
+        else:
+            raise ValueError("Unsupported distance type")
+
+        for j in range(M):
+            pairs.append((i, j, float(d[j])))
+
+    # Sort all pairs by ascending distance
+    pairs.sort(key=lambda x: x[2])
+
+    # --- Step 2: greedy matching ---
     used_ref = set()
     used_rel = set()
     ref_to_match: dict[int, Match] = {}
     rel_to_match: dict[int, Match] = {}
-
-    # Flatten all pairs and sort by distance
-    pairs = [(i, j, dists[i, j]) for i in range(len(features1)) for j in range(len(features2))]
-    pairs.sort(key=lambda x: x[2])
+    matches: list[Match] = []
 
     for i, j, dist in pairs:
         if i not in used_ref and j not in used_rel:
-            match = Match(features1[i], features2[j], dist)
-            matches.append(match)
-            # used_ref.add(i) # Comment out this to skip matching of next-best pairs
-            # used_rel.add(j) # Comment out this to skip matching of next-best pairs
-            ref_to_match[i] = match
-            rel_to_match[j] = match
+            m = Match(features1[i], features2[j], dist)
+            matches.append(m)
 
-            # Store additional properties
-            match.custom_properties["distance"] = dist
-            match.custom_properties["average_response"] = (features1[i].kp.response + features2[j].kp.response) / 2
-            match.custom_properties["average_ratio"] = 0  # to be computed next
-        
-        # used_ref.add(i) # Uncomment this to skip matching of next-best pairs
-        # used_rel.add(j) # Uncomment this to skip matching of next-best pairs
+            used_ref.add(i)
+            used_rel.add(j)
 
-    # --- Step 4: Compute next-best distances and average_ratio ---
-    for i, match in ref_to_match.items():
-        # Distances to all other features in features2 (excluding matched one)
-        unmatched_dists = [dists[i, j2] for j2 in range(len(features2)) if j2 != features2.index(match.feature2)]
-        if unmatched_dists:
-            second_best_dist = min(unmatched_dists)
-            match.custom_properties["average_ratio"] = match.custom_properties["distance"] / second_best_dist
-        else:
-            # If no alternative exists, ratio = 1
-            match.custom_properties["average_ratio"] = 1.0
+            ref_to_match[i] = m
+            rel_to_match[j] = m
 
-    for j, match in rel_to_match.items():
-        unmatched_dists = [dists[i2, j] for i2 in range(len(features1)) if i2 != features1.index(match.feature1)]
-        if unmatched_dists:
-            second_best_dist = min(unmatched_dists)
-            # If average_ratio was already set from ref side, average the two contributions
-            match.custom_properties["average_ratio"] = (
-                match.custom_properties["average_ratio"] + match.custom_properties["distance"] / second_best_dist
+            m.custom_properties["distance"] = dist
+            m.custom_properties["average_response"] = (
+                features1[i].kp.response + features2[j].kp.response
             ) / 2
+            m.custom_properties["average_ratio"] = 0.0
+
+    # --- Step 3: next-best distances (ratio test) ---
+
+    # Pre-stack descriptors for vectorized second-best search
+    ref_desc_np = np.stack(ref_desc)
+    rel_desc_np = np.stack(rel_desc)
+
+    # For reference → related direction
+    for i, match in ref_to_match.items():
+        a = ref_desc_np[i]
+
+        if distance_type == cv2.NORM_L2:
+            d = np.linalg.norm(rel_desc_np - a, axis=1)
         else:
-            match.custom_properties["average_ratio"] = match.custom_properties.get("average_ratio", 1.0)
+            xor = np.bitwise_xor(rel_desc_np, a)
+            d = np.unpackbits(xor, axis=1).sum(axis=1)
+
+        j_match = features2.index(match.feature2)
+        d[j_match] = np.inf  # exclude the matched one
+        second = float(d.min())
+
+        match.custom_properties["average_ratio"] = (
+            match.custom_properties["distance"] / second
+        )
+
+    # For related → reference direction
+    for j, match in rel_to_match.items():
+        b = rel_desc_np[j]
+
+        if distance_type == cv2.NORM_L2:
+            d = np.linalg.norm(ref_desc_np - b, axis=1)
+        else:
+            xor = np.bitwise_xor(ref_desc_np, b)
+            d = np.unpackbits(xor, axis=1).sum(axis=1)
+
+        i_match = features1.index(match.feature1)
+        d[i_match] = np.inf
+        second = float(d.min())
+
+        prev = match.custom_properties["average_ratio"]
+        match.custom_properties["average_ratio"] = (
+            prev + match.custom_properties["distance"] / second
+        ) / 2.0
 
     return matches

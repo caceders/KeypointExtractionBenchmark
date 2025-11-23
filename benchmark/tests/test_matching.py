@@ -36,7 +36,7 @@ def test_homographical_optimal_matching(feature_set_1, feature_set_2):
 
 
 def test_greedy_maximum_bipartite_matching(feature_set_1, feature_set_2):
-    matches = homographic_optimal_matching(feature_set_1, feature_set_2, np.eye(3))
+    matches = greedy_maximum_bipartite_matching(feature_set_1, feature_set_2, cv2.NORM_L2)
     for match in matches:
         assert match.feature1.pt == match.feature2.pt ## Check that the match actualy got the identical descriptors
 
@@ -70,7 +70,7 @@ def test_next_best_match_return_greedy_maximum_bipartite_matching():
         feature_d
     ]
 
-    matches = greedy_maximum_bipartite_matching(features1, features2)
+    matches = greedy_maximum_bipartite_matching(features1, features2, cv2.NORM_L2)
     for match in matches:
         if match.feature1 == feature_a:
             assert match.feature2 == feature_c
@@ -81,7 +81,7 @@ def test_next_best_match_return_greedy_maximum_bipartite_matching():
             assert match.feature2 == feature_d
             assert match.custom_properties["distance"] == 4
             assert match.custom_properties["average_response"] == 3
-            #assert match.custom_properties["average_ratio"] == pytest.approx(1)
+            assert match.custom_properties["average_ratio"] == pytest.approx(1)
         if match.feature1 == feature_c:
             assert match.feature2 == feature_a
             assert match.custom_properties["distance"] == 1
