@@ -11,8 +11,9 @@ from benchmark.matching import Match, homographic_optimal_matching, greedy_maxim
 import sys
 
 ## Set constants and configs
-FAST = True
-DISTANCE_THRESHOLD = 20
+FAST = False
+MAX_FEATURES = 500
+DISTANCE_THRESHOLD = 40
 SQUARED_DISTANCE_THRESHOLD = DISTANCE_THRESHOLD ** 2
 DISTANCE_TYPE = cv2.NORM_L2
 
@@ -22,9 +23,9 @@ match_properties_for_mAP_calculation = ["distance", "average_response", "average
 ## Load dataset and setup feature extractor
 img_seqs, hom_seq = load_HPSequences(r"hpatches-sequences-release")
 SIFT = cv2.SIFT_create()
-keypoint_extractor = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute)
+ORB = cv2.ORB_create()
 
-
+keypoint_extractor = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, True, 16, 16)
 
 ## Find features in all images
 image_feature_set = ImageFeatureSet(len(img_seqs), len(img_seqs[0]))
@@ -36,7 +37,9 @@ for seq_idx, img_seq in enumerate(tqdm(img_seqs, leave=False, desc="Finding all 
         features = [Feature(kp, desc) for _, (kp, desc) in enumerate(zip(kps, descs))]
 
         if FAST:
-            features = features[:500]
+            features = features[:50]
+        else:
+            features = features[:MAX_FEATURES]
         
         image_feature_set[seq_idx][img_idx].add_feature(features)
 
