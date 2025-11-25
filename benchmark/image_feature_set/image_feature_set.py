@@ -3,6 +3,7 @@ from typing import Iterator
 
 class ImageFeatures:
     """
+    ImageFeatureSet contains ImageFeatureSequences contains **ImageFeatures** contains Features.
     A container for a collection of features related to a single image.
     The container behaves like a Python list.
     It supports iteration, indexing, assignment, len(), and item access.
@@ -36,11 +37,11 @@ class ImageFeatures:
 
 class ImageFeatureSequence:
     """
+    ImageFeatureSet contains **ImageFeatureSequences** contains ImageFeatures contains Features.
+
     A container for a collection of Imagefeature objects related to a single sequence.
     The container behaves like a Python list.
     It supports iteration, indexing, assignment, len(), and item access.
-    Features can be added one at a time or in batches, and the internal list
-    can be retrieved as a copied list to prevent external modification.
     """
     def __init__(self, num_related_images):
         self._reference_image_features = ImageFeatures()
@@ -78,11 +79,11 @@ class ImageFeatureSequence:
 
 class ImageFeatureSet:
     """
-    A container for a collection of ImageFeatureSequence objects related to a image-set with sequences.
+    **ImageFeatureSet** contains ImageFeatureSequences contains ImageFeatures contains Features.
+
+    A container for a collection of ImageFeatureSequence objects related to an image-set with sequences.
     The container behaves like a Python list.
     It supports iteration, indexing, assignment, len(), and item access.
-    Features can be added one at a time or in batches, and the internal list
-    can be retrieved as a copied list to prevent external modification.
     """
     def __init__(self, num_sequences, num_related_images):
         self._sequences: list[ImageFeatureSequence] = [ImageFeatureSequence(num_related_images) for _ in range(num_sequences)]

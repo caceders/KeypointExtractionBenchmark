@@ -259,7 +259,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
 
         match = Match(closest_feature, f1, closest_distance)
         match.custom_properties["distance"] = closest_distance
-        match.custom_properties["average_response"] = (features1[i].keypoint.response + f1.keypoint.response) / 2
+        match.custom_properties["average_response"] = (closest_feature.keypoint.response + f1.keypoint.response) / 2
 
     elif M == 1:
         # Match the single feature2 to the best feature1
@@ -285,7 +285,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
 
         match = Match(closest_feature, f2, closest_distance)
         match.custom_properties["distance"] = closest_distance
-        match.custom_properties["average_response"] = (features1[i].keypoint.response + f2.keypoint.response) / 2
+        match.custom_properties["average_response"] = (closest_feature + f2.keypoint.response) / 2
 
         # no alternative: ratio = 1
         match.custom_properties["average_ratio"] = closest_distance/second_closest_distance

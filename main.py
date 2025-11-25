@@ -15,7 +15,7 @@ from benchmark.debug import display_feature_for_sequence, display_feature_in_ima
 ###################################### SETUP TESTBENCH HERE #################################################################
 
 ## Set constants and configs.
-MAX_FEATURES = 100
+MAX_FEATURES = 50
 RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 0.10
 DISTANCE_THRESHOLD = 10
 DISTANCE_TYPE = cv2.NORM_L2 # cv2.NORM_L2 | cv2.NORM_HAMMING
@@ -219,7 +219,7 @@ retrieval_match_set = MatchSet(len(dataset_image_sequences))
 
 for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating retrieval results")):
     reference_features = image_feature_sequenceuence.reference_image.get_features()
-    for refrence_feature in reference_features:
+    for refrence_feature in tqdm(reference_features, leave=False):
         
         correct_features = reference_feature.get_all_valid_matches()
         
