@@ -9,7 +9,7 @@ import numpy as np
 def feature() -> Feature:
     kp = cv2.KeyPoint(100, 200, 1)
     desc = np.ones(128) # 128 dimensional SIFT descriptor
-    return Feature(kp, desc)
+    return Feature(kp, desc, 1, 1)
 
 
 
@@ -19,7 +19,7 @@ def features() -> list[Feature]:
     for i in range(3):
         kp = cv2.KeyPoint(100 + i, 200 + i, 1)
         desc = np.ones(128) * i # 128 dimensional SIFT descriptor
-        feats.append(Feature(kp, desc))
+        feats.append(Feature(kp, desc, 1, 1))
     return feats
 
 

@@ -1,172 +1,294 @@
-import cv2
-from benchmark.feature_extractor import FeatureExtractor
-from benchmark.utils import load_HPSequences
 from benchmark.feature import Feature
-from tqdm import tqdm
-from sklearn.metrics import average_precision_score
-from typing import Callable
-import numpy as np
+from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet, ImageFeatureSequence, ImageFeatures
-from benchmark.matching import Match, homographic_optimal_matching, greedy_maximum_bipartite_matching
-import sys
+from benchmark.matching import Match, MatchSet, MatchingApproach, MatchRankProperty, homographic_optimal_matching, greedy_maximum_bipartite_matching
+from benchmark.utils import load_HPSequences
+from tqdm import tqdm
+import cv2
+import math
+import numpy as np
+import random
+from benchmark.debug import display_feature_for_sequence, display_feature_in_image
 
-## Set constants and configs
-FAST = False
-MAX_FEATURES = 500
-DISTANCE_THRESHOLD = 40
-SQUARED_DISTANCE_THRESHOLD = DISTANCE_THRESHOLD ** 2
-DISTANCE_TYPE = cv2.NORM_L2
 
-maching_approach: Callable[[list[Feature], list[Feature], int], list[Match]] = greedy_maximum_bipartite_matching
-match_properties_for_mAP_calculation = ["distance", "average_response", "average_ratio"]
 
-## Load dataset and setup feature extractor
-img_seqs, hom_seq = load_HPSequences(r"hpatches-sequences-release")
-SIFT = cv2.SIFT_create()
-ORB = cv2.ORB_create()
+###################################### SETUP TESTBENCH HERE #################################################################
 
-keypoint_extractor = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, True, 16, 16)
+## Set constants and configs.
+MAX_FEATURES = 100
+RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 0.10
+DISTANCE_THRESHOLD = 10
+DISTANCE_TYPE = cv2.NORM_L2 # cv2.NORM_L2 | cv2.NORM_HAMMING
+VERIFICATION_CORRECT_TO_RANDOM_RATIO = 5
+RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 4000
 
-## Find features in all images
-image_feature_set = ImageFeatureSet(len(img_seqs), len(img_seqs[0]))
-for seq_idx, img_seq in enumerate(tqdm(img_seqs, leave=False, desc="Finding all features")):
-    for img_idx, img in enumerate(img_seq):
+## Load dataset.
+dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
 
-        kps = keypoint_extractor.detect_kps(img)
-        descs = keypoint_extractor.describe_kps(img, kps)
-        features = [Feature(kp, desc) for _, (kp, desc) in enumerate(zip(kps, descs))]
+## Setup feature extractor.
+ORB = cv2.ORB_create(nfeatures = MAX_FEATURES*2)
 
-        if FAST:
-            features = features[:50]
-        else:
-            features = features[:MAX_FEATURES]
+feature_extractor = FeatureExtractor.from_opencv(ORB.detect, ORB.compute, False)
+
+## Setup matching approach
+distance_match_rank_property = MatchRankProperty("distance", False)
+average_response_match_rank_property = MatchRankProperty("average_response", True)
+average_ratio_match_rank_property = MatchRankProperty("average_ratio", False)
+mathing_properties = [distance_match_rank_property, average_response_match_rank_property, average_ratio_match_rank_property]
+
+matching_approach = MatchingApproach(greedy_maximum_bipartite_matching, mathing_properties)
+
+#############################################################################################################################
+
+num_sequences = len(dataset_image_sequences)
+num_related_images = len(dataset_image_sequences[0]) - 1
+
+
+## Find features in all images.
+image_feature_set = ImageFeatureSet(num_sequences, num_related_images)
+for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
+    for image_index, image in enumerate(image_sequence):
+
+        keypoints = feature_extractor.detect_keypoints(image)
+        descriptions = feature_extractor.describe_keypoints(image, keypoints)
         
-        image_feature_set[seq_idx][img_idx].add_feature(features)
+        features = [Feature(keypoint, description, sequence_index, image_index) for _, (keypoint, description) in enumerate(zip(keypoints, descriptions))]
+
+        features.sort(key= lambda x: x.keypoint.response)
+
+        features = random.sample(features, MAX_FEATURES)
+        
+        image_feature_set[sequence_index][image_index].add_feature(features)
+
+        keypoints = [feature.keypoint for feature in features]
+        descriptions = [feature.description for feature in features]
 
 
-
-## Calculate valid matches
-for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating and ranking all valid matches")):
-    for reference_feature in tqdm(image_feature_sequence.ref_image, leave=False):
-        for related_image_idx, related_image in enumerate(image_feature_sequence.rel_images):
+## Calculate valid matches.
+for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating and ranking all valid matches")):
+    for reference_feature in tqdm(image_feature_sequenceuence.reference_image, leave=False):
+        for related_image_index, related_image in enumerate(image_feature_sequenceuence.related_images):
+            img_size = len(dataset_image_sequences[sequence_index][related_image_index+1])
             for related_feature in related_image:
-                transformed_related_feature_pt = related_feature.get_pt_after_homography_transform(hom_seq[seq_idx][img_idx - 1])
-                dist_squared = (reference_feature.pt[0] - transformed_related_feature_pt[0])**2 + (reference_feature.pt[1] - transformed_related_feature_pt[1])**2
+
+                homography = dataset_homography_sequence[sequence_index][related_image_index]
+                transformed_related_feature_pt = related_feature.get_pt_after_homography_transform(homography)
+                distance = math.dist(reference_feature.pt, related_feature.pt)
                 
-                if dist_squared > SQUARED_DISTANCE_THRESHOLD:
+                if distance > (DISTANCE_THRESHOLD * feature_extractor.get_description_image_scale_factor(img_size)):
                     continue
 
-                reference_feature.store_valid_match_for_image(related_image_idx, related_feature, dist_squared)
-                related_feature.store_valid_match_for_image(0, reference_feature, dist_squared)
+                reference_feature_size = reference_feature.keypoint.size
+                related_feature_size = related_feature.get_size_after_homography_transform(homography)
+
+                biggest_keypoint = max(reference_feature_size, related_feature_size)
+                smallest_keypoint = min(reference_feature_size, related_feature_size)
+
+                relative_scale_differnce = abs(1 - biggest_keypoint/smallest_keypoint)
+                if relative_scale_differnce > RELATIVE_SCALE_DIFFERENCE_THRESHOLD:
+                    continue
+
+                reference_feature.store_valid_match_for_image(related_image_index, related_feature, distance)
+                related_feature.store_valid_match_for_image(0, reference_feature, distance)
 
 
 
-## Calculate repeatability based on optimal homographical matching
-set_possible_correct_matches: list[list[int]] = []
+###############################################################################
+# all_features = image_feature_set.get_features()
+# all_sizes = np.array([feature.keypoint.size for feature in all_features])
+# all_octaves = np.array([feature.keypoint.octave for feature in all_features])
+# num_valid_matches = np.array([len(feature._all_valid_matches) for feature in all_features])
+# highest_feature = max(all_features, key=lambda feature: len(feature._all_valid_matches))
+
+
+# print(f"keypoint octave: max {max(all_octaves)}, min {min(all_octaves)}, mean {all_octaves.mean()} std {all_octaves.std()}")
+# print(f"keypoint size: max {max(all_sizes)}, min {min(all_sizes)}, mean {all_sizes.mean()} std {all_sizes.std()}")
+# print(f"valid matches: max {max(num_valid_matches)}, mean {num_valid_matches.mean()} std {num_valid_matches.std()}")
+
+# display_feature_in_image(dataset_image_sequences, highest_feature.sequence_index, highest_feature.image_index, highest_feature)
+# display_feature_for_sequence(dataset_image_sequences, highest_feature.sequence_index, image_feature_set)
+###############################################################################
+
+
+
+## Calculate repeatability and number of possible matches.
+set_nums_possible_correct_matches: list[list[int]] = []
 set_repeatabilities: list[list[float]] = []
-for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating optimal matching results")):
+for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating optimal matching results")):
 
-    num_possible_correct_matches = []
-    repeatability = []
+    nums_possible_correct_matches = []
+    repeatabilities = []
     
-    for related_image_idx, related_image in enumerate(image_feature_sequence.rel_images):
+    for related_image_index, related_image in enumerate(image_feature_sequenceuence.related_images):
+
+        img_size = len(dataset_image_sequences[sequence_index][related_image_index+1])
         
-        ref_features = image_feature_sequence.ref_image.get_features()
-        rel_features = image_feature_sequence.rel_image(related_image_idx).get_features()
+        reference_features = image_feature_sequenceuence.reference_image.get_features()
+        related_features = image_feature_sequenceuence.related_image(related_image_index).get_features()
 
-        matches = homographic_optimal_matching(ref_features, rel_features, hom_seq[seq_idx][related_image_idx-1])
+        homography = dataset_homography_sequence[sequence_index][related_image_index]
 
-        num_correct_matches = 0
+        matches = homographic_optimal_matching(reference_features, related_features, homography) 
+
+        # Check which matches were correct
+        num_possible_correct_matches = 0
         for match in matches:
-            if match.score < DISTANCE_THRESHOLD:
-                num_correct_matches += 1 
+            if match.score < DISTANCE_THRESHOLD * feature_extractor.get_description_image_scale_factor(img_size):
 
-        num_possible_correct_matches.append(num_correct_matches)
-        repeatability.append(num_correct_matches/len(ref_features))
+                feature1_size = match.feature1.keypoint.size
+                feature2_size = match.feature2.get_size_after_homography_transform(homography)
 
-    set_possible_correct_matches.append(num_possible_correct_matches)
-    set_repeatabilities.append(repeatability)
+                biggest_keypoint = max(feature1_size, feature2_size)
+                smallest_keypoint = min(feature1_size, feature2_size)
 
-for seq_idx in range(len(set_possible_correct_matches)):
-    print()
-    print(f"cm: mean {np.mean(set_possible_correct_matches[seq_idx])} standard_deviation: {np.std(set_possible_correct_matches[seq_idx])}")
-    print(f"rep: mean {np.mean(set_repeatabilities[seq_idx])} standard_deviation: {np.std(set_repeatabilities[seq_idx])}")
+                relative_scale_differnce = 1 - biggest_keypoint/smallest_keypoint
+                if relative_scale_differnce < RELATIVE_SCALE_DIFFERENCE_THRESHOLD:
+                    num_possible_correct_matches += 1 
 
-set_possible_correct_matches = np.array(set_possible_correct_matches)
-set_possible_correct_matches.flatten()
+        repeatability = num_possible_correct_matches/len(reference_features)
+
+        nums_possible_correct_matches.append(num_possible_correct_matches)
+        repeatabilities.append(repeatability)
+
+    set_nums_possible_correct_matches.append(nums_possible_correct_matches)
+    set_repeatabilities.append(repeatabilities)
+
+
+
+## Calculate matching results.
+matching_match_set = MatchSet(num_sequences)
+
+for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
+    for related_image_index, related_image in enumerate(image_feature_sequenceuence.related_images):
+
+        # Reference and related features.
+        reference_features = image_feature_sequenceuence.reference_image.get_features()
+        related_features = image_feature_sequenceuence.related_image(related_image_index).get_features()
+
+        matches = matching_approach.matching_callback(reference_features, related_features, DISTANCE_TYPE)
+        matching_match_set[sequence_index].add_match(matches)
+
+
+
+
+## Calculate verification results.
+verification_match_set = MatchSet(len(dataset_image_sequences))
+
+for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating verification results")):
+    reference_features = image_feature_sequenceuence.reference_image.get_features()
+    for refrence_feature in reference_features:
+
+        
+        # Find related images with equivalent feature
+        related_images_to_use = []
+
+        for image_index in range(len(image_feature_sequenceuence.related_images)):
+            if reference_feature.get_valid_matches_for_image(image_index):
+                related_images_to_use.append(image_index)
+        
+        num_random_images = len(related_images_to_use) * VERIFICATION_CORRECT_TO_RANDOM_RATIO
+
+        # Match for all relevant related images
+        for related_image_index in range(len(related_images_to_use)):
+
+            # Reference and related features.
+            related_features = image_feature_sequenceuence.related_image(related_image_index).get_features()
+
+            matches = matching_approach.matching_callback([reference_feature], related_features, DISTANCE_TYPE)
+            verification_match_set[sequence_index].add_match(matches)
+        
+        # Pick random images
+        random.seed(reference_feature.description.tobytes())
+        chosen_random_images = [] #(sequence, image)
+        for i in range(num_random_images):
+
+            random_sequence_index = random.choice([i for i in range(len(dataset_image_sequences)) if i != sequence_index])
+            random_image_index = random.choice([j for j in range(len(dataset_image_sequences[random_sequence_index])) if (random_sequence_index, j) not in chosen_random_images])
+            chosen_random_images.append((random_sequence_index, random_image_index))
+        
+        # Match for all random images
+        for random_sequence_index, random_image_index in chosen_random_images:
+            random_image_features = image_feature_set[random_sequence_index][image_index].get_features()
+            matches = matching_approach.matching_callback([reference_feature], random_image_features, DISTANCE_TYPE)
+            verification_match_set[sequence_index].add_match(matches)
+
+
+
+## Calculate retrieval results.
+retrieval_match_set = MatchSet(len(dataset_image_sequences))
+
+for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating retrieval results")):
+    reference_features = image_feature_sequenceuence.reference_image.get_features()
+    for refrence_feature in reference_features:
+        
+        correct_features = reference_feature.get_all_valid_matches()
+        
+        num_random_features = len(correct_features) * RETRIEVAL_CORRECT_TO_RANDOM_RATIO
+        
+        # Pick random features
+        all_features_except_this_image = [feature for feature in image_feature_set.get_features() if feature not in reference_features]
+        
+        if num_random_features > len(all_features_except_this_image):
+            raise ValueError("Not enough features to calculate retrieval. Reduce the acceptance threshold or increase feature count")
+
+        random.seed(reference_feature.description.tobytes())
+        chosen_random_features = [] #(sequence, image)
+
+        choice_pool = all_features_except_this_image.copy()
+
+        for i in tqdm(range(num_random_features), desc="choosing random features", leave=False):
+            chosen_random_feature_index = random.randint(0, len(choice_pool)-1)
+            chosen_random_feature = choice_pool.pop(chosen_random_feature_index)
+            chosen_random_features.append(chosen_random_feature)
+
+        features_to_chose_from = correct_features + chosen_random_features
+        
+        # Match
+        match = matching_approach.matching_callback([reference_feature], features_to_chose_from, DISTANCE_TYPE)
+        verification_match_set[sequence_index].add_match(match)
+
+################################################ PRINT RESULTS ##############################################################
+
+set_nums_possible_correct_matches = np.array(set_nums_possible_correct_matches)
+set_nums_possible_correct_matches.flatten()
 
 set_repeatabilities = np.array(set_repeatabilities)
 set_repeatabilities.flatten()
 
-print(f"cm_total: mean {np.mean(set_possible_correct_matches)} standard_deviation: {np.std(set_possible_correct_matches)}")
+print(f"cm_total: mean {np.mean(set_nums_possible_correct_matches)} standard_deviation: {np.std(set_nums_possible_correct_matches)}")
 print(f"rep_total: mean {np.mean(set_repeatabilities)} standard_deviation: {np.std(set_repeatabilities)}")
+print()
 
 
-
-## Do matching
-num_correct_matches = []
-all_matches = []
-all_distance_AP = []
-all_keypoint_response_AP = []
-all_ratio_AP = []
-for seq_idx, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
-    sequence_matches = []
-    for related_image_idx, related_image in enumerate(image_feature_sequence.rel_images):
-        # Reference and related features
-        ref_features = image_feature_sequence.ref_image.get_features()
-        rel_features = image_feature_sequence.rel_image(related_image_idx).get_features()
-
-        matches = maching_approach(ref_features, rel_features, DISTANCE_TYPE)
-        sequence_matches.extend(matches)
-
-    # Calculate APs
-
-    sequence_matches.sort(key=lambda x: x.custom_properties["distance"])
-    labels = [(1 if match.is_correct else 0) for match in sequence_matches]
-    scores = [1/match.custom_properties["distance"] if match.custom_properties["distance"] != 0 else sys.float_info.max  for match in sequence_matches]
-    sequence_distance_AP = average_precision_score(labels, scores)
-
-    sequence_matches.sort(key=lambda x: x.custom_properties["average_response"])
-    labels = [(1 if match.is_correct else 0) for match in sequence_matches]
-    scores = [match.custom_properties["average_response"] for match in sequence_matches]
-    sequence_keypoint_response_AP = average_precision_score(labels, scores)
-
-    sequence_matches.sort(key=lambda x: x.custom_properties["average_ratio"])
-    labels = [(1 if match.is_correct else 0) for match in sequence_matches]
-    scores = [1/match.custom_properties["average_ratio"] if match.custom_properties["average_ratio"] != 0 else sys.float_info.max for match in sequence_matches]
-    sequence_ratio_AP = average_precision_score(labels, scores)
-
-    all_distance_AP.append(sequence_distance_AP)
-    all_keypoint_response_AP.append(sequence_keypoint_response_AP)
-    all_ratio_AP.append(sequence_ratio_AP)
-    all_matches.append(sequence_matches)
-
-
-
-print(f"total num matches: {sum(len(sequence_matches) for sequence_matches in all_matches)}")
+print(f"total num matches: {sum(len(match_sequence) for match_sequence in matching_match_set)}")
 
 total_possible_correct_matches = sum(
     num_correct_matches
-    for num_correct_sequence_matches in set_possible_correct_matches
-    for num_correct_matches in num_correct_sequence_matches
+    for num_correct_sequenceuence_matches in set_nums_possible_correct_matches
+    for num_correct_matches in num_correct_sequenceuence_matches
 )
 
 print(f"num possible correct matches: {total_possible_correct_matches}")
 
 total_correct_matches = sum(
     1 if match.is_correct else 0
-    for sequence_matches in all_matches
-    for match in sequence_matches
+    for match_sequence in matching_match_set
+    for match in match_sequence
 )
 
 print(f"num correct matches: {total_correct_matches}")
 
+# Results from matching
+for match_rank_property in matching_approach.match_rank_properties:
+    mAP = np.average([match_sequence.get_average_precision_score(match_rank_property) for match_sequence in matching_match_set])
+    print(f"Matching {match_rank_property.name} mAP: {mAP}")
 
-distance_mAP = np.average(all_distance_AP)
-print(f"distance mAP: {distance_mAP}")
+# Results from verification
+for match_rank_property in matching_approach.match_rank_properties:
+    mAP = np.average([match_sequence.get_average_precision_score(match_rank_property) for match_sequence in verification_match_set])
+    print(f"Verification {match_rank_property.name} mAP: {mAP}")
 
-keypoint_response_mAP = np.average(all_keypoint_response_AP)
-print(f"keypoint response mAP: {keypoint_response_mAP}")
-
-ratio_mAP = np.average(all_ratio_AP)
-print(f"ratio mAP: {ratio_mAP}")
+# Results from retrieval
+for match_rank_property in matching_approach.match_rank_properties:
+    mAP = np.average([match_sequence.get_average_precision_score(match_rank_property) for match_sequence in retrieval_match_set])
+    print(f"Retrieval {match_rank_property.name} mAP: {mAP}")

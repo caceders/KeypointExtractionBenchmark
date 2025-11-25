@@ -1,13 +1,29 @@
 from typing import Tuple
+import cv2
 import numpy as np
 import os
-import cv2
 
 def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
+    """
+    Load the HPSequence dataset:
+    by passing the path to the sequence.
+
+    Parameters
+    ----------
+    path_to_HPSequences: str
+        The path to the extracted HPsequences dataset.
+
+    Returns
+    -------
+    Tuple[list[list[np.ndarray]], list[list[np.ndarray]]
+        A 2d list of the image sequences with the respective images and a
+        2d list of the homographical transformation matrixes between the
+        reference image and the related images.
+    """
     image_sequences: list[list[np.ndarray]] = []
     homography_sequences: list[list[np.ndarray]] = []
 
-    # iterate over subfolders
+    # Itterate over all subfolders.
     for name in os.listdir(path_to_HPSequences):
         subfolder = os.path.join(path_to_HPSequences, name)
         if not os.path.isdir(subfolder):
@@ -16,21 +32,23 @@ def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], 
         images = []
         homographies = []
 
-        for fname in sorted(os.listdir(subfolder)):
-            fpath = os.path.join(subfolder, fname)
+        # Iterate over the sorted file list so that 1 comes before 2 and so on.
+        for filename in sorted(os.listdir(subfolder)):
+            filepath = os.path.join(subfolder, filename)
 
-            if fname.lower().endswith(".ppm"):
-                img = cv2.imread(fpath, cv2.IMREAD_COLOR)
-                if img is None:
-                    raise ValueError(f"Failed to load image: {fpath}")
-                images.append(img)
+            # Store .ppm files,
+            if filename.lower().endswith(".ppm"):
+                image = cv2.imread(filepath, cv2.IMREAD_COLOR)
+                if image is None:
+                    raise ValueError(f"Failed to load image: {filepath}")
+                images.append(image)
 
-            elif fname.startswith("H_"):
-                H = np.loadtxt(fpath)
-                homographies.append(H)
+            # and homographies.
+            elif filename.startswith("H_"):
+                homography = np.loadtxt(filepath)
+                homographies.append(homography)
 
         image_sequences.append(images)
         homography_sequences.append(homographies)
 
     return image_sequences, homography_sequences
-

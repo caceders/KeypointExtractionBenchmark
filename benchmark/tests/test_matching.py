@@ -11,7 +11,7 @@ def feature_set_1() -> list[Feature]:
         for y in range(50):
             kp = cv2.KeyPoint(x, y, 1)
             desc = np.ones(128) * (y + 50 * x)
-            feats.append(Feature(kp, desc))
+            feats.append(Feature(kp, desc, 1, 1))
     
     return feats
 
@@ -22,7 +22,7 @@ def feature_set_2() -> list[Feature]:
         for y in range(50):
             kp = cv2.KeyPoint(x, y, 1)
             desc = np.ones(128) * (y + 50 * x)
-            feats.append(Feature(kp, desc))
+            feats.append(Feature(kp, desc, 1, 2))
     
     return feats
 
@@ -31,22 +31,22 @@ def feature_set_2() -> list[Feature]:
 def test_homographical_optimal_matching(feature_set_1, feature_set_2):
     matches = homographic_optimal_matching(feature_set_1, feature_set_2, np.eye(3))
     for match in matches:
-        assert match.feature1.pt == match.feature2.pt ## Check that the match actualy got the same point
+        assert np.array_equal(match.feature1.pt, match.feature2.pt) ## Check that the match actualy got the same point
 
 
 
 def test_greedy_maximum_bipartite_matching(feature_set_1, feature_set_2):
     matches = greedy_maximum_bipartite_matching(feature_set_1, feature_set_2, cv2.NORM_L2)
     for match in matches:
-        assert match.feature1.pt == match.feature2.pt ## Check that the match actualy got the identical descriptors
+        assert np.array_equal(match.feature1.pt, match.feature2.pt) ## Check that the match actualy got the identical descriptors
 
 
 def test_next_best_match_return_greedy_maximum_bipartite_matching():
     
-    feature_a = Feature(cv2.KeyPoint(x = 1 , y = 1, size = 1, response = 1), np.array([8]))
-    feature_b = Feature(cv2.KeyPoint(x = 2 , y = 2, size = 1, response = 2), np.array([1]))
-    feature_c = Feature(cv2.KeyPoint(x = 3 , y = 3, size = 1, response = 3), np.array([7]))
-    feature_d = Feature(cv2.KeyPoint(x = 4 , y = 4, size = 1, response = 4), np.array([5]))
+    feature_a = Feature(cv2.KeyPoint(x = 1 , y = 1, size = 1, response = 1), np.array([8]), 1, 1)
+    feature_b = Feature(cv2.KeyPoint(x = 2 , y = 2, size = 1, response = 2), np.array([1]), 1, 1)
+    feature_c = Feature(cv2.KeyPoint(x = 3 , y = 3, size = 1, response = 3), np.array([7]), 1, 2)
+    feature_d = Feature(cv2.KeyPoint(x = 4 , y = 4, size = 1, response = 4), np.array([5]), 1, 2)
 
     # Optimal pairing: a <-> c, b <-> d
     #

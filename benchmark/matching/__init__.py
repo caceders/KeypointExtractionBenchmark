@@ -1,1 +1,1 @@
-from .matching import Match, homographic_optimal_matching, greedy_maximum_bipartite_matching
+from .matching import Match, MatchingApproach, MatchRankProperty, MatchSequence, MatchSet, homographic_optimal_matching, greedy_maximum_bipartite_matching
