@@ -1,9 +1,9 @@
 from ..feature import Feature
-import numpy as np
-import cv2
 from sklearn.metrics import average_precision_score
 from typing import Callable
 from typing import Iterator
+import cv2
+import numpy as np
 
 class Match:
     '''

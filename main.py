@@ -1,3 +1,4 @@
+from benchmark.debug import display_feature_for_sequence, display_feature_in_image
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet, ImageFeatureSequence, ImageFeatures
@@ -8,14 +9,13 @@ import cv2
 import math
 import numpy as np
 import random
-from benchmark.debug import display_feature_for_sequence, display_feature_in_image
 
 
 
 ###################################### SETUP TESTBENCH HERE #################################################################
 
 ## Set constants and configs.
-MAX_FEATURES = 50
+MAX_FEATURES = 500
 RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 0.10
 DISTANCE_THRESHOLD = 10
 DISTANCE_TYPE = cv2.NORM_L2 # cv2.NORM_L2 | cv2.NORM_HAMMING

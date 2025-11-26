@@ -1,6 +1,6 @@
+from typing import Callable, Tuple
 import cv2
 import numpy as np
-from typing import Callable, Tuple
 
 KERNEL_IMAGE_RATIO = 0.04
 
