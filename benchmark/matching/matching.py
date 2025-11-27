@@ -227,8 +227,8 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
     if not features1 or not features2:
         return []
     
-    feature1_descriptions = np.stack([feature.description for feature in features1])
-    feature2_descriptions = np.stack([feature.description for feature in features2])
+    feature1_descriptions = np.array([feature.description for feature in features1])
+    feature2_descriptions = np.array([feature.description for feature in features2])
 
 
     N = len(features1)
@@ -246,9 +246,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
             xor = np.bitwise_xor(feature2_descriptions, f1.description)
             dists = np.unpackbits(xor, axis=1).sum(axis=1)
 
-        index_and_distances = []
-        for j in range(M):
-            index_and_distances.append((j, dists[j]))
+        index_and_distances = [(j, dists[j]) for j in range(M)]
 
         index_and_distances.sort(key=lambda tuple: tuple[1])
        
@@ -272,9 +270,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
             xor = np.bitwise_xor(feature1_descriptions, f2.description)
             dists = np.unpackbits(xor, axis=1).sum(axis=1)
 
-        index_and_distances = []
-        for i in range(N):
-            index_and_distances.append((i, dists[i]))
+        index_and_distances = [(i, dists[i]) for i in range(N)]
 
         index_and_distances.sort(key=lambda tuple: tuple[1])
        
@@ -307,8 +303,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
             xor = np.bitwise_xor(feature2_descriptions, feature1_descriptions[i])
             distances = np.unpackbits(xor, axis=1).sum(axis=1)
 
-        for j in range(M):
-            pairs.append((i, j, float(distances[j])))
+        pairs.extend([(i, j, float(distances[j])) for j in range(M)])
 
     # Sort all pairs by ascending distance
     pairs.sort(key=lambda pair_tuple: pair_tuple[2])
@@ -377,7 +372,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
             continue
 
         # find the two smallest distances
-        two_smallest = np.partition(distance, 1)[:2]
+        two_smallest = np.sort(distance)[:2]  # first two smallest values
 
         # pick the one that is not the matched feature
         if two_smallest[0] == match.custom_properties["distance"]:

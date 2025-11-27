@@ -104,8 +104,12 @@ class FeatureExtractor:
             ## Copy keypoints and change center and size according to scale change.
             keypoints_copy = []
             for keypoint in keypoints:
-                keypoint_resize_factor = self.get_description_image_scale_factor(len(img[0][0])) /self.get_detection_image_scale_factor(len(img[0][0]))
-                keypoint_copy_x, keypoint_copy_y, keypoint_copy_size = (keypoint.pt[0] * keypoint_resize_factor, keypoint.pt[1] * keypoint_resize_factor, keypoint.size * keypoint_resize_factor)
+                description_image_scale_factor = self.get_description_image_scale_factor(len(img[0][0]))
+                detection_image_scale_factor = self.get_detection_image_scale_factor(len(img[0][0]))
+                keypoint_resize_factor = description_image_scale_factor/detection_image_scale_factor
+                keypoint_copy_x = keypoint.pt[0] * keypoint_resize_factor
+                keypoint_copy_y = keypoint.pt[1] * keypoint_resize_factor
+                keypoint_copy_size = keypoint.size * keypoint_resize_factor
                 keypoint_copy = cv2.KeyPoint(keypoint_copy_x, keypoint_copy_y, keypoint_copy_size, keypoint.angle, keypoint.response, keypoint.octave, keypoint.class_id)
                 keypoints_copy.append(keypoint_copy)
 
