@@ -16,8 +16,9 @@ import warnings
 ###################################### SETUP TESTBENCH HERE #################################################################
 
 ## Set constants and configs.
-MAX_FEATURES = 200
-RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 1
+MAX_FEATURES = 500
+RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 100
+ANGLE_THRESHOLD = 360
 DISTANCE_THRESHOLD = 10
 DISTANCE_TYPE = cv2.NORM_L2 # cv2.NORM_L2 | cv2.NORM_HAMMING
 VERIFICATION_CORRECT_TO_RANDOM_RATIO = 5
@@ -77,19 +78,23 @@ for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_
 
                 homography = dataset_homography_sequence[sequence_index][related_image_index]
                 transformed_related_feature_pt = related_feature.get_pt_after_homography_transform(homography)
-                distance = math.dist(reference_feature.pt, related_feature.pt)
-                
+                distance = math.dist(reference_feature.pt, transformed_related_feature_pt)
                 if distance > (DISTANCE_THRESHOLD * feature_extractor.get_description_image_scale_factor(img_size)):
                     continue
 
                 reference_feature_size = reference_feature.keypoint.size
                 related_feature_size = related_feature.get_size_after_homography_transform(homography)
-
                 biggest_keypoint = max(reference_feature_size, related_feature_size)
                 smallest_keypoint = min(reference_feature_size, related_feature_size)
-
                 relative_scale_differnce = abs(1 - biggest_keypoint/smallest_keypoint)
                 if relative_scale_differnce > RELATIVE_SCALE_DIFFERENCE_THRESHOLD:
+                    continue
+                
+                reference_feature_angle = reference_feature.keypoint.angle
+                related_feature_angle = related_feature.get_angle_after_homography(homography)
+                # Calculate the circular angle distance
+                angle_difference = abs((reference_feature_angle - related_feature_angle + 180) % 360 - 180)
+                if angle_difference > ANGLE_THRESHOLD:
                     continue
 
                 reference_feature.store_valid_match_for_image(related_image_index, related_feature, distance)
@@ -98,19 +103,19 @@ for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_
 
 
 ###############################################################################
-# all_features = image_feature_set.get_features()
-# all_sizes = np.array([feature.keypoint.size for feature in all_features])
-# all_octaves = np.array([feature.keypoint.octave for feature in all_features])
-# num_valid_matches = np.array([len(feature._all_valid_matches) for feature in all_features])
-# highest_feature = max(all_features, key=lambda feature: len(feature._all_valid_matches))
+all_features = image_feature_set.get_features()
+all_sizes = np.array([feature.keypoint.size for feature in all_features])
+all_octaves = np.array([feature.keypoint.octave for feature in all_features])
+num_valid_matches = np.array([len(feature._all_valid_matches) for feature in all_features])
+highest_feature = max(all_features, key=lambda feature: len(feature._all_valid_matches))
 
 
-# print(f"keypoint octave: max {max(all_octaves)}, min {min(all_octaves)}, mean {all_octaves.mean()} std {all_octaves.std()}")
-# print(f"keypoint size: max {max(all_sizes)}, min {min(all_sizes)}, mean {all_sizes.mean()} std {all_sizes.std()}")
-# print(f"valid matches: max {max(num_valid_matches)}, mean {num_valid_matches.mean()} std {num_valid_matches.std()}")
+print(f"keypoint octave: max {max(all_octaves)}, min {min(all_octaves)}, mean {all_octaves.mean()} std {all_octaves.std()}")
+print(f"keypoint size: max {max(all_sizes)}, min {min(all_sizes)}, mean {all_sizes.mean()} std {all_sizes.std()}")
+print(f"valid matches: max {max(num_valid_matches)}, mean {num_valid_matches.mean()} std {num_valid_matches.std()}")
 
-# display_feature_in_image(dataset_image_sequences, highest_feature.sequence_index, highest_feature.image_index, highest_feature)
-# display_feature_for_sequence(dataset_image_sequences, highest_feature.sequence_index, image_feature_set)
+display_feature_in_image(dataset_image_sequences, highest_feature.sequence_index, highest_feature.image_index, highest_feature)
+display_feature_for_sequence(dataset_image_sequences, highest_feature.sequence_index, image_feature_set)
 ###############################################################################
 
 
@@ -138,16 +143,32 @@ for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_
         num_possible_correct_matches = 0
         for match in matches:
             if match.score < DISTANCE_THRESHOLD * feature_extractor.get_description_image_scale_factor(img_size):
+                
+                feature1 = match.feature1
+                feature2 = match.feature2
+                
+                homography = dataset_homography_sequence[sequence_index][related_image_index]
+                transformed_feature_2_pt = feature2.get_pt_after_homography_transform(homography)
+                distance = math.dist(feature1.pt, transformed_feature_2_pt)
+                if distance > (DISTANCE_THRESHOLD * feature_extractor.get_description_image_scale_factor(img_size)):
+                    continue
 
-                feature1_size = match.feature1.keypoint.size
-                feature2_size = match.feature2.get_size_after_homography_transform(homography)
-
+                feature1_size = feature1.keypoint.size
+                feature2_size = feature2.get_size_after_homography_transform(homography)
                 biggest_keypoint = max(feature1_size, feature2_size)
                 smallest_keypoint = min(feature1_size, feature2_size)
+                relative_scale_differnce = abs(1 - biggest_keypoint/smallest_keypoint)
+                if relative_scale_differnce > RELATIVE_SCALE_DIFFERENCE_THRESHOLD:
+                    continue
+                
+                feature1_angle = feature1.keypoint.angle
+                feature2_angle = feature2.get_angle_after_homography(homography)
+                # Calculate the circular angle distance
+                angle_difference = abs((feature1_angle - feature2_angle + 180) % 360 - 180)
+                if angle_difference > ANGLE_THRESHOLD:
+                    continue
 
-                relative_scale_differnce = 1 - biggest_keypoint/smallest_keypoint
-                if relative_scale_differnce < RELATIVE_SCALE_DIFFERENCE_THRESHOLD:
-                    num_possible_correct_matches += 1 
+                num_possible_correct_matches += 1
 
         repeatability = num_possible_correct_matches/len(reference_features)
 
@@ -247,7 +268,7 @@ for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_
         
         # Match
         match = matching_approach.matching_callback([reference_feature], features_to_chose_from, DISTANCE_TYPE)
-        verification_match_set[sequence_index].add_match(match)
+        retrieval_match_set[sequence_index].add_match(match)
 
 ################################################ PRINT RESULTS ##############################################################
 
