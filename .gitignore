@@ -1,4 +1,5 @@
 hpatches-sequences-release/
 env/
+venv/
 __pycache__/
 *.prof
