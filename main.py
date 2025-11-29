@@ -16,8 +16,8 @@ import warnings
 ###################################### SETUP TESTBENCH HERE #################################################################
 
 ## Set constants and configs.
-MAX_FEATURES = 25
-RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 0.10
+MAX_FEATURES = 200
+RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 1
 DISTANCE_THRESHOLD = 10
 DISTANCE_TYPE = cv2.NORM_L2 # cv2.NORM_L2 | cv2.NORM_HAMMING
 VERIFICATION_CORRECT_TO_RANDOM_RATIO = 5
@@ -27,9 +27,9 @@ RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 4000
 dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
 
 ## Setup feature extractor.
-ORB = cv2.ORB_create(nfeatures = MAX_FEATURES*2)
+SIFT = cv2.SIFT_create()
 
-feature_extractor = FeatureExtractor.from_opencv(ORB.detect, ORB.compute, False)
+feature_extractor = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, False)
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankProperty("distance", False)
@@ -58,8 +58,9 @@ for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, le
                     in enumerate(zip(keypoints, descriptions))]
 
         features.sort(key= lambda x: x.keypoint.response)
-
-        features = random.sample(features, MAX_FEATURES)
+        
+        if MAX_FEATURES < len(features):
+            features = random.sample(features, MAX_FEATURES)
         
         image_feature_set[sequence_index][image_index].add_feature(features)
 
@@ -201,8 +202,6 @@ for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_
             verification_match_set[sequence_index].add_match(matches)
         
         # Pick random images
-        random.seed(reference_feature.description.tobytes())
-
         choice_pool = [] #(sequence index, image index)
         for choice_sequence_index in range(len(image_feature_set)):
             if choice_sequence_index == sequence_index: # Do not take images from this sequence
@@ -228,15 +227,14 @@ for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_
     reference_features = image_feature_sequenceuence.reference_image.get_features()
     this_image_feature = image_feature_sequenceuence.reference_image
     all_features_except_this_image = [feature 
-                                          for feature in image_feature_set
                                           for choice_image_feature_sequence in image_feature_set
                                           for choice_image_feature in choice_image_feature_sequence
-                                          for feature in choice_image_feature.get_features()
-                                          if choice_image_feature != this_image_feature]
+                                          if choice_image_feature != this_image_feature
+                                          for feature in choice_image_feature.get_features()]
+    
     for refrence_feature in tqdm(reference_features, leave=False):
         
         correct_features = reference_feature.get_all_valid_matches()
-        
         num_random_features = len(correct_features) * RETRIEVAL_CORRECT_TO_RANDOM_RATIO
         
         # Pick random features
@@ -244,12 +242,7 @@ for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_
         if num_random_features > len(all_features_except_this_image):
             warnings.warn(f"Not enough features to fullu calculate retrieval, need {num_random_features}, have {len(all_features_except_this_image)}. Reduce the acceptance threshold or increase feature count")
 
-        random.seed(reference_feature.description.tobytes())
-
-        choice_pool = all_features_except_this_image.copy()
-
-        chosen_random_features = random.sample(choice_pool, num_random_features)
-
+        chosen_random_features = random.sample(all_features_except_this_image, num_random_features)
         features_to_chose_from = correct_features + chosen_random_features
         
         # Match
