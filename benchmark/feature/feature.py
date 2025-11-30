@@ -27,8 +27,8 @@ class Feature:
         self.description: np.ndarray = description
         self.sequence_index = sequence_index
         self.image_index = image_index
-        self._image_valid_matches: dict["Feature", float] = {}
-        self._all_valid_matches: list["Feature"] = []
+        self._image_valid_matches: dict[int, dict[Feature, float]] = {}
+        self._all_valid_matches: list[Feature] = []
 
     def store_valid_match_for_image(self, related_image_index: int, feature: "Feature", score: float) -> None:
             
@@ -50,7 +50,7 @@ class Feature:
         return other in self._all_valid_matches
 
     @property
-    def pt(self)->np.ndarray[int]:
+    def pt(self)->np.ndarray:
         return np.array([self.keypoint.pt[0], self.keypoint.pt[0]])
 
     def get_pt_after_homography_transform(self, H) -> Tuple[float, float]:

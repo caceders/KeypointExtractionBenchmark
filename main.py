@@ -11,14 +11,14 @@ import numpy as np
 import random
 import warnings
 
-
+DEBUG = "verification" # all/matching/retrival/verification
 
 ###################################### SETUP TESTBENCH HERE #################################################################
 
 ## Set constants and configs.
-MAX_FEATURES = 500
-RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 100
-ANGLE_THRESHOLD = 360
+MAX_FEATURES = 50
+RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 1
+ANGLE_THRESHOLD = 180
 DISTANCE_THRESHOLD = 10
 DISTANCE_TYPE = cv2.NORM_L2 # cv2.NORM_L2 | cv2.NORM_HAMMING
 VERIFICATION_CORRECT_TO_RANDOM_RATIO = 5
@@ -36,9 +36,9 @@ feature_extractor = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, Fals
 distance_match_rank_property = MatchRankProperty("distance", False)
 average_response_match_rank_property = MatchRankProperty("average_response", True)
 average_ratio_match_rank_property = MatchRankProperty("average_ratio", False)
-mathing_properties = [distance_match_rank_property, average_response_match_rank_property, average_ratio_match_rank_property]
+matching_properties = [distance_match_rank_property, average_response_match_rank_property, average_ratio_match_rank_property]
 
-matching_approach = MatchingApproach(greedy_maximum_bipartite_matching, mathing_properties)
+matching_approach = MatchingApproach(greedy_maximum_bipartite_matching, matching_properties)
 
 #############################################################################################################################
 
@@ -70,9 +70,9 @@ for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, le
 
 
 ## Calculate valid matches.
-for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating and ranking all valid matches")):
-    for reference_feature in tqdm(image_feature_sequenceuence.reference_image, leave=False):
-        for related_image_index, related_image in enumerate(image_feature_sequenceuence.related_images):
+for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating and ranking all valid matches")):
+    for reference_feature in tqdm(image_feature_sequence.reference_image, leave=False):
+        for related_image_index, related_image in enumerate(image_feature_sequence.related_images):
             img_size = len(dataset_image_sequences[sequence_index][related_image_index+1])
             for related_feature in related_image:
 
@@ -103,37 +103,37 @@ for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_
 
 
 ###############################################################################
-all_features = image_feature_set.get_features()
-all_sizes = np.array([feature.keypoint.size for feature in all_features])
-all_octaves = np.array([feature.keypoint.octave for feature in all_features])
-num_valid_matches = np.array([len(feature._all_valid_matches) for feature in all_features])
-highest_feature = max(all_features, key=lambda feature: len(feature._all_valid_matches))
+# all_features = image_feature_set.get_features()
+# all_sizes = np.array([feature.keypoint.size for feature in all_features])
+# all_octaves = np.array([feature.keypoint.octave for feature in all_features])
+# num_valid_matches = np.array([len(feature._all_valid_matches) for feature in all_features])
+# highest_feature = max(all_features, key=lambda feature: len(feature._all_valid_matches))
 
 
-print(f"keypoint octave: max {max(all_octaves)}, min {min(all_octaves)}, mean {all_octaves.mean()} std {all_octaves.std()}")
-print(f"keypoint size: max {max(all_sizes)}, min {min(all_sizes)}, mean {all_sizes.mean()} std {all_sizes.std()}")
-print(f"valid matches: max {max(num_valid_matches)}, mean {num_valid_matches.mean()} std {num_valid_matches.std()}")
+# print(f"keypoint octave: max {max(all_octaves)}, min {min(all_octaves)}, mean {all_octaves.mean()} std {all_octaves.std()}")
+# print(f"keypoint size: max {max(all_sizes)}, min {min(all_sizes)}, mean {all_sizes.mean()} std {all_sizes.std()}")
+# print(f"valid matches: max {max(num_valid_matches)}, mean {num_valid_matches.mean()} std {num_valid_matches.std()}")
 
-display_feature_in_image(dataset_image_sequences, highest_feature.sequence_index, highest_feature.image_index, highest_feature)
-display_feature_for_sequence(dataset_image_sequences, highest_feature.sequence_index, image_feature_set)
+# display_feature_in_image(dataset_image_sequences, highest_feature.sequence_index, highest_feature.image_index, highest_feature)
+# display_feature_for_sequence(dataset_image_sequences, highest_feature.sequence_index, image_feature_set)
 ###############################################################################
 
 
 
 ## Calculate repeatability and number of possible matches.
-set_nums_possible_correct_matches: list[list[int]] = []
-set_repeatabilities: list[list[float]] = []
-for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating optimal matching results")):
+set_nums_possible_correct_matches= []
+set_repeatabilities = []
+for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating optimal matching results")):
 
     nums_possible_correct_matches = []
     repeatabilities = []
     
-    for related_image_index, related_image in enumerate(image_feature_sequenceuence.related_images):
+    for related_image_index, related_image in enumerate(image_feature_sequence.related_images):
 
         img_size = len(dataset_image_sequences[sequence_index][related_image_index+1])
         
-        reference_features = image_feature_sequenceuence.reference_image.get_features()
-        related_features = image_feature_sequenceuence.related_image(related_image_index).get_features()
+        reference_features = image_feature_sequence.reference_image.get_features()
+        related_features = image_feature_sequence.related_image(related_image_index).get_features()
 
         homography = dataset_homography_sequence[sequence_index][related_image_index]
 
@@ -182,93 +182,95 @@ for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_
 
 ## Calculate matching results.
 matching_match_set = MatchSet(num_sequences)
+if DEBUG == "all" or DEBUG == "matching":
+    for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
+        for related_image_index, related_image in enumerate(image_feature_sequence.related_images):
 
-for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
-    for related_image_index, related_image in enumerate(image_feature_sequenceuence.related_images):
+            # Reference and related features.
+            reference_features = image_feature_sequence.reference_image.get_features()
+            related_features = image_feature_sequence.related_image(related_image_index).get_features()
 
-        # Reference and related features.
-        reference_features = image_feature_sequenceuence.reference_image.get_features()
-        related_features = image_feature_sequenceuence.related_image(related_image_index).get_features()
-
-        matches = matching_approach.matching_callback(reference_features, related_features, DISTANCE_TYPE)
-        matching_match_set[sequence_index].add_match(matches)
+            matches = matching_approach.matching_callback(reference_features, related_features, DISTANCE_TYPE)
+            matching_match_set[sequence_index].add_match(matches)
 
 
 
 
 ## Calculate verification results.
 verification_match_set = MatchSet(len(dataset_image_sequences))
+if DEBUG == "all" or DEBUG == "verification":
+    for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating verification results")):
+        reference_features = image_feature_sequence.reference_image.get_features()
+        for reference_feature in reference_features:
 
-for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating verification results")):
-    reference_features = image_feature_sequenceuence.reference_image.get_features()
-    for refrence_feature in reference_features:
+            
+            # Find related images with equivalent feature
+            related_images_to_use = []
 
-        
-        # Find related images with equivalent feature
-        related_images_to_use = []
+            for image_index in range(len(image_feature_sequence.related_images)):
+                if isinstance(reference_feature.get_valid_matches_for_image(image_index), dict):
+                    related_images_to_use.append(image_index)
+            
+            num_random_images = len(related_images_to_use) * VERIFICATION_CORRECT_TO_RANDOM_RATIO
 
-        for image_index in range(len(image_feature_sequenceuence.related_images)):
-            if reference_feature.get_valid_matches_for_image(image_index):
-                related_images_to_use.append(image_index)
-        
-        num_random_images = len(related_images_to_use) * VERIFICATION_CORRECT_TO_RANDOM_RATIO
+            # Match for all relevant related images
+            for related_image_index in range(len(related_images_to_use)):
 
-        # Match for all relevant related images
-        for related_image_index in range(len(related_images_to_use)):
+                # Reference and related features.
+                related_features = image_feature_sequence.related_image(related_image_index).get_features()
 
-            # Reference and related features.
-            related_features = image_feature_sequenceuence.related_image(related_image_index).get_features()
-
-            matches = matching_approach.matching_callback([reference_feature], related_features, DISTANCE_TYPE)
-            verification_match_set[sequence_index].add_match(matches)
-        
-        # Pick random images
-        choice_pool = [] #(sequence index, image index)
-        for choice_sequence_index in range(len(image_feature_set)):
-            if choice_sequence_index == sequence_index: # Do not take images from this sequence
-                continue
-            choice_pool.extend([(sequence_index, choice_image_index)
-                                for choice_image_index
-                                in range(len(image_feature_set[choice_sequence_index]))])
-        
-        chosen_random_images = random.sample(choice_pool, num_random_images)
-        
-        # Match for all random images
-        for random_sequence_index, random_image_index in chosen_random_images:
-            random_image_features = image_feature_set[random_sequence_index][image_index].get_features()
-            matches = matching_approach.matching_callback([reference_feature], random_image_features, DISTANCE_TYPE)
-            verification_match_set[sequence_index].add_match(matches)
+                matches = matching_approach.matching_callback([reference_feature], related_features, DISTANCE_TYPE)
+                verification_match_set[sequence_index].add_match(matches)
+            
+            # Pick random images
+            choice_pool = [] #(sequence index, image index)
+            for choice_sequence_index in range(len(image_feature_set)):
+                if choice_sequence_index == sequence_index: # Do not take images from this sequence
+                    continue
+                choice_pool.extend([(sequence_index, choice_image_index)
+                                    for choice_image_index
+                                    in range(len(image_feature_set[choice_sequence_index]))])
+            
+            chosen_random_images = random.sample(choice_pool, num_random_images)
+            
+            # Match for all random images
+            for random_sequence_index, random_image_index in chosen_random_images:
+                random_image_features = image_feature_set[random_sequence_index][image_index].get_features()
+                matches = matching_approach.matching_callback([reference_feature], random_image_features, DISTANCE_TYPE)
+                verification_match_set[sequence_index].add_match(matches)
 
 
 
 ## Calculate retrieval results.
 retrieval_match_set = MatchSet(len(dataset_image_sequences))
 
-for sequence_index, image_feature_sequenceuence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating retrieval results")):
-    reference_features = image_feature_sequenceuence.reference_image.get_features()
-    this_image_feature = image_feature_sequenceuence.reference_image
-    all_features_except_this_image = [feature 
-                                          for choice_image_feature_sequence in image_feature_set
-                                          for choice_image_feature in choice_image_feature_sequence
-                                          if choice_image_feature != this_image_feature
-                                          for feature in choice_image_feature.get_features()]
-    
-    for refrence_feature in tqdm(reference_features, leave=False):
+if DEBUG == "all" or DEBUG == "retrieval":
+    for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating retrieval results")):
+        reference_features = image_feature_sequence.reference_image.get_features()
+        this_image_feature = image_feature_sequence.reference_image
+        all_features_except_this_image = [feature 
+                                            for choice_image_feature_sequence in image_feature_set
+                                            for choice_image_feature in choice_image_feature_sequence
+                                            if choice_image_feature != this_image_feature
+                                            for feature in choice_image_feature.get_features()]
         
-        correct_features = reference_feature.get_all_valid_matches()
-        num_random_features = len(correct_features) * RETRIEVAL_CORRECT_TO_RANDOM_RATIO
-        
-        # Pick random features
-        
-        if num_random_features > len(all_features_except_this_image):
-            warnings.warn(f"Not enough features to fullu calculate retrieval, need {num_random_features}, have {len(all_features_except_this_image)}. Reduce the acceptance threshold or increase feature count")
+        for reference_feature in tqdm(reference_features, leave=False):
+            
+            correct_features = reference_feature.get_all_valid_matches()
+            num_random_features = len(correct_features) * RETRIEVAL_CORRECT_TO_RANDOM_RATIO
+            
+            # Pick random features
+            
+            if num_random_features > len(all_features_except_this_image):
+                warnings.warn(f"Not enough features to fully calculate retrieval, need {num_random_features}, have {len(all_features_except_this_image)}. Reduce the acceptance threshold or increase feature count")
+                num_random_features = len(all_features_except_this_image)
 
-        chosen_random_features = random.sample(all_features_except_this_image, num_random_features)
-        features_to_chose_from = correct_features + chosen_random_features
-        
-        # Match
-        match = matching_approach.matching_callback([reference_feature], features_to_chose_from, DISTANCE_TYPE)
-        retrieval_match_set[sequence_index].add_match(match)
+            chosen_random_features = random.sample(all_features_except_this_image, num_random_features)
+            features_to_chose_from = correct_features + chosen_random_features
+            
+            # Match
+            match = matching_approach.matching_callback([reference_feature], features_to_chose_from, DISTANCE_TYPE)
+            retrieval_match_set[sequence_index].add_match(match)
 
 ################################################ PRINT RESULTS ##############################################################
 
@@ -287,8 +289,8 @@ print(f"total num matches: {sum(len(match_sequence) for match_sequence in matchi
 
 total_possible_correct_matches = sum(
     num_correct_matches
-    for num_correct_sequenceuence_matches in set_nums_possible_correct_matches
-    for num_correct_matches in num_correct_sequenceuence_matches
+    for num_correct_sequence_matches in set_nums_possible_correct_matches
+    for num_correct_matches in num_correct_sequence_matches
 )
 
 print(f"num possible correct matches: {total_possible_correct_matches}")

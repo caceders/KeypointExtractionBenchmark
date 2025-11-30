@@ -2,7 +2,7 @@ from typing import Callable, Tuple
 import cv2
 import numpy as np
 
-KERNEL_IMAGE_RATIO = 0.04
+KERNEL_IMAGE_RATIO = 0.01
 
 class FeatureExtractor:
     """
@@ -25,8 +25,8 @@ class FeatureExtractor:
         The kernel size of the descriptor
     """
     def __init__(self,
-                detect_keypoints : Callable[[list[np.ndarray]], list[cv2.KeyPoint]],
-                describe_keypoints: Callable[[list[np.ndarray], list[cv2.KeyPoint]], list[np.ndarray]],
+                detect_keypoints : Callable[[np.ndarray], list[cv2.KeyPoint]],
+                describe_keypoints: Callable[[np.ndarray, list[cv2.KeyPoint]], list[np.ndarray]],
                 use_normalisation: bool = False,
                 detection_region_size: int | None = None,
                 description_region_size: int | None = None
@@ -45,17 +45,17 @@ class FeatureExtractor:
 
     @classmethod
     def from_opencv(cls,
-                opencv_detect_keypoints : Callable[[list[np.ndarray]], list[cv2.KeyPoint]],
-                opencv_describe_keypoints: Callable[[list[np.ndarray], list[cv2.KeyPoint]], Tuple[list[cv2.KeyPoint], list[np.ndarray]]],
+                opencv_detect_keypoints : Callable[[np.ndarray], list[cv2.KeyPoint]],
+                opencv_describe_keypoints: Callable[[np.ndarray, list[cv2.KeyPoint]], list[np.ndarray]],
                 use_normalisation: bool = False,
                 detection_region_size: int | None = None,
                 descrption_region_size: int | None = None
                 ):
         
         
-        def describe_keypoint_wrapper(img: list[np.ndarray], keypoints: list[cv2.KeyPoint]) -> list[np.ndarray]:
+        def describe_keypoint_wrapper(img: np.ndarray, keypoints: list[cv2.KeyPoint]) -> list[np.ndarray]:
             _, descs = opencv_describe_keypoints(img, keypoints)
-            return descs
+            return list(descs)
         
 
         return cls(
@@ -69,12 +69,12 @@ class FeatureExtractor:
     def get_detection_image_scale_factor(self, image_size)->float:
         if not self._use_normalisation:
             return 1
-        return (self.detection_region_size/(image_size * 0.04))
+        return (self.detection_region_size/(image_size * KERNEL_IMAGE_RATIO))
     
     def get_description_image_scale_factor(self, image_size)->float:
         if not self._use_normalisation:
             return 1
-        return (self.description_region_size/(image_size * 0.04))
+        return (self.description_region_size/(image_size * KERNEL_IMAGE_RATIO))
     
     def detect_keypoints(self, img: np.ndarray) -> list[cv2.KeyPoint]:
         if self._use_normalisation:

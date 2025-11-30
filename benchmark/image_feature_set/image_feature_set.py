@@ -32,7 +32,7 @@ class ImageFeatures:
     def __getitem__(self, index) -> Feature:
         return self._features[index]
     
-    def __setitem__(self, index, value) -> Feature:
+    def __setitem__(self, index, value):
         self._features[index] = value
 
 class ImageFeatureSequence:
