@@ -1,7 +1,6 @@
 TODO:
 
 NOW:
-- Remove Imagefeature class <- Leverer en kopi av features arrayet og ikke selve arrayet, kanskje grei å ha?
 - Base MAN on total image size (x*y)
 
 LATER:

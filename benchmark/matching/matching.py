@@ -23,8 +23,8 @@ class Match:
         Wheter or not the features are in the same sequence.
     is_in_same_image : bool
         Wheter or not the features are in the same image.
-    match_rank_properties : dict[str]
-        A dictionary of custom properties. An example is match.match_rank_properties["averge_ratio"]
+    match_properties : dict[str, int | float]
+        A dictionary of custom properties. An example is match.match_properties["averge_ratio"]
         to get the average ratio of the match.
 
     '''
@@ -35,7 +35,7 @@ class Match:
             self.is_correct : bool = feature1.is_match_with_other_valid(feature2)
             self.is_in_same_sequece : bool = feature1.sequence_index == feature2.sequence_index
             self.is_in_same_image : bool = (feature1.sequence_index == feature2.sequence_index) and (feature1.image_index == feature2.image_index)
-            self.match_rank_properties : dict[str, int | float] = {}
+            self.match_properties : dict[str, int | float] = {}
 
 
 
@@ -56,9 +56,9 @@ class MatchRankProperty:
 
 
 
-class MatchSequence:
+class MatchSet:
     """
-    A container for a collection of matches related to a single sequence.
+    A container for a collection of matches.
     The container behaves like a Python list.
     It supports iteration, indexing, assignment, len(), and item access.
     Features can be added one at a time or in batches, and the internal list
@@ -76,11 +76,11 @@ class MatchSequence:
             return 0.
 
         if match_rank_property.ascending:
-            scores = [match.match_rank_properties[match_rank_property.name] for match in self._matches]
+            scores = [match.match_properties[match_rank_property.name] for match in self._matches]
         else:
             # Add small constant to avoid division by zero
             epsilon = 1e-12
-            scores = [1/(match.match_rank_properties[match_rank_property.name] + epsilon)  for match in self._matches]
+            scores = [1/(match.match_properties[match_rank_property.name] + epsilon)  for match in self._matches]
 
         if ignore_same_sequence:
             for match_index, match in enumerate(self._matches):
@@ -108,30 +108,6 @@ class MatchSequence:
 
 
 
-class MatchSet:
-    """
-    A container for a collection of match sequences related to a image-set with sequences.
-    The container behaves like a Python list.
-    It supports iteration, indexing, assignment, len(), and item access.
-    Features can be added one at a time or in batches, and the internal list
-    can be retrieved as a copied list to prevent external modification.
-    """
-    def __init__(self, num_sequences: int):
-        self._num_sequences = num_sequences
-        self._match_sequences: list[MatchSequence] = [MatchSequence() for i in range(num_sequences)]
-    
-    def __iter__(self) -> Iterator[MatchSequence]:
-        for match_sequence in self._match_sequences:
-            yield match_sequence
-
-    def __len__(self):
-        return len(self._match_sequences)
-
-    def __getitem__(self, index) -> MatchSequence:
-        return self._match_sequences[index]
-
-
-
 class MatchingApproach:
     """
     Wrapper class for a matching approach. Wraps around a matching algorithm callback.
@@ -143,14 +119,14 @@ class MatchingApproach:
         A callback to the matching algorithm. The matching algorithm needs to take in two lists of features
         and produce a list of matches. The matching algorithm should make any neccessary additions to the
         relevant match objects custom property dictionary.
-    match_rank_properties : list[MatchRankProperty]
+    match_properties : list[MatchRankProperty]
         A list of the match rank properties this matching approach adds.
     """
     def __init__(self,
                 matching_callback: Callable[[list[Feature], list[Feature], int], list[Match]],
-                match_rank_properties: list[MatchRankProperty]):
+                match_properties: list[MatchRankProperty]):
         self.matching_callback = matching_callback
-        self.match_rank_properties = match_rank_properties
+        self.match_properties = match_properties
 
 
 
@@ -256,8 +232,8 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
         closest_feature = features2[closest_feature_index]
 
         match = Match(closest_feature, f1, closest_distance)
-        match.match_rank_properties["distance"] = closest_distance
-        match.match_rank_properties["average_response"] = (closest_feature.keypoint.response + f1.keypoint.response) / 2
+        match.match_properties["distance"] = closest_distance
+        match.match_properties["average_response"] = (closest_feature.keypoint.response + f1.keypoint.response) / 2
 
     elif M == 1:
         # Match the single feature2 to the best feature1
@@ -280,11 +256,11 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
         closest_feature = features1[closest_feature_index]
 
         match = Match(closest_feature, f2, closest_distance)
-        match.match_rank_properties["distance"] = closest_distance
-        match.match_rank_properties["average_response"] = (closest_feature.keypoint.response + f2.keypoint.response) / 2
+        match.match_properties["distance"] = closest_distance
+        match.match_properties["average_response"] = (closest_feature.keypoint.response + f2.keypoint.response) / 2
 
         # no alternative: ratio = 1
-        match.match_rank_properties["average_ratio"] = closest_distance/second_closest_distance
+        match.match_properties["average_ratio"] = closest_distance/second_closest_distance
         return [match]
 
     
@@ -326,9 +302,9 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
             feature1_to_match[i] = match
             feature2_to_match[j] = match
 
-            match.match_rank_properties["distance"] = dist
-            match.match_rank_properties["average_response"] = (features1[i].keypoint.response + features2[j].keypoint.response) / 2
-            match.match_rank_properties["average_ratio"] = 0.0 # Fill later when we find closest alternative feature
+            match.match_properties["distance"] = dist
+            match.match_properties["average_response"] = (features1[i].keypoint.response + features2[j].keypoint.response) / 2
+            match.match_properties["average_ratio"] = 0.0 # Fill later when we find closest alternative feature
 
     # Find closest alternative feature (needs to be done after )
     # Feature1 -> Feature2
@@ -346,14 +322,14 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
         two_smallest = np.sort(distance)[:2]  # first two smallest values
 
         # handle case where matched distance might be the smallest
-        if np.isclose(two_smallest[0], match.match_rank_properties["distance"]):
+        if np.isclose(two_smallest[0], match.match_properties["distance"]):
             second = two_smallest[1]  # second smallest
         else:
             second = two_smallest[0]  # first smallest is not the matched one
 
         # Set initial average ratio
-        match.match_rank_properties["average_ratio"] = (
-            match.match_rank_properties["distance"] / second
+        match.match_properties["average_ratio"] = (
+            match.match_properties["distance"] / second
         )
 
     # Feature2 -> Feature1
@@ -375,13 +351,13 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
         two_smallest = np.sort(distance)[:2]  # first two smallest values
 
         # pick the one that is not the matched feature
-        if two_smallest[0] == match.match_rank_properties["distance"]:
+        if two_smallest[0] == match.match_properties["distance"]:
             second = two_smallest[1]
         else:
             second = two_smallest[0]
 
         # update average ratio
-        match.match_rank_properties["average_ratio"] += (match.match_rank_properties["distance"]/second)
-        match.match_rank_properties["average_ratio"] /= 2
+        match.match_properties["average_ratio"] += (match.match_properties["distance"]/second)
+        match.match_properties["average_ratio"] /= 2
 
     return matches

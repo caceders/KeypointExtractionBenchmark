@@ -1,1 +1,1 @@
-from .image_feature_set import ImageFeatureSet, ImageFeatureSequence, ImageFeatures
+from .image_feature_set import ImageFeatureSet, ImageFeatureSequence

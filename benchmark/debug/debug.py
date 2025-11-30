@@ -1,4 +1,4 @@
-from ..image_feature_set import ImageFeatureSet, ImageFeatureSequence, ImageFeatures
+from ..image_feature_set import ImageFeatureSet, ImageFeatureSequence
 from ..feature import Feature
 import cv2
 import numpy as np

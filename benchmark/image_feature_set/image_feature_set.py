@@ -1,85 +1,51 @@
 from ..feature import Feature
 from typing import Iterator
 
-class ImageFeatures:
-    """
-    ImageFeatureSet contains ImageFeatureSequences contains **ImageFeatures** contains Features.
-    A container for a collection of features related to a single image.
-    The container behaves like a Python list.
-    It supports iteration, indexing, assignment, len(), and item access.
-    Features can be added one at a time or in batches, and the internal list
-    can be retrieved as a copied list to prevent external modification.
-    """
-    def __init__(self):
-        self._features: list[Feature] = []
-    
-    def add_feature(self, feature : Feature | list[Feature]):
-        if isinstance(feature, Feature):
-            self._features.append(feature)
-        elif isinstance(feature, list):
-            self._features += feature
-    
-    def get_features(self) -> list[Feature]:
-        return self._features.copy()
-    
-    def __iter__(self) -> Iterator[Feature]:
-        for feature in self._features:
-            yield feature
-
-    def __len__(self):
-        return len(self._features)
-
-    def __getitem__(self, index) -> Feature:
-        return self._features[index]
-    
-    def __setitem__(self, index, value):
-        self._features[index] = value
-
 class ImageFeatureSequence:
     """
-    ImageFeatureSet contains **ImageFeatureSequences** contains ImageFeatures contains Features.
+    ImageFeatureSet contains **ImageFeatureSequences** contains a list of features.
 
     A container for a collection of Imagefeature objects related to a single sequence.
     The container behaves like a Python list.
     It supports iteration, indexing, assignment, len(), and item access.
     """
     def __init__(self, num_related_images):
-        self._reference_image_features = ImageFeatures()
-        self._related_image_features = [ImageFeatures() for _ in range(num_related_images)]
+        self._reference_image_features = []
+        self._related_image_features = [[] for _ in range(num_related_images)]
         self._all = [self._reference_image_features] + self._related_image_features
     
     @property
-    def reference_image(self) -> ImageFeatures:
+    def reference_image(self) -> list[Feature]:
         return self._reference_image_features
 
-    def related_image(self, related_image_index) -> ImageFeatures:
+    def related_image(self, related_image_index) -> list[Feature]:
         return self._related_image_features[related_image_index]
     
     @property
-    def related_images(self) -> list[ImageFeatures]:
+    def related_images(self) -> list[list[Feature]]:
         return self._related_image_features.copy()
 
     def get_features(self) -> list[Feature]:
-        features = self._reference_image_features.get_features()
+        features = self._reference_image_features
         for related_image in self.related_images:
-            features.extend(related_image.get_features())
+            features.extend(related_image)
         return features
 
-    def __iter__(self) -> Iterator[ImageFeatures]:
+    def __iter__(self) -> Iterator[list[Feature]]:
         for image_features in self._all:
             yield image_features
 
     def __len__(self):
         return len(self._all)
 
-    def __getitem__(self, index) -> ImageFeatures:
+    def __getitem__(self, index) -> list[Feature]:
         return self._all[index]
     
 
 
 class ImageFeatureSet:
     """
-    **ImageFeatureSet** contains ImageFeatureSequences contains ImageFeatures contains Features.
+    **ImageFeatureSet** contains ImageFeatureSequences contains a list of features.
 
     A container for a collection of ImageFeatureSequence objects related to an image-set with sequences.
     The container behaves like a Python list.
