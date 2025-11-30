@@ -1,6 +1,8 @@
 from typing import Callable, Tuple
 import cv2
 import numpy as np
+from timeit import default_timer as timer
+
 
 KERNEL_IMAGE_RATIO = 0.01
 
@@ -69,16 +71,18 @@ class FeatureExtractor:
     def get_detection_image_scale_factor(self, image_size)->float:
         if not self._use_normalisation:
             return 1
-        return (self.detection_region_size/(image_size * KERNEL_IMAGE_RATIO))
+        detection_image_scale_factor =  np.sqrt((self.detection_region_size**2)/(image_size * KERNEL_IMAGE_RATIO))
+        return detection_image_scale_factor
     
     def get_description_image_scale_factor(self, image_size)->float:
         if not self._use_normalisation:
             return 1
-        return (self.description_region_size/(image_size * KERNEL_IMAGE_RATIO))
+        description_image_scale_factor = np.sqrt((self.description_region_size**2)/(image_size * KERNEL_IMAGE_RATIO))
+        return description_image_scale_factor
     
     def detect_keypoints(self, img: np.ndarray) -> list[cv2.KeyPoint]:
         if self._use_normalisation:
-            resize_factor = self.get_detection_image_scale_factor(len(img[0][0]))
+            resize_factor = self.get_detection_image_scale_factor(img.shape[0]*img.shape[1])
             img_copy = img.copy()
 
             new_shape_x, new_shape_y = img.shape[:2] # We only need height and width
@@ -93,7 +97,7 @@ class FeatureExtractor:
     
     def describe_keypoints(self, img: np.ndarray, keypoints: list[cv2.KeyPoint]) -> list[np.ndarray]:
         if self._use_normalisation:
-            image_resize_factor = self.get_description_image_scale_factor(len(img[0][0]))
+            image_resize_factor = self.get_description_image_scale_factor(img.shape[0]*img.shape[1])
             img_copy = img.copy()
 
             new_shape_x, new_shape_y = img.shape[:2] # We only need height and width
@@ -104,8 +108,8 @@ class FeatureExtractor:
             ## Copy keypoints and change center and size according to scale change.
             keypoints_copy = []
             for keypoint in keypoints:
-                description_image_scale_factor = self.get_description_image_scale_factor(len(img[0][0]))
-                detection_image_scale_factor = self.get_detection_image_scale_factor(len(img[0][0]))
+                description_image_scale_factor = self.get_description_image_scale_factor(img.shape[0]*img.shape[1])
+                detection_image_scale_factor = self.get_detection_image_scale_factor(img.shape[0]*img.shape[1])
                 keypoint_resize_factor = description_image_scale_factor/detection_image_scale_factor
                 keypoint_copy_x = keypoint.pt[0] * keypoint_resize_factor
                 keypoint_copy_y = keypoint.pt[1] * keypoint_resize_factor
@@ -117,3 +121,12 @@ class FeatureExtractor:
             return self._describe_keypoints(img_copy, keypoints_copy)
         else:
             return self._describe_keypoints(img, keypoints)
+        
+
+    def get_extraction_time_on_image(self, img: np.ndarray) -> float:
+        start = timer()
+        keypoints = self._detect_keypoints(img)
+        self._describe_keypoints(img, keypoints)
+        end = timer()
+        time = end - start
+        return time

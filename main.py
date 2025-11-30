@@ -10,7 +10,6 @@ import math
 import numpy as np
 import random
 import warnings
-from timeit import default_timer as timer
 
 DEBUG = "all" # all/matching/retrival/verification
 
@@ -31,7 +30,7 @@ dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatch
 ## Setup feature extractor.
 ORB = cv2.ORB_create(nfeatures = MAX_FEATURES * 2)
 
-feature_extractor = FeatureExtractor.from_opencv(ORB.detect, ORB.compute, False)
+feature_extractor = FeatureExtractor.from_opencv(ORB.detect, ORB.compute, True, 31, 31)
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankProperty("distance", False)
@@ -49,17 +48,14 @@ num_sequences = len(dataset_image_sequences)
 num_related_images = len(dataset_image_sequences[0]) - 1
 image_feature_set = ImageFeatureSet(num_sequences, num_related_images)
 
-speeds_per_image = []
+time_per_image = []
 ## Speed test
 for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Calculating speed")):
     for image_index, image in enumerate(image_sequence):
-        start = timer()
-        keypoints = feature_extractor.detect_keypoints(image)
-        descriptions = feature_extractor.describe_keypoints(image, keypoints)
-        end = timer()
-        speeds_per_image.append(end-start)
+        time = feature_extractor.get_extraction_time_on_image(image)
+        time_per_image.append(time)
 
-speed = np.average(speeds_per_image)
+speed = np.average(time_per_image)
 
 ## Find features in all images.
 for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
