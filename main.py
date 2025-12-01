@@ -68,18 +68,18 @@ if __name__ == "__main__":
                 distance_type = cv2.NORM_L2
             test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type, use_normalisation=USE_MEASUREMENT_AREA_NORMALISATION)
 
-## Setup matching approach
-distance_match_rank_property = MatchRankingProperty("distance", False)
-average_response_match_rank_property = MatchRankingProperty("average_response", True)
-average_ratio_match_rank_property = MatchRankingProperty("average_ratio", False)
-match_properties = [distance_match_rank_property, average_response_match_rank_property, average_ratio_match_rank_property]
+    ## Setup matching approach
+    distance_match_rank_property = MatchRankingProperty("distance", False)
+    average_response_match_rank_property = MatchRankingProperty("average_response", True)
+    average_ratio_match_rank_property = MatchRankingProperty("average_ratio", False)
+    match_properties = [distance_match_rank_property, average_response_match_rank_property, average_ratio_match_rank_property]
 
-matching_approach = greedy_maximum_bipartite_matching
+    matching_approach = greedy_maximum_bipartite_matching
 
-#############################################################################################################################
-all_results = []
+    #############################################################################################################################
+    all_results = []
 
-warnings.filterwarnings("once", category=UserWarning)
+    warnings.filterwarnings("once", category=UserWarning)
 
 
     num_sequences = len(dataset_image_sequences)
@@ -277,8 +277,8 @@ warnings.filterwarnings("once", category=UserWarning)
                         
                         # Match for all random images
                         for random_sequence_index, random_image_index in chosen_random_images:
-                            random_image_features = image_feature_set[random_sequence_index][image_index].copy()
-                            matches = matching_approach.matching_callback([reference_feature], random_image_features, DISTANCE_TYPE)
+                            random_image_features = image_feature_set[random_sequence_index][random_image_index].copy()
+                            matches = matching_approach([reference_feature], random_image_features, feature_extractor.distance_type)
                             verification_match_set.add_match(matches)
 
 
