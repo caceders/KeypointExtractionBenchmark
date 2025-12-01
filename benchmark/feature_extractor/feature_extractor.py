@@ -20,7 +20,7 @@ class FeatureExtractor:
         and an image on the from of a numpy array and return the descriptor vectors on the form of a numpy array.
     use_normalisation: bool = False
         If true then measurement area normalisation is used. The image is resized to have a constant ratio between detector
-        and descriptor kernel and image width. If used detection region size and description region size is required.
+        and descriptor kernel and image width. If used, detection region size and description region size is required.
     detection_region_size: int | None = None
         The kernel size of the detector.
     description_region_size: int | None = None
@@ -89,7 +89,7 @@ class FeatureExtractor:
             resize_factor = self.get_detection_image_scale_factor(img.shape[0]*img.shape[1])
             img_copy = img.copy()
 
-            new_shape_x, new_shape_y = img.shape[:2] # We only need height and width
+            new_shape_y, new_shape_x = img.shape[:2] # We only need height and width
             new_shape_x = int(round(float(new_shape_x) * resize_factor))
             new_shape_y = int(round(float(new_shape_y) * resize_factor))
 
@@ -104,7 +104,7 @@ class FeatureExtractor:
             image_resize_factor = self.get_description_image_scale_factor(img.shape[0]*img.shape[1])
             img_copy = img.copy()
 
-            new_shape_x, new_shape_y = img.shape[:2] # We only need height and width
+            new_shape_y, new_shape_x = img.shape[:2] # We only need height and width
             new_shape_x = int(round(float(new_shape_x) * image_resize_factor))
             new_shape_y = int(round(float(new_shape_y) * image_resize_factor))
 

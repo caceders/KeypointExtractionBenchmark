@@ -22,7 +22,6 @@ class Feature:
         if not isinstance(keypoint, cv2.KeyPoint): raise(TypeError("Keypoint must be of type cv2.KeyPoint"))
         if not isinstance(description, np.ndarray): raise(TypeError("Descriptor must be of type np.ndarray"))
 
-
         self.keypoint: cv2.KeyPoint = keypoint
         self.description: np.ndarray = description
         self.sequence_index = sequence_index
@@ -41,10 +40,10 @@ class Feature:
     def get_valid_matches_for_image(self, related_image_index: int) -> dict["Feature", float] | None:
         if not related_image_index in self._image_valid_matches:
             return None
-        return self._image_valid_matches[related_image_index]
+        return self._image_valid_matches[related_image_index].copy()
     
     def get_all_valid_matches(self) -> list["Feature"]:
-        return self._all_valid_matches
+        return self._all_valid_matches.copy()
     
     def is_match_with_other_valid(self, other: "Feature"):
         return other in self._all_valid_matches
@@ -68,14 +67,17 @@ class Feature:
             [x - r, y],
             [x, y + r],
             [x, y - r]
-        ], dtype=np.float32).reshape(-1, 1, 2)
+        ], dtype=np.float32)
 
-        # Transform the center
-        center = np.array([[[x, y]]], dtype=np.float32)
-        center_t = cv2.perspectiveTransform(center, H).reshape(2)
+        # Stack with transform dimension
+        pts_h = np.hstack([pts, np.ones((4, 1), dtype=np.float32)])  # (4,3)
+        center_h = np.array([x, y, 1.0], dtype=np.float32)
 
-        # Transform the sample points
-        pts_t = cv2.perspectiveTransform(pts, H).reshape(-1, 2)
+        # Apply homography
+        pts_t_h = pts_h @ H.T
+        center_t_h = H @ center_h
+        pts_t = pts_t_h[:, :2] / pts_t_h[:, 2:3]
+        center_t = center_t_h[:2] / center_t_h[2]
 
         # Measure new radius as the average stretch
         new_r = np.mean(np.linalg.norm(pts_t - center_t, axis=1))

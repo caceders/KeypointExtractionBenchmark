@@ -17,7 +17,7 @@ RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 100
 ANGLE_THRESHOLD = 180
 DISTANCE_THRESHOLD = 10
 VERIFICATION_CORRECT_TO_RANDOM_RATIO = 5
-RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 1000
+RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 400
 USE_MEASUREMENT_AREA_NORMALISATION = False
 #######################################################################################################################
 
@@ -111,8 +111,6 @@ if __name__ == "__main__":
                     features = [Feature(keypoint, description, sequence_index, image_index)
                                 for _, (keypoint, description)
                                 in enumerate(zip(keypoints, descriptions))]
-
-                    features.sort(key= lambda x: x.keypoint.response)
                     
                     if MAX_FEATURES < len(features):
                         features = random.sample(features, MAX_FEATURES)
@@ -133,23 +131,23 @@ if __name__ == "__main__":
                     related_features = related_images[related_image_index]
                     homography = dataset_homography_sequence[sequence_index][related_image_index]
 
-                    if not related_features:
+                    if len(related_features) == 0:
                         continue
 
-                    related_features_positions = np.array([f.pt for f in related_features], dtype=float)
-                    related_features_size = np.array([f.keypoint.size for f in related_features], dtype=float)
-                    related_features_angles = np.array([f.keypoint.angle for f in related_features], dtype=float)
+                    related_features_positions = np.array([feature.pt for feature in related_features], dtype=float)
+                    related_features_size = np.array([feature.keypoint.size for feature in related_features], dtype=float)
+                    related_features_angles = np.array([feature.keypoint.angle for feature in related_features], dtype=float)
 
-                    # Position
+                    # transform position
                     related_features_position_stacked = np.hstack([related_features_positions, np.ones((related_features_positions.shape[0], 1))])
                     related_features_position_stacked_T = (homography @ related_features_position_stacked.T).T
                     related_features_position_stacked_T /= related_features_position_stacked_T[:, 2:3]
                     related_features_position_transformed = related_features_position_stacked_T[:, :2]
 
-                    # Sizes
+                    # transform sizes
                     related_features_size_transformed = [related_feature.get_size_after_homography_transform(homography) for related_feature in related_features]
 
-                    # Angles by transform unit circle angle vectors (approximate with linear part)
+                    # Angles by transform unit circle angle vectors (approximate with linear part of homography)
                     related_features_angle = np.deg2rad(related_features_angles)
                     related_features_angle_stacked = np.stack([np.cos(related_features_angle), np.sin(related_features_angle)], axis=1)
                     v_h = (homography[:2,:2] @ related_features_angle_stacked.T).T
@@ -164,13 +162,13 @@ if __name__ == "__main__":
                         reference_feature_position = reference_feature.pt 
                         distances = np.linalg.norm(related_features_position_transformed - reference_feature_position, axis=1)
 
-                        # Check scales
+                        # Check scales differences
                         reference_feature_size = reference_feature.keypoint.size
                         biggest = np.maximum(reference_feature_size, related_features_size_transformed)
                         smallest = np.minimum(reference_feature_size, related_features_size_transformed)
                         relative_scale_difference = np.abs(1 - biggest / smallest)
 
-                        # Check angles
+                        # Check angles differences
                         reference_feature_angle = reference_feature.keypoint.angle
                         angle_difference = np.abs((reference_feature_angle - related_features_angle_transformed + 180) % 360 - 180)
 
@@ -290,7 +288,7 @@ if __name__ == "__main__":
                         for choice_sequence_index in range(len(image_feature_set)):
                             if choice_sequence_index == sequence_index: # Do not take images from this sequence
                                 continue
-                            choice_pool.extend([(sequence_index, choice_image_index)
+                            choice_pool.extend([(choice_image_index, choice_image_index)
                                                 for choice_image_index
                                                 in range(len(image_feature_set[choice_sequence_index]))])
                         
@@ -306,9 +304,9 @@ if __name__ == "__main__":
             ## Calculate retrieval results.
             retrieval_match_sets : list[MatchSet] = []
             all_features = [feature 
-                                    for choice_image_feature_sequence in image_feature_set
-                                    for choice_image_features in choice_image_feature_sequence
-                                    for feature in choice_image_features.copy()]            
+                            for choice_image_feature_sequence in image_feature_set
+                            for choice_image_features in choice_image_feature_sequence
+                            for feature in choice_image_features.copy()]            
 
             all_features_array = np.array(all_features, dtype=object)
             if DEBUG == "all" or DEBUG == "retrieval":
@@ -319,8 +317,12 @@ if __name__ == "__main__":
                     reference_features = image_feature_sequence.reference_image.copy()
                     
                     for reference_feature in reference_features:
-                        
-                        correct_features = reference_feature.get_all_valid_matches()[:5]
+
+                        # Choose maximum 5 correct features
+                        correct_features = reference_feature.get_all_valid_matches()
+                        if len(correct_features) > 5:
+                            correct_features = random.sample(correct_features, 5)
+
                         invalid_set = set(reference_feature.get_all_valid_matches())
                         invalid_set.add(reference_feature)
                         invalid_mask = np.array([feature not in invalid_set for feature in all_features_array])
@@ -331,6 +333,7 @@ if __name__ == "__main__":
                         if num_random_features > len(valid_features):
                             warnings.warn(f"Not enough features to fully calculate retrieval.", UserWarning)
                             num_random_features = len(valid_features)
+                            
                         random_features = np.random.choice(valid_features, size=num_random_features, replace=False)
 
                         features_to_chose_from = correct_features + list(random_features)

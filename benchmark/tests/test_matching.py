@@ -1,4 +1,4 @@
-from benchmark.matching import Match, greedy_maximum_bipartite_matching_descriptor_distance, greedy_maximum_bipartite_matching_homographic_distance
+from benchmark.matching import greedy_maximum_bipartite_matching_descriptor_distance, greedy_maximum_bipartite_matching_homographic_distance
 from benchmark.feature import Feature
 import numpy as np
 import cv2
@@ -28,14 +28,14 @@ def feature_set_2() -> list[Feature]:
 
 
 
-def test_homographical_optimal_matching(feature_set_1, feature_set_2):
+def test_greedy_maximum_bipartite_matching_homographic_distance(feature_set_1, feature_set_2):
     matches = greedy_maximum_bipartite_matching_homographic_distance(feature_set_1, feature_set_2, np.eye(3))
     for match in matches:
         assert np.array_equal(match.feature1.pt, match.feature2.pt) ## Check that the match actualy got the same point
 
 
 
-def test_greedy_maximum_bipartite_matching(feature_set_1, feature_set_2):
+def test_greedy_maximum_bipartite_matching_descriptor_distance(feature_set_1, feature_set_2):
     matches = greedy_maximum_bipartite_matching_descriptor_distance(feature_set_1, feature_set_2, cv2.NORM_L2)
     for match in matches:
         assert np.array_equal(match.feature1.pt, match.feature2.pt) ## Check that the match actualy got the identical descriptors
