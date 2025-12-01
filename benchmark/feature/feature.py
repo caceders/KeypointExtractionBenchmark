@@ -51,7 +51,7 @@ class Feature:
 
     @property
     def pt(self)->np.ndarray:
-        return np.array([self.keypoint.pt[0], self.keypoint.pt[0]])
+        return np.array([self.keypoint.pt[0], self.keypoint.pt[1]])
 
     def get_pt_after_homography_transform(self, H) -> Tuple[float, float]:
         x, y = self.pt

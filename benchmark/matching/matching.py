@@ -198,93 +198,59 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
     list[match]
         The greedy maximum bipartite matching between the images
     """
-
-    ## Cover empty case
     if not features1 or not features2:
         return []
-    
-    feature1_descriptions = np.array([feature.description for feature in features1])
-    feature2_descriptions = np.array([feature.description for feature in features2])
 
+    feature1_descriptions = np.array([f.description for f in features1])
+    feature2_descriptions = np.array([f.description for f in features2])
 
     N = len(features1)
     M = len(features2)
-    
-    ## Cover singular element cases (needed for performance increase)
+
+    # Compute full distance matrix once
+    if distance_type == cv2.NORM_L2:
+        diffs = feature1_descriptions[:, None, :] - feature2_descriptions[None, :, :]
+        distance_matrix = np.linalg.norm(diffs, axis=2)  # shape (N, M)
+    elif distance_type == cv2.NORM_HAMMING:
+        xor = np.bitwise_xor(feature1_descriptions[:, None, :], feature2_descriptions[None, :, :])
+        distance_matrix = np.unpackbits(xor, axis=2).sum(axis=2)
+    else:
+        raise TypeError(f"Unknown distance type: {distance_type}")
+
+    # Cover singular element cases
     if N == 1:
-        # Match the single feature1 to the best feature2
         f1 = features1[0]
-
-        if distance_type == cv2.NORM_L2:
-            diffs = feature2_descriptions - f1.description
-            dists = np.linalg.norm(diffs, axis=1)
-        else:
-            xor = np.bitwise_xor(feature2_descriptions, f1.description)
-            dists = np.unpackbits(xor, axis=1).sum(axis=1)
-
-        index_and_distances = [(j, dists[j]) for j in range(M)]
-
-        index_and_distances.sort(key=lambda tuple: tuple[1])
-       
-        closest_feature_index, closest_distance = index_and_distances[0]
-        _, second_closest_distance = index_and_distances[1]
-
-        closest_feature = features2[closest_feature_index]
+        dists = distance_matrix[0]
+        closest_idx, second_closest_idx = np.argpartition(dists, 2)[:2]
+        closest_distance = dists[closest_idx]
+        second_closest_distance = dists[second_closest_idx]
+        closest_feature = features2[closest_idx]
 
         match = Match(closest_feature, f1, closest_distance)
         match.match_properties["distance"] = closest_distance
         match.match_properties["average_response"] = (closest_feature.keypoint.response + f1.keypoint.response) / 2
+        match.match_properties["average_ratio"] = closest_distance / second_closest_distance
+        return [match]
 
-    elif M == 1:
-        # Match the single feature2 to the best feature1
+    if M == 1:
         f2 = features2[0]
-
-        if distance_type == cv2.NORM_L2:
-            diffs = feature1_descriptions - f2.description
-            dists = np.linalg.norm(diffs, axis=1)
-        else:
-            xor = np.bitwise_xor(feature1_descriptions, f2.description)
-            dists = np.unpackbits(xor, axis=1).sum(axis=1)
-
-        index_and_distances = [(i, dists[i]) for i in range(N)]
-
-        index_and_distances.sort(key=lambda tuple: tuple[1])
-       
-        closest_feature_index, closest_distance = index_and_distances[0]
-        _, second_closest_distance = index_and_distances[1]
-
-        closest_feature = features1[closest_feature_index]
+        dists = distance_matrix[:, 0]
+        closest_idx, second_closest_idx = np.argpartition(dists, 2)[:2]
+        closest_distance = dists[closest_idx]
+        second_closest_distance = dists[second_closest_idx]
+        closest_feature = features1[closest_idx]
 
         match = Match(closest_feature, f2, closest_distance)
         match.match_properties["distance"] = closest_distance
         match.match_properties["average_response"] = (closest_feature.keypoint.response + f2.keypoint.response) / 2
-
-        # no alternative: ratio = 1
-        match.match_properties["average_ratio"] = closest_distance/second_closest_distance
+        match.match_properties["average_ratio"] = closest_distance / second_closest_distance
         return [match]
 
-    
-    ## Cover non-singular cases
+    # Non-singular cases
+    i_indices, j_indices = np.nonzero(np.ones_like(distance_matrix))  # generate all pairs
+    pairs = [(i, j, distance_matrix[i, j]) for i, j in zip(i_indices, j_indices)]
+    pairs.sort(key=lambda p: p[2])
 
-    # Compute all pairwise distances in batches to avoid memory issues
-    pairs = []
-
-    for i in range(N):
-
-        if distance_type == cv2.NORM_L2:
-            differences = feature2_descriptions - feature1_descriptions[i]
-            distances = np.linalg.norm(differences, axis=1)
-
-        elif distance_type == cv2.NORM_HAMMING:
-            xor = np.bitwise_xor(feature2_descriptions, feature1_descriptions[i])
-            distances = np.unpackbits(xor, axis=1).sum(axis=1)
-
-        pairs.extend([(i, j, float(distances[j])) for j in range(M)])
-
-    # Sort all pairs by ascending distance
-    pairs.sort(key=lambda pair_tuple: pair_tuple[2])
-
-    # Do maximum greedy matching ---
     matched_feature1_indexes = set()
     matched_feature2_indexes = set()
     feature1_to_match: dict[int, Match] = {}
@@ -295,69 +261,29 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
         if i not in matched_feature1_indexes and j not in matched_feature2_indexes:
             match = Match(features1[i], features2[j], dist)
             matches.append(match)
-
             matched_feature1_indexes.add(i)
             matched_feature2_indexes.add(j)
-
             feature1_to_match[i] = match
             feature2_to_match[j] = match
-
             match.match_properties["distance"] = dist
             match.match_properties["average_response"] = (features1[i].keypoint.response + features2[j].keypoint.response) / 2
-            match.match_properties["average_ratio"] = 0.0 # Fill later when we find closest alternative feature
+            match.match_properties["average_ratio"] = 0.0  # to be updated
 
-    # Find closest alternative feature (needs to be done after )
-    # Feature1 -> Feature2
+    # Feature1 -> Feature2: closest alternative
     for i, match in feature1_to_match.items():
-        feature1_description = feature1_descriptions[i]
+        distances = distance_matrix[i, :]
+        matched_j = features2.index(match.feature2)
+        mask = np.arange(M) != matched_j
+        second_distance = distances[mask].min()
+        match.match_properties["average_ratio"] = match.match_properties["distance"] / second_distance
 
-        # compute distances
-        if distance_type == cv2.NORM_L2:
-            distance = np.linalg.norm(feature2_descriptions - feature1_description, axis=1)
-        else:
-            xor = np.bitwise_xor(feature2_descriptions, feature1_description)
-            distance = np.unpackbits(xor, axis=1).sum(axis=1)
-
-        # find the two smallest distances
-        two_smallest = np.sort(distance)[:2]  # first two smallest values
-
-        # handle case where matched distance might be the smallest
-        if np.isclose(two_smallest[0], match.match_properties["distance"]):
-            second = two_smallest[1]  # second smallest
-        else:
-            second = two_smallest[0]  # first smallest is not the matched one
-
-        # Set initial average ratio
-        match.match_properties["average_ratio"] = (
-            match.match_properties["distance"] / second
-        )
-
-    # Feature2 -> Feature1
+    # Feature2 -> Feature1: closest alternative
     for j, match in feature2_to_match.items():
-        feature2_desription = feature2_descriptions[j]
-
-        # compute distances
-        if distance_type == cv2.NORM_L2:
-            distance = np.linalg.norm(feature1_descriptions - feature2_desription, axis=1)
-        else:
-            xor = np.bitwise_xor(feature1_descriptions, feature2_desription)
-            distance = np.unpackbits(xor, axis=1).sum(axis=1)
-
-        # if there is only one distance then we can't find the next best
-        if len(distance) == 1:
-            continue
-
-        # find the two smallest distances
-        two_smallest = np.sort(distance)[:2]  # first two smallest values
-
-        # pick the one that is not the matched feature
-        if two_smallest[0] == match.match_properties["distance"]:
-            second = two_smallest[1]
-        else:
-            second = two_smallest[0]
-
-        # update average ratio
-        match.match_properties["average_ratio"] += (match.match_properties["distance"]/second)
+        distances = distance_matrix[:, j]
+        matched_i = features1.index(match.feature1)
+        mask = np.arange(N) != matched_i
+        second_distance = distances[mask].min()
+        match.match_properties["average_ratio"] += match.match_properties["distance"] / second_distance
         match.match_properties["average_ratio"] /= 2
 
     return matches

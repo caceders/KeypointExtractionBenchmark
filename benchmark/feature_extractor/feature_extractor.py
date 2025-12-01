@@ -4,7 +4,7 @@ import numpy as np
 from timeit import default_timer as timer
 
 
-KERNEL_IMAGE_RATIO = 0.01
+MEASUREMENT_AREA_NORMALISATION_KERNEL_IMAGE_RATIO = 0.01
 
 class FeatureExtractor:
     """
@@ -29,12 +29,14 @@ class FeatureExtractor:
     def __init__(self,
                 detect_keypoints : Callable[[np.ndarray], list[cv2.KeyPoint]],
                 describe_keypoints: Callable[[np.ndarray, list[cv2.KeyPoint]], list[np.ndarray]],
+                distance_type: int,
                 use_normalisation: bool = False,
                 detection_region_size: int | None = None,
                 description_region_size: int | None = None
                 ):
         self._detect_keypoints = detect_keypoints
         self._describe_keypoints = describe_keypoints
+        self.distance_type = distance_type
         self._use_normalisation = use_normalisation
         
         if use_normalisation:
@@ -49,6 +51,7 @@ class FeatureExtractor:
     def from_opencv(cls,
                 opencv_detect_keypoints : Callable[[np.ndarray], list[cv2.KeyPoint]],
                 opencv_describe_keypoints: Callable[[np.ndarray, list[cv2.KeyPoint]], list[np.ndarray]],
+                distance_type: int,
                 use_normalisation: bool = False,
                 detection_region_size: int | None = None,
                 descrption_region_size: int | None = None
@@ -63,6 +66,7 @@ class FeatureExtractor:
         return cls(
             detect_keypoints = opencv_detect_keypoints,
             describe_keypoints = describe_keypoint_wrapper,
+            distance_type = distance_type,
             use_normalisation = use_normalisation,
             detection_region_size = detection_region_size,
             description_region_size = descrption_region_size,
@@ -71,13 +75,13 @@ class FeatureExtractor:
     def get_detection_image_scale_factor(self, image_size)->float:
         if not self._use_normalisation:
             return 1
-        detection_image_scale_factor =  np.sqrt((self.detection_region_size**2)/(image_size * KERNEL_IMAGE_RATIO))
+        detection_image_scale_factor =  np.sqrt((self.detection_region_size**2)/(image_size * MEASUREMENT_AREA_NORMALISATION_KERNEL_IMAGE_RATIO))
         return detection_image_scale_factor
     
     def get_description_image_scale_factor(self, image_size)->float:
         if not self._use_normalisation:
             return 1
-        description_image_scale_factor = np.sqrt((self.description_region_size**2)/(image_size * KERNEL_IMAGE_RATIO))
+        description_image_scale_factor = np.sqrt((self.description_region_size**2)/(image_size * MEASUREMENT_AREA_NORMALISATION_KERNEL_IMAGE_RATIO))
         return description_image_scale_factor
     
     def detect_keypoints(self, img: np.ndarray) -> list[cv2.KeyPoint]:
