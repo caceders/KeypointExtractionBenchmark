@@ -39,20 +39,20 @@ class Match:
 
 
 
-class MatchRankProperty:
+class MatchRankingProperty: 
     '''
-    An container for a match rank property (a match property used to calculate ranking for mAP).
+    An container for a match ranking property (a match property used to determine ranking for mAP).
 
     Attributes
     ----------
     name : str
-        The name of the match rank property.
-    ascending : bool
+        The name of the match ranking property.
+    higher_is_better : bool
         If true then high values are considered better. If false then low values are considered better.
     '''
-    def __init__(self, name: str, ascending: bool):
+    def __init__(self, name: str, higher_is_better: bool):
         self.name : str = name
-        self.ascending : bool = ascending
+        self.higher_is_better : bool = higher_is_better
 
 
 
@@ -66,8 +66,14 @@ class MatchSet:
     """
     def __init__(self):
         self._matches: list[Match] = []
+    
+    def add_match(self, match : Match | list[Match]):
+        if isinstance(match, Match):
+            self._matches.append(match)
+        elif isinstance(match, list):
+            self._matches += match
 
-    def get_average_precision_score(self, match_rank_property: MatchRankProperty, ignore_same_sequence: bool = False) -> float:
+    def get_average_precision_score(self, match_rank_property: MatchRankingProperty, ignore_same_sequence: bool = False) -> float:
 
         labels = [(1 if match.is_correct else 0) for match in self._matches]
         scores = []
@@ -75,12 +81,10 @@ class MatchSet:
         if 1 not in labels:
             return 0.
 
-        if match_rank_property.ascending:
+        if match_rank_property.higher_is_better:
             scores = [match.match_properties[match_rank_property.name] for match in self._matches]
         else:
-            # Add small constant to avoid division by zero
-            epsilon = 1e-12
-            scores = [1/(match.match_properties[match_rank_property.name] + epsilon)  for match in self._matches]
+            scores = -[match.match_properties[match_rank_property.name]  for match in self._matches]
 
         if ignore_same_sequence:
             for match_index, match in enumerate(self._matches):
@@ -89,12 +93,6 @@ class MatchSet:
                     scores.remove(match_index)
         
         return float(average_precision_score(labels, scores))
-    
-    def add_match(self, match : Match | list[Match]):
-        if isinstance(match, Match):
-            self._matches.append(match)
-        elif isinstance(match, list):
-            self._matches += match
     
     def __iter__(self) -> Iterator[Match]:
         for match_sequence in self._matches:
@@ -105,29 +103,8 @@ class MatchSet:
 
     def __getitem__(self, index) -> Match:
         return self._matches[index]
-
-
-
-class MatchingApproach:
-    """
-    Wrapper class for a matching approach. Wraps around a matching algorithm callback.
-    Also works as a container for the relevant match rank properties.
-
-    Attributes
-    ----------
-    matching_callback : Callable[[list[Feature], list[Feature], int], list[Match]]
-        A callback to the matching algorithm. The matching algorithm needs to take in two lists of features
-        and produce a list of matches. The matching algorithm should make any neccessary additions to the
-        relevant match objects custom property dictionary.
-    match_properties : list[MatchRankProperty]
-        A list of the match rank properties this matching approach adds.
-    """
-    def __init__(self,
-                matching_callback: Callable[[list[Feature], list[Feature], int], list[Match]],
-                match_properties: list[MatchRankProperty]):
-        self.matching_callback = matching_callback
-        self.match_properties = match_properties
-
+    
+    
 
 
 def homographic_optimal_matching(features1: list[Feature], features2: list[Feature], homography1to2: np.ndarray) -> list[Match]:
@@ -281,7 +258,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
 
         pairs.extend([(i, j, float(distances[j])) for j in range(M)])
 
-    # Sort all pairs by ascending distance
+    # Sort all pairs by higher_is_better distance
     pairs.sort(key=lambda pair_tuple: pair_tuple[2])
 
     # Do maximum greedy matching ---

@@ -2,7 +2,7 @@ from benchmark.debug import display_feature_for_sequence, display_feature_in_ima
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet, ImageFeatureSequence
-from benchmark.matching import Match, MatchSet, MatchingApproach, MatchRankProperty,homographic_optimal_matching, greedy_maximum_bipartite_matching
+from benchmark.matching import Match, MatchSet, MatchRankingProperty,homographic_optimal_matching, greedy_maximum_bipartite_matching
 from benchmark.utils import load_HPSequences
 from tqdm import tqdm
 import cv2
@@ -33,12 +33,12 @@ ORB = cv2.ORB_create(nfeatures = MAX_FEATURES * 2)
 feature_extractor = FeatureExtractor.from_opencv(ORB.detect, ORB.compute, True, 31, 31)
 
 ## Setup matching approach
-distance_match_rank_property = MatchRankProperty("distance", False)
-average_response_match_rank_property = MatchRankProperty("average_response", True)
-average_ratio_match_rank_property = MatchRankProperty("average_ratio", False)
+distance_match_rank_property = MatchRankingProperty("distance", False)
+average_response_match_rank_property = MatchRankingProperty("average_response", True)
+average_ratio_match_rank_property = MatchRankingProperty("average_ratio", False)
 matching_properties = [distance_match_rank_property, average_response_match_rank_property, average_ratio_match_rank_property]
 
-matching_approach = MatchingApproach(greedy_maximum_bipartite_matching, matching_properties)
+matching_approach = greedy_maximum_bipartite_matching
 
 #############################################################################################################################
 warnings.filterwarnings("once", category=UserWarning)
@@ -202,7 +202,7 @@ if DEBUG == "all" or DEBUG == "matching":
             reference_features = image_feature_sequence.reference_image.copy()
             related_features = image_feature_sequence.related_image(related_image_index).copy()
 
-            matches = matching_approach.matching_callback(reference_features, related_features, DISTANCE_TYPE)
+            matches = matching_approach(reference_features, related_features, DISTANCE_TYPE)
             matching_match_set.add_match(matches)
 
 
@@ -233,7 +233,7 @@ if DEBUG == "all" or DEBUG == "verification":
                 # Reference and related features.
                 related_features = image_feature_sequence.related_image(related_image_index).copy()
 
-                matches = matching_approach.matching_callback([reference_feature], related_features, DISTANCE_TYPE)
+                matches = matching_approach([reference_feature], related_features, DISTANCE_TYPE)
                 verification_match_set.add_match(matches)
             
             # Pick random images
@@ -250,7 +250,7 @@ if DEBUG == "all" or DEBUG == "verification":
             # Match for all random images
             for random_sequence_index, random_image_index in chosen_random_images:
                 random_image_features = image_feature_set[random_sequence_index][image_index].copy()
-                matches = matching_approach.matching_callback([reference_feature], random_image_features, DISTANCE_TYPE)
+                matches = matching_approach([reference_feature], random_image_features, DISTANCE_TYPE)
                 verification_match_set.add_match(matches)
 
 
@@ -287,7 +287,7 @@ if DEBUG == "all" or DEBUG == "retrieval":
             features_to_chose_from = correct_features + chosen_random_features
             
             # Match
-            match = matching_approach.matching_callback([reference_feature], features_to_chose_from, DISTANCE_TYPE)
+            match = matching_approach([reference_feature], features_to_chose_from, DISTANCE_TYPE)
             retrieval_match_set.add_match(match)
 
 ################################################ PRINT RESULTS ##############################################################
@@ -324,16 +324,16 @@ total_correct_matches = sum(
 print(f"num correct matches: {total_correct_matches}")
 
 # Results from matching
-for match_rank_property in matching_approach.match_properties:
-    mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets])
-    print(f"Matching {match_rank_property.name} mAP: {mAP}")
+for match_ranking_property in matching_properties:
+    mAP = np.average([match_set.get_average_precision_score(match_ranking_property) for match_set in matching_match_sets])
+    print(f"Matching {match_ranking_property.name} mAP: {mAP}")
 
 # Results from verification
-for match_rank_property in matching_approach.match_properties:
-    mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in verification_match_sets])
-    print(f"Verification {match_rank_property.name} mAP: {mAP}")
+for match_ranking_property in matching_properties:
+    mAP = np.average([match_set.get_average_precision_score(match_ranking_property) for match_set in verification_match_sets])
+    print(f"Verification {match_ranking_property.name} mAP: {mAP}")
 
 # Results from retrieval
-for match_rank_property in matching_approach.match_properties:
-    mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in retrieval_match_sets])
-    print(f"Retrieval {match_rank_property.name} mAP: {mAP}")
+for match_ranking_property in matching_properties:
+    mAP = np.average([match_set.get_average_precision_score(match_ranking_property) for match_set in retrieval_match_sets])
+    print(f"Retrieval {match_ranking_property.name} mAP: {mAP}")
