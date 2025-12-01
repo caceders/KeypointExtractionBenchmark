@@ -84,7 +84,7 @@ class MatchSet:
         if match_rank_property.higher_is_better:
             scores = [match.match_properties[match_rank_property.name] for match in self._matches]
         else:
-            scores = -[match.match_properties[match_rank_property.name]  for match in self._matches]
+            scores = [ - match.match_properties[match_rank_property.name] for match in self._matches]
 
         if ignore_same_sequence:
             for match_index, match in enumerate(self._matches):
