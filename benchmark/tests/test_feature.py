@@ -32,7 +32,7 @@ def features() -> list[Feature]:
 ])
 def test_invalid_constructor(kp, desc):
     with pytest.raises(TypeError):
-        feature = Feature(kp, desc)
+        feature = Feature(kp, desc, 1, 1)
 
 
 

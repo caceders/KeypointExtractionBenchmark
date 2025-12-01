@@ -50,8 +50,8 @@ if __name__ == "__main__":
         # "GFTT" : GFTT,
         # "KAZE" : KAZE,
         # "MSER" : MSER,
-        "ORB" : ORB,
-        # "SIFT" : SIFT,
+        # "ORB" : ORB,
+        "SIFT" : SIFT,
         # "SIMPLEBLOB" : SIMPLEBLOB
     }
 

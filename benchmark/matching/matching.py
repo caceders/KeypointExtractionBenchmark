@@ -1,6 +1,5 @@
 from ..feature import Feature
 from sklearn.metrics import average_precision_score
-from typing import Callable
 from typing import Iterator
 import cv2
 import numpy as np
@@ -26,10 +25,9 @@ class Match:
         to get the average ratio of the match.
 
     '''
-    def __init__(self, feature1: Feature, feature2: Feature, score: float = 0):
+    def __init__(self, feature1: Feature, feature2: Feature):
             self.feature1 : Feature = feature1
             self.feature2 : Feature = feature2
-            self.score : float = score
             self.is_correct : bool = feature1.is_match_with_other_valid(feature2)
             self.is_in_same_sequece : bool = feature1.sequence_index == feature2.sequence_index
             self.match_properties : dict[str, int | float] = {}
@@ -134,7 +132,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
         second_closest_distance = dists[second_closest_idx]
         closest_feature = features2[closest_idx]
 
-        match = Match(closest_feature, f1, closest_distance)
+        match = Match(closest_feature, f1)
         match.match_properties["distance"] = closest_distance
         match.match_properties["average_response"] = (closest_feature.keypoint.response + f1.keypoint.response) / 2
         if second_closest_distance != 0:
@@ -151,7 +149,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
         second_closest_distance = float(dists[second_closest_idx])
         closest_feature = features1[closest_idx]
 
-        match = Match(closest_feature, f2, closest_distance)
+        match = Match(closest_feature, f2)
         match.match_properties["distance"] = closest_distance
         match.match_properties["average_response"] = (closest_feature.keypoint.response + f2.keypoint.response) / 2
         if second_closest_distance != 0:
@@ -173,7 +171,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
 
     for i, j, dist in pairs:
         if i not in matched_feature1_indexes and j not in matched_feature2_indexes:
-            match = Match(features1[i], features2[j], float(dist))
+            match = Match(features1[i], features2[j])
             matches.append(match)
             matched_feature1_indexes.add(i)
             matched_feature2_indexes.add(j)
