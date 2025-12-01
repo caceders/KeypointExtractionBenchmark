@@ -1,4 +1,4 @@
-from benchmark.matching import Match, homographic_optimal_matching, greedy_maximum_bipartite_matching
+from benchmark.matching import Match, greedy_maximum_bipartite_matching_descriptor_distance, greedy_maximum_bipartite_matching_homographic_distance
 from benchmark.feature import Feature
 import numpy as np
 import cv2
@@ -29,14 +29,14 @@ def feature_set_2() -> list[Feature]:
 
 
 def test_homographical_optimal_matching(feature_set_1, feature_set_2):
-    matches = homographic_optimal_matching(feature_set_1, feature_set_2, np.eye(3))
+    matches = greedy_maximum_bipartite_matching_homographic_distance(feature_set_1, feature_set_2, np.eye(3))
     for match in matches:
         assert np.array_equal(match.feature1.pt, match.feature2.pt) ## Check that the match actualy got the same point
 
 
 
 def test_greedy_maximum_bipartite_matching(feature_set_1, feature_set_2):
-    matches = greedy_maximum_bipartite_matching(feature_set_1, feature_set_2, cv2.NORM_L2)
+    matches = greedy_maximum_bipartite_matching_descriptor_distance(feature_set_1, feature_set_2, cv2.NORM_L2)
     for match in matches:
         assert np.array_equal(match.feature1.pt, match.feature2.pt) ## Check that the match actualy got the identical descriptors
 
@@ -70,25 +70,25 @@ def test_next_best_match_return_greedy_maximum_bipartite_matching():
         feature_d
     ]
 
-    matches = greedy_maximum_bipartite_matching(features1, features2, cv2.NORM_L2)
+    matches = greedy_maximum_bipartite_matching_descriptor_distance(features1, features2, cv2.NORM_L2)
     for match in matches:
         if match.feature1 == feature_a:
             assert match.feature2 == feature_c
-            assert match.custom_properties["distance"] == 1
-            assert match.custom_properties["average_response"] == 2
-            assert match.custom_properties["average_ratio"] == pytest.approx(0.25)
+            assert match.match_properties["distance"] == 1
+            assert match.match_properties["average_response"] == 2
+            assert match.match_properties["average_ratio"] == pytest.approx(0.25)
         if match.feature1 == feature_b:
             assert match.feature2 == feature_d
-            assert match.custom_properties["distance"] == 4
-            assert match.custom_properties["average_response"] == 3
-            assert match.custom_properties["average_ratio"] == pytest.approx(1)
+            assert match.match_properties["distance"] == 4
+            assert match.match_properties["average_response"] == 3
+            assert match.match_properties["average_ratio"] == pytest.approx(1)
         if match.feature1 == feature_c:
             assert match.feature2 == feature_a
-            assert match.custom_properties["distance"] == 1
-            assert match.custom_properties["average_response"] == 2
-            assert match.custom_properties["average_ratio"] == pytest.approx(0.25)
+            assert match.match_properties["distance"] == 1
+            assert match.match_properties["average_response"] == 2
+            assert match.match_properties["average_ratio"] == pytest.approx(0.25)
         if match.feature1 == feature_d:
             assert match.feature2 == feature_b
-            assert match.custom_properties["distance"] == 4
-            assert match.custom_properties["average_response"] == 3
-            assert match.custom_properties["average_ratio"] == pytest.approx(1)
+            assert match.match_properties["distance"] == 4
+            assert match.match_properties["average_response"] == 3
+            assert match.match_properties["average_ratio"] == pytest.approx(1)

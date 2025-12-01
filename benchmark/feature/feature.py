@@ -80,28 +80,3 @@ class Feature:
         # Measure new radius as the average stretch
         new_r = np.mean(np.linalg.norm(pts_t - center_t, axis=1))
         return 2 * new_r  # keypoint size
-    
-    def get_angle_after_homography(self, H):
-        '''
-        Calculate the new angle by storing a point at 1 pixel offset of the keypoint with the
-        original angle between new point and horizontal axis. Then transform both keypoints
-        and check the new angle
-        '''
-        x, y = self.keypoint.pt
-        theta_deg = self.keypoint.angle
-        theta = np.deg2rad(theta_deg)
-
-        # 1-pixel offset along the keypoint direction
-        vx = np.cos(theta)
-        vy = np.sin(theta)
-
-        p1 = np.array([[[x, y]]], dtype=np.float32)
-        p2 = np.array([[[x + vx, y + vy]]], dtype=np.float32)
-
-        p1_t = cv2.perspectiveTransform(p1, H).reshape(2)
-        p2_t = cv2.perspectiveTransform(p2, H).reshape(2)
-
-        dx, dy = (p2_t - p1_t)
-        new_theta = np.arctan2(dy, dx)
-
-        return np.degrees(new_theta)

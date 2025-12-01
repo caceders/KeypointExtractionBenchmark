@@ -1,16 +1,15 @@
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
-from benchmark.matching import MatchSet, MatchRankingProperty,homographic_optimal_matching, greedy_maximum_bipartite_matching
+from benchmark.matching import MatchSet, MatchRankingProperty, greedy_maximum_bipartite_matching_homographic_distance, greedy_maximum_bipartite_matching_descriptor_distance
 from benchmark.utils import load_HPSequences
 from tqdm import tqdm
 import cv2
-import math
 import numpy as np
-import random
-import warnings
 import pandas as pd
+import random
 import traceback
+import warnings
 
 ################################################ CONFIGURATIONS #######################################################
 MAX_FEATURES = 500
@@ -73,7 +72,7 @@ if __name__ == "__main__":
     average_ratio_match_rank_property = MatchRankingProperty("average_ratio", False)
     match_properties = [distance_match_rank_property, average_response_match_rank_property, average_ratio_match_rank_property]
 
-    matching_approach = greedy_maximum_bipartite_matching
+    matching_approach = greedy_maximum_bipartite_matching_descriptor_distance
 
     #############################################################################################################################
     all_results = []
@@ -124,97 +123,120 @@ if __name__ == "__main__":
 
             ## Calculate valid matches.
             for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating and ranking all valid matches")):
-                for reference_feature in tqdm(image_feature_sequence.reference_image, leave=False):
-                    for related_image_index, related_image in enumerate(image_feature_sequence.related_images):
-                        img_size = len(dataset_image_sequences[sequence_index][related_image_index+1])
-                        for related_feature in related_image:
 
-                            homography = dataset_homography_sequence[sequence_index][related_image_index]
-                            transformed_related_feature_pt = related_feature.get_pt_after_homography_transform(homography)
-                            distance = math.dist(reference_feature.pt, transformed_related_feature_pt)
+                reference_features = image_feature_sequence.reference_image
+                related_images = image_feature_sequence.related_images
 
-                            distance_threshold = (DISTANCE_THRESHOLD * feature_extractor.get_description_image_scale_factor(img_size))
+                num_related = len(related_images)
 
-                            if distance > distance_threshold:
-                                continue
+                for related_image_index in range(num_related):
+                    related_features = related_images[related_image_index]
+                    homography = dataset_homography_sequence[sequence_index][related_image_index]
 
-                            reference_feature_size = reference_feature.keypoint.size
-                            related_feature_size = related_feature.get_size_after_homography_transform(homography)
-                            biggest_keypoint = max(reference_feature_size, related_feature_size)
-                            smallest_keypoint = min(reference_feature_size, related_feature_size)
-                            relative_scale_differnce = abs(1 - biggest_keypoint/smallest_keypoint)
-                            if relative_scale_differnce > RELATIVE_SCALE_DIFFERENCE_THRESHOLD:
-                                continue
-                            
-                            reference_feature_angle = reference_feature.keypoint.angle
-                            related_feature_angle = related_feature.get_angle_after_homography(homography)
-                            # Calculate the circular angle distance
-                            angle_difference = abs((reference_feature_angle - related_feature_angle + 180) % 360 - 180)
-                            if angle_difference > ANGLE_THRESHOLD:
-                                continue
+                    if not related_features:
+                        continue
 
+                    related_features_positions = np.array([f.pt for f in related_features], dtype=float)
+                    related_features_size = np.array([f.keypoint.size for f in related_features], dtype=float)
+                    related_features_angles = np.array([f.keypoint.angle for f in related_features], dtype=float)
+
+                    # Position
+                    related_features_position_stacked = np.hstack([related_features_positions, np.ones((related_features_positions.shape[0], 1))])
+                    related_features_position_stacked_T = (homography @ related_features_position_stacked.T).T
+                    related_features_position_stacked_T /= related_features_position_stacked_T[:, 2:3]
+                    related_features_position_transformed = related_features_position_stacked_T[:, :2]
+
+                    # Sizes
+                    related_features_size_transformed = [related_feature.get_size_after_homography_transform(homography) for related_feature in related_features]
+
+                    # Angles by transform unit circle angle vectors (approximate with linear part)
+                    related_features_angle = np.deg2rad(related_features_angles)
+                    related_features_angle_stacked = np.stack([np.cos(related_features_angle), np.sin(related_features_angle)], axis=1)
+                    v_h = (homography[:2,:2] @ related_features_angle_stacked.T).T
+                    related_features_angle_transformed = np.rad2deg(np.arctan2(v_h[:, 1], v_h[:, 0]))
+
+                    image_size = len(dataset_image_sequences[sequence_index][related_image_index+1])
+                    distance_threshold = DISTANCE_THRESHOLD * feature_extractor.get_description_image_scale_factor(image_size)
+
+                    for reference_feature in reference_features:
+                        
+                        # Check distances
+                        reference_feature_position = reference_feature.pt 
+                        distances = np.linalg.norm(related_features_position_transformed - reference_feature_position, axis=1)
+
+                        # Check scales
+                        reference_feature_size = reference_feature.keypoint.size
+                        biggest = np.maximum(reference_feature_size, related_features_size_transformed)
+                        smallest = np.minimum(reference_feature_size, related_features_size_transformed)
+                        relative_scale_difference = np.abs(1 - biggest / smallest)
+
+                        # Check angles
+                        reference_feature_angle = reference_feature.keypoint.angle
+                        angle_difference = np.abs((reference_feature_angle - related_features_angle_transformed + 180) % 360 - 180)
+
+                        # Create check mask
+                        mask = (
+                            (distances <= distance_threshold) &
+                            (relative_scale_difference <= RELATIVE_SCALE_DIFFERENCE_THRESHOLD) &
+                            (angle_difference <= ANGLE_THRESHOLD)
+                        )
+
+                        valid_feature_indexes = np.nonzero(mask)[0]
+                        if valid_feature_indexes.size == 0:
+                            continue
+
+                        # Store valid features for that check mask
+                        for index in valid_feature_indexes:
+                            related_feature = related_features[index]
+                            distance = distances[index]
                             reference_feature.store_valid_match_for_image(related_image_index, related_feature, distance)
                             related_feature.store_valid_match_for_image(0, reference_feature, distance)
 
 
 
             ## Calculate repeatability and number of possible matches.
-            set_nums_possible_correct_matches= []
+            set_numbers_of_possible_correct_matches= []
             set_repeatabilities = []
             for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating optimal matching results")):
 
-                nums_possible_correct_matches = []
+                numbers_of_possible_correct_matches = []
                 repeatabilities = []
-                
-                for related_image_index, related_image in enumerate(image_feature_sequence.related_images):
 
-                    img_size = len(dataset_image_sequences[sequence_index][related_image_index+1])
-                    homography = dataset_homography_sequence[sequence_index][related_image_index]
+                reference_features = image_feature_sequence.reference_image
+                number_of_reference_features = len(reference_features)
+
+                for related_image_index, related_image_features in enumerate(image_feature_sequence.related_images):
                     
-                    reference_features = image_feature_sequence.reference_image.copy()
-                    related_features = image_feature_sequence.related_image(related_image_index).copy()
+                    homography = dataset_homography_sequence[sequence_index][related_image_index]
 
-                    matches = homographic_optimal_matching(reference_features, related_features, homography) 
+                    # Run matching
+                    matches = greedy_maximum_bipartite_matching_homographic_distance(
+                        reference_features.copy(),
+                        related_image_features.copy(),
+                        homography
+                    )
 
-                    # Check which matches were correct
-                    num_possible_correct_matches = 0
+                    # Count how many matches are valid
+                    number_of_possible_correct_matches = 0
+
                     for match in matches:
-                            
-                        feature1 = match.feature1
-                        feature2 = match.feature2
-                        
-                        homography = dataset_homography_sequence[sequence_index][related_image_index]
-                        transformed_feature_2_pt = feature2.get_pt_after_homography_transform(homography)
-                        distance = math.dist(feature1.pt, transformed_feature_2_pt)
+                        reference_feature = match.feature1
+                        related_feature = match.feature2
 
-                        distance_threshold = (DISTANCE_THRESHOLD * feature_extractor.get_description_image_scale_factor(img_size))
+                        features_for_valid_match = reference_feature.get_valid_matches_for_image(related_image_index)
 
-                        if distance > distance_threshold:
-                            continue
+                        if features_for_valid_match is not None and related_feature in features_for_valid_match:
+                            number_of_possible_correct_matches += 1
 
-                        feature1_size = feature1.keypoint.size
-                        feature2_size = feature2.get_size_after_homography_transform(homography)
-                        biggest_keypoint = max(feature1_size, feature2_size)
-                        smallest_keypoint = min(feature1_size, feature2_size)
-                        relative_scale_differnce = abs(1 - biggest_keypoint/smallest_keypoint)
-                        if relative_scale_differnce > RELATIVE_SCALE_DIFFERENCE_THRESHOLD:
-                            continue
-                        
-                        feature1_angle = feature1.keypoint.angle
-                        feature2_angle = feature2.get_angle_after_homography(homography)
-                        # Calculate the circular angle distance
-                        angle_difference = abs((feature1_angle - feature2_angle + 180) % 360 - 180)
-                        if angle_difference > ANGLE_THRESHOLD:
-                            continue
+                    numbers_of_possible_correct_matches.append(number_of_possible_correct_matches)
 
-                        num_possible_correct_matches += 1
-
-                    repeatability = num_possible_correct_matches/len(reference_features)
-
-                    nums_possible_correct_matches.append(num_possible_correct_matches)
+                    repeatability = (
+                        number_of_possible_correct_matches / number_of_reference_features
+                        if number_of_reference_features > 0 else 0.0
+                    )
                     repeatabilities.append(repeatability)
 
-                set_nums_possible_correct_matches.append(nums_possible_correct_matches)
+                set_numbers_of_possible_correct_matches.append(numbers_of_possible_correct_matches)
                 set_repeatabilities.append(repeatabilities)
 
 
@@ -320,15 +342,15 @@ if __name__ == "__main__":
                         
 
             ## Store results
-            set_nums_possible_correct_matches = np.array(set_nums_possible_correct_matches)
-            set_nums_possible_correct_matches.flatten()
+            set_numbers_of_possible_correct_matches = np.array(set_numbers_of_possible_correct_matches)
+            set_numbers_of_possible_correct_matches.flatten()
 
             set_repeatabilities = np.array(set_repeatabilities)
             set_repeatabilities.flatten()
 
             total_possible_correct_matches = sum(
                 num_correct_matches
-                for num_correct_sequence_matches in set_nums_possible_correct_matches
+                for num_correct_sequence_matches in set_numbers_of_possible_correct_matches
                 for num_correct_matches in num_correct_sequence_matches
             )
 
@@ -336,8 +358,8 @@ if __name__ == "__main__":
             results = {
                 "combination": feature_extractor_key,
                 "speed": speed,
-                "cm_total: mean" : np.mean(set_nums_possible_correct_matches),
-                "cm_total: std" : np.std(set_nums_possible_correct_matches),
+                "cm_total: mean" : np.mean(set_numbers_of_possible_correct_matches),
+                "cm_total: std" : np.std(set_numbers_of_possible_correct_matches),
                 "rep_total: mean" : np.mean(set_repeatabilities),
                 "rep_total: std" : np.std(set_repeatabilities),
                 "total num matches" : sum(len(match_set) for match_set in matching_match_sets),
