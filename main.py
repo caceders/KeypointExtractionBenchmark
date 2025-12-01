@@ -1,7 +1,7 @@
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
-from benchmark.matching import MatchSet, MatchingApproach, MatchRankProperty,homographic_optimal_matching, greedy_maximum_bipartite_matching
+from benchmark.matching import MatchSet, MatchRankingProperty,homographic_optimal_matching, greedy_maximum_bipartite_matching
 from benchmark.utils import load_HPSequences
 from tqdm import tqdm
 import cv2
@@ -68,18 +68,19 @@ if __name__ == "__main__":
                 distance_type = cv2.NORM_L2
             test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type, use_normalisation=USE_MEASUREMENT_AREA_NORMALISATION)
 
-    ## Setup matching approach
-    distance_match_rank_property = MatchRankProperty("distance", False)
-    average_response_match_rank_property = MatchRankProperty("average_response", True)
-    average_ratio_match_rank_property = MatchRankProperty("average_ratio", False)
-    matching_properties = [distance_match_rank_property, average_response_match_rank_property, average_ratio_match_rank_property]
-    matching_approach = MatchingApproach(greedy_maximum_bipartite_matching, matching_properties)
-    ############################################ BEGIN TESTEBENCH ##########################################################################
-    
-    
+## Setup matching approach
+distance_match_rank_property = MatchRankingProperty("distance", False)
+average_response_match_rank_property = MatchRankingProperty("average_response", True)
+average_ratio_match_rank_property = MatchRankingProperty("average_ratio", False)
+match_properties = [distance_match_rank_property, average_response_match_rank_property, average_ratio_match_rank_property]
 
-    all_results = []
-    warnings.filterwarnings("once", category=UserWarning)
+matching_approach = greedy_maximum_bipartite_matching
+
+#############################################################################################################################
+all_results = []
+
+warnings.filterwarnings("once", category=UserWarning)
+
 
     num_sequences = len(dataset_image_sequences)
     num_related_images = len(dataset_image_sequences[0]) - 1
@@ -231,7 +232,7 @@ if __name__ == "__main__":
                         reference_features = image_feature_sequence.reference_image.copy()
                         related_features = image_feature_sequence.related_image(related_image_index).copy()
 
-                        matches = matching_approach.matching_callback(reference_features, related_features, feature_extractor.distance_type)
+                        matches = matching_approach(reference_features, related_features, feature_extractor.distance_type)
                         matching_match_set.add_match(matches)
 
 
@@ -241,49 +242,52 @@ if __name__ == "__main__":
             verification_match_sets: list [MatchSet] = []
             if DEBUG == "all" or DEBUG == "verification":
                 for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave = False, desc = "Calculating verification results")):
-                        verification_match_set = MatchSet()
-                        verification_match_sets.append(verification_match_set)
-                        reference_features = image_feature_sequence.reference_image.copy()
-                        for reference_feature in reference_features:
-                            
-                            # Find related images with equivalent feature
-                            related_images_to_use = []
-                            for image_index in range(len(image_feature_sequence.related_images)):
-                                if isinstance(reference_feature.get_valid_matches_for_image(image_index), dict):
-                                    related_images_to_use.append(image_index)
-                            
-                            num_random_images = len(related_images_to_use) * VERIFICATION_CORRECT_TO_RANDOM_RATIO
-
-                            # Match for all relevant related images
-                            for related_image_index in range(len(related_images_to_use)):
-                                related_features = image_feature_sequence.related_image(related_image_index).copy()
-                                matches = matching_approach.matching_callback([reference_feature], related_features, feature_extractor.distance_type)
-                                verification_match_set.add_match(matches)
-                            
-                            # Pick random images
-                            choice_pool = [] #(sequence index, image index)
-                            for choice_sequence_index in range(len(image_feature_set)):
-                                if choice_sequence_index == sequence_index: # Do not take images from this sequence
-                                    continue
-                                choice_pool.extend([(sequence_index, choice_image_index)
-                                                    for choice_image_index
-                                                    in range(len(image_feature_set[choice_sequence_index]))])
-                            
-                            chosen_random_images = random.sample(choice_pool, num_random_images)
-                            
-                            # Match for all random images
-                            for random_sequence_index, random_image_index in chosen_random_images:
-                                random_image_features = image_feature_set[random_sequence_index][random_image_index].copy()
-                                matches = matching_approach.matching_callback([reference_feature], random_image_features, feature_extractor.distance_type)
-                                verification_match_set.add_match(matches)
+                    verification_match_set = MatchSet()
+                    verification_match_sets.append(verification_match_set)
+                    reference_features = image_feature_sequence.reference_image.copy()
+                    for reference_feature in reference_features:
                         
+                        # Find related images with equivalent feature
+                        related_images_to_use = []
+                        for image_index in range(len(image_feature_sequence.related_images)):
+                            if isinstance(reference_feature.get_valid_matches_for_image(image_index), dict):
+                                related_images_to_use.append(image_index)
+                        
+                        num_random_images = len(related_images_to_use) * VERIFICATION_CORRECT_TO_RANDOM_RATIO
+
+                        # Match for all relevant related images
+                        for related_image_index in range(len(related_images_to_use)):
+
+                            # Reference and related features.
+                            related_features = image_feature_sequence.related_image(related_image_index).copy()
+
+                            matches = matching_approach([reference_feature], related_features, feature_extractor.distance_type)
+                            verification_match_set.add_match(matches)
+                        
+                        # Pick random images
+                        choice_pool = [] #(sequence index, image index)
+                        for choice_sequence_index in range(len(image_feature_set)):
+                            if choice_sequence_index == sequence_index: # Do not take images from this sequence
+                                continue
+                            choice_pool.extend([(sequence_index, choice_image_index)
+                                                for choice_image_index
+                                                in range(len(image_feature_set[choice_sequence_index]))])
+                        
+                        chosen_random_images = random.sample(choice_pool, num_random_images)
+                        
+                        # Match for all random images
+                        for random_sequence_index, random_image_index in chosen_random_images:
+                            random_image_features = image_feature_set[random_sequence_index][image_index].copy()
+                            matches = matching_approach.matching_callback([reference_feature], random_image_features, DISTANCE_TYPE)
+                            verification_match_set.add_match(matches)
+
 
             ## Calculate retrieval results.
             retrieval_match_sets : list[MatchSet] = []
             all_features = [feature 
                                     for choice_image_feature_sequence in image_feature_set
                                     for choice_image_features in choice_image_feature_sequence
-                                    for feature in choice_image_features.copy()]
+                                    for feature in choice_image_features.copy()]            
 
             all_features_array = np.array(all_features, dtype=object)
             if DEBUG == "all" or DEBUG == "retrieval":
@@ -311,7 +315,7 @@ if __name__ == "__main__":
                         features_to_chose_from = correct_features + list(random_features)
                         
                         # Match
-                        match = matching_approach.matching_callback([reference_feature], features_to_chose_from, feature_extractor.distance_type)
+                        match = matching_approach([reference_feature], features_to_chose_from, feature_extractor.distance_type)
                         retrieval_match_set.add_match(match)
 
                         
@@ -341,19 +345,19 @@ if __name__ == "__main__":
                 "num possible correct matches" : total_possible_correct_matches,
             }
 
-            for match_rank_property in matching_approach.match_properties:
+            for match_rank_property in match_properties:
                 mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets])
                 results[f"Matching {match_rank_property.name} mAP"] =  mAP
 
             # Results from verification
-            for match_rank_property in matching_approach.match_properties:
-                mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in verification_match_sets])
-                results[f"Verification {match_rank_property.name} mAP"] = mAP
+            for match_ranking_property in match_properties:
+                mAP = np.average([match_set.get_average_precision_score(match_ranking_property) for match_set in verification_match_sets])
+                results[f"Verification {match_ranking_property.name} mAP"] = mAP
 
             # Results from retrieval
-            for match_rank_property in matching_approach.match_properties:
-                mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in retrieval_match_sets])
-                results[f"Retrieval {match_rank_property.name} mAP"] = mAP
+            for match_ranking_property in match_properties:
+                mAP = np.average([match_set.get_average_precision_score(match_ranking_property) for match_set in retrieval_match_sets])
+                results[f"Retrieval {match_ranking_property.name} mAP"] = mAP
 
             all_results.append(results)
             
