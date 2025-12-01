@@ -21,8 +21,6 @@ class Match:
         Whether this match is correct
     is_in_same_sequece : bool
         Wheter or not the features are in the same sequence.
-    is_in_same_image : bool
-        Wheter or not the features are in the same image.
     match_properties : dict[str, int | float]
         A dictionary of custom properties. An example is match.match_properties["averge_ratio"]
         to get the average ratio of the match.
@@ -34,7 +32,6 @@ class Match:
             self.score : float = score
             self.is_correct : bool = feature1.is_match_with_other_valid(feature2)
             self.is_in_same_sequece : bool = feature1.sequence_index == feature2.sequence_index
-            self.is_in_same_image : bool = (feature1.sequence_index == feature2.sequence_index) and (feature1.image_index == feature2.image_index)
             self.match_properties : dict[str, int | float] = {}
 
 

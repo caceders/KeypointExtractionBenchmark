@@ -11,10 +11,9 @@ import random
 import warnings
 import pandas as pd
 import traceback
-from multiprocessing import Pool
 
 ################################################ CONFIGURATIONS #######################################################
-MAX_FEATURES = 100
+MAX_FEATURES = 500
 RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 100
 ANGLE_THRESHOLD = 180
 DISTANCE_THRESHOLD = 10
