@@ -295,7 +295,7 @@ if __name__ == "__main__":
                         for choice_sequence_index in range(len(image_feature_set)):
                             if choice_sequence_index == sequence_index: # Do not take images from this sequence
                                 continue
-                            choice_pool.extend([(choice_image_sequence, choice_image_index)
+                            choice_pool.extend([(choice_image_index, choice_image_index)
                                                 for choice_image_index
                                                 in range(len(image_feature_set[choice_sequence_index]))])
                         
