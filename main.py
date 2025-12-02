@@ -23,9 +23,6 @@ USE_MEASUREMENT_AREA_NORMALISATION = False
 
 if __name__ == "__main__":
 
-    ## Load dataset.    
-    dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release") 
-
     ####################################### SETUP TESTBENCH HERE #############################################################
 
     DEBUG = "all" # all/matching/verification/retrieval
@@ -43,28 +40,25 @@ if __name__ == "__main__":
     SIMPLEBLOB = cv2.SimpleBlobDetector_create()
 
     features2d = {
-        # "AGAST" : AGAST,
-        # "AKAZE" : AKAZE,
-        # "BRISK" : BRISK,
-        # "FAST" : FAST,
-        # "GFTT" : GFTT,
-        # "KAZE" : KAZE,
-        # "MSER" : MSER,
-        # "ORB" : ORB,
+        "AGAST" : AGAST,
+        "AKAZE" : AKAZE,
+        "BRISK" : BRISK,
+        "FAST" : FAST,
+        "GFTT" : GFTT,
+        "KAZE" : KAZE,
+        "MSER" : MSER,
+        "ORB" : ORB,
         "SIFT" : SIFT,
-        # "SIMPLEBLOB" : SIMPLEBLOB
+        "SIMPLEBLOB" : SIMPLEBLOB
     }
 
     test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
+    
+    scales = [0.05, 0.1, 0.5, 1, 1.5, 2, 3]
 
-    for detector_key in features2d.keys():
-        for descriptor_key in features2d.keys():
-            distance_type = ""
-            if descriptor_key in ["ORB", "AKAZE"]: 
-                distance_type = cv2.NORM_HAMMING
-            else: 
-                distance_type = cv2.NORM_L2
-            test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type, use_normalisation=USE_MEASUREMENT_AREA_NORMALISATION)
+    for scale in scales:
+        test_combinations["ORB " + str(scale)] = FeatureExtractor.from_opencv(ORB.detect, ORB.compute, cv2.NORM_HAMMING)
+        test_combinations["SIFT " + str(scale)] = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, cv2.NORM_L2)
 
     ## Setup matching approach
     distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -80,15 +74,28 @@ if __name__ == "__main__":
     warnings.filterwarnings("once", category=UserWarning)
 
 
-    num_sequences = len(dataset_image_sequences)
-    num_related_images = len(dataset_image_sequences[0]) - 1
-    image_feature_set = ImageFeatureSet(num_sequences, num_related_images)
 
-    for feature_extractor_key in test_combinations.keys():
+    for feature_extractor_key_index, feature_extractor_key in enumerate(tqdm(test_combinations.keys(), desc = "Running tests")):
         try:
             feature_extractor: FeatureExtractor = test_combinations[feature_extractor_key]
 
+            ## Load dataset.    
+            dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
 
+            scale = scales[feature_extractor_key_index//2]
+
+            ## scale dataset.
+            for sequence in dataset_image_sequences:
+                for image in sequence:
+                    y, x = image.shape[:2]  # height, width
+                    new_x = int(round(x * scale))
+                    new_y = int(round(y * scale))
+                    image_resized = cv2.resize(image, (new_x, new_y), interpolation=cv2.INTER_CUBIC)
+
+
+            num_sequences = len(dataset_image_sequences)
+            num_related_images = len(dataset_image_sequences[0]) - 1
+            image_feature_set = ImageFeatureSet(num_sequences, num_related_images)
 
             ## Speed test
             time_per_image = []
@@ -288,7 +295,7 @@ if __name__ == "__main__":
                         for choice_sequence_index in range(len(image_feature_set)):
                             if choice_sequence_index == sequence_index: # Do not take images from this sequence
                                 continue
-                            choice_pool.extend([(choice_image_index, choice_image_index)
+                            choice_pool.extend([(choice_image_sequence, choice_image_index)
                                                 for choice_image_index
                                                 in range(len(image_feature_set[choice_sequence_index]))])
                         
