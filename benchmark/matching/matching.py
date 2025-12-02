@@ -75,11 +75,9 @@ class MatchSet:
             return 0.
 
         if match_rank_property.higher_is_better:
-            scores = [match.match_properties[match_rank_property.name] for match in self._matches]
+            scores = [float(match.match_properties[match_rank_property.name]) for match in self._matches]
         else:
-            # Add small constant to avoid division by zero
-            epsilon = 1e-12
-            scores = [1/(match.match_properties[match_rank_property.name] + epsilon)  for match in self._matches]
+            scores = [- float(match.match_properties[match_rank_property.name])  for match in self._matches]
 
         if ignore_same_sequence:
             for match_index, match in enumerate(self._matches):
@@ -230,6 +228,9 @@ def greedy_maximum_bipartite_matching_homographic_distance(features1: list[Featu
     list[match]
         The homographical optimal matching based on the homographic transformation between the images
     """
+
+    if not features1 or not features2:
+        return []
 
     feature1_positions = np.array([feature.pt for feature in features1])
     feature2_transformed_positions = np.array([feature.get_pt_after_homography_transform(homography1to2)

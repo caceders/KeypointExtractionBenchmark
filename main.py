@@ -12,12 +12,12 @@ import traceback
 import warnings
 
 ################################################ CONFIGURATIONS #######################################################
-MAX_FEATURES = 30
+MAX_FEATURES = 250
 RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 100
 ANGLE_THRESHOLD = 180
 DISTANCE_THRESHOLD = 10
 VERIFICATION_CORRECT_TO_RANDOM_RATIO = 5
-RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 400
+RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 100
 USE_MEASUREMENT_AREA_NORMALISATION = False
 #######################################################################################################################
 
@@ -44,16 +44,16 @@ if __name__ == "__main__":
     SIMPLEBLOB = cv2.SimpleBlobDetector_create()
 
     features2d = {
-        # "AGAST" : AGAST,
-        # "AKAZE" : AKAZE,
-        # "BRISK" : BRISK,
-        # "FAST" : FAST,
-        # "GFTT" : GFTT,
-        # "KAZE" : KAZE,
-        # "MSER" : MSER,
-         "ORB" : ORB,
-        #  "SIFT" : SIFT,
-        # "SIMPLEBLOB" : SIMPLEBLOB
+        "AGAST" : AGAST,
+        "AKAZE" : AKAZE,
+        "BRISK" : BRISK,
+        "FAST" : FAST,
+        "GFTT" : GFTT,
+        "KAZE" : KAZE,
+        "MSER" : MSER,
+        "ORB" : ORB,
+        "SIFT" : SIFT,
+        "SIMPLEBLOB" : SIMPLEBLOB
     }
 
     test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     for detector_key in features2d.keys():
         for descriptor_key in features2d.keys():
             distance_type = ""
-            if descriptor_key in ["ORB", "AKAZE"]: 
+            if descriptor_key in ["BRISK", "ORB", "AKAZE"]: 
                 distance_type = cv2.NORM_HAMMING
             else: 
                 distance_type = cv2.NORM_L2
@@ -116,7 +116,7 @@ if __name__ == "__main__":
                 if MAX_FEATURES < len(features):
                     features = random.sample(features, MAX_FEATURES)
                 
-                image_feature_set[sequence_index][image_index].extend(features)
+                image_feature_set[sequence_index][image_index] = features
 
 
 
