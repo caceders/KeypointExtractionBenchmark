@@ -1,6 +1,7 @@
 TODO:
 
 NOW:
+- Calculate homographical matching on behalf of scale and rotation.
 
 LATER:
 - Calculate homographic distance only once and use it in EITHER the calculations in main or in matching.

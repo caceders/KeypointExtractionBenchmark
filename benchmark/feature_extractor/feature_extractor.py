@@ -60,7 +60,10 @@ class FeatureExtractor:
         
         def describe_keypoint_wrapper(img: np.ndarray, keypoints: list[cv2.KeyPoint]) -> list[np.ndarray]:
             _, descs = opencv_describe_keypoints(img, keypoints)
-            return list(descs)
+            if isinstance(descs, np.ndarray):
+                return list(descs)
+            else:
+                return []
         
 
         return cls(

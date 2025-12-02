@@ -12,7 +12,7 @@ df['param'] = df['combination'].apply(lambda x: float(x.split()[1]))
 
 # Metrics to plot
 metrics = [
-    'speed',
+    # 'speed',
     'cm_total: mean', 'cm_total: std',
     'rep_total: mean', 'rep_total: std',
     'num possible correct matches',
