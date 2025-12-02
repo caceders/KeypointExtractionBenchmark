@@ -12,7 +12,7 @@ import traceback
 import warnings
 
 ################################################ CONFIGURATIONS #######################################################
-MAX_FEATURES = 500
+MAX_FEATURES = 30
 RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 100
 ANGLE_THRESHOLD = 180
 DISTANCE_THRESHOLD = 10
@@ -26,6 +26,7 @@ if __name__ == "__main__":
     ####################################### SETUP TESTBENCH HERE #############################################################
 
     DEBUG = "all" # all/matching/verification/retrieval
+    SKIP = ["speedtest", "retrieval"]
 
     ## Setup feature extractors.
     AGAST = cv2.AgastFeatureDetector_create()
@@ -76,35 +77,41 @@ if __name__ == "__main__":
 
 
     for feature_extractor_key_index, feature_extractor_key in enumerate(tqdm(test_combinations.keys(), desc = "Running tests")):
-        try:
+        feature_extractor: FeatureExtractor = test_combinations[feature_extractor_key]
+
+        ## Load dataset.    
+        dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
+
+        scale = scales[feature_extractor_key_index//2]
+
+        ## scale dataset.
+        for sequence in dataset_image_sequences:
+            for image in sequence:
+                y, x = image.shape[:2]  # height, width
+                new_x = int(round(x * scale))
+                new_y = int(round(y * scale))
+                image_resized = cv2.resize(image, (new_x, new_y), interpolation=cv2.INTER_CUBIC)
+
+
+        num_sequences = len(dataset_image_sequences)
+        num_related_images = len(dataset_image_sequences[0]) - 1
+        image_feature_set = ImageFeatureSet(num_sequences, num_related_images)
+
+        ## Speed test
+        for feature_extractor_key in test_combinations.keys():
+
             feature_extractor: FeatureExtractor = test_combinations[feature_extractor_key]
 
-            ## Load dataset.    
-            dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
-
-            scale = scales[feature_extractor_key_index//2]
-
-            ## scale dataset.
-            for sequence in dataset_image_sequences:
-                for image in sequence:
-                    y, x = image.shape[:2]  # height, width
-                    new_x = int(round(x * scale))
-                    new_y = int(round(y * scale))
-                    image_resized = cv2.resize(image, (new_x, new_y), interpolation=cv2.INTER_CUBIC)
-
-
-            num_sequences = len(dataset_image_sequences)
-            num_related_images = len(dataset_image_sequences[0]) - 1
-            image_feature_set = ImageFeatureSet(num_sequences, num_related_images)
-
             ## Speed test
-            time_per_image = []
-            for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Calculating speed")):
-                for image_index, image in enumerate(image_sequence):
-                    time = feature_extractor.get_extraction_time_on_image(image)
-                    time_per_image.append(time)
+            speed = 0
+            if "speedtest" not in SKIP:
+                time_per_image = []
+                for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Calculating speed")):
+                    for image_index, image in enumerate(image_sequence):
+                        time = feature_extractor.get_extraction_time_on_image(image)
+                        time_per_image.append(time)
 
-            speed = np.average(time_per_image)
+                speed = np.average(time_per_image)
 
 
 
@@ -291,13 +298,10 @@ if __name__ == "__main__":
                             verification_match_set.add_match(matches)
                         
                         # Pick random images
-                        choice_pool = [] #(sequence index, image index)
-                        for choice_sequence_index in range(len(image_feature_set)):
-                            if choice_sequence_index == sequence_index: # Do not take images from this sequence
-                                continue
-                            choice_pool.extend([(choice_image_index, choice_image_index)
-                                                for choice_image_index
-                                                in range(len(image_feature_set[choice_sequence_index]))])
+                        choice_pool = [(choice_sequence_index, choice_image_index)  #(sequence index, image index)
+                                    for choice_sequence_index, choice_sequence in enumerate(image_feature_set) 
+                                    if choice_sequence_index != sequence_index 
+                                    for choice_image_index in range(len(choice_sequence))] 
                         
                         chosen_random_images = random.sample(choice_pool, num_random_images)
                         
@@ -316,7 +320,7 @@ if __name__ == "__main__":
                             for feature in choice_image_features.copy()]            
 
             all_features_array = np.array(all_features, dtype=object)
-            if DEBUG == "all" or DEBUG == "retrieval":
+            if "retrieval" not in SKIP and DEBUG == "all" or DEBUG == "retrieval" :
                 for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave = False, desc = "Calculating retrieval results")):
 
                     retrieval_match_set = MatchSet()
@@ -364,16 +368,22 @@ if __name__ == "__main__":
                 for num_correct_matches in num_correct_sequence_matches
             )
 
+            total_correct_matches = sum(
+                1 if match.is_correct else 0
+                for match_set in matching_match_sets
+                for match in match_set
+            )
 
             results = {
-                "combination": feature_extractor_key,
-                "speed": speed,
-                "cm_total: mean" : np.mean(set_numbers_of_possible_correct_matches),
-                "cm_total: std" : np.std(set_numbers_of_possible_correct_matches),
+                #"combination": feature_extractor_key,
+                #"speed": speed,
+                #"cm_total: mean" : np.mean(set_numbers_of_possible_correct_matches),
+                #"cm_total: std" : np.std(set_numbers_of_possible_correct_matches),
                 "rep_total: mean" : np.mean(set_repeatabilities),
                 "rep_total: std" : np.std(set_repeatabilities),
                 "total num matches" : sum(len(match_set) for match_set in matching_match_sets),
                 "num possible correct matches" : total_possible_correct_matches,
+                "total correct matches" : total_correct_matches
             }
 
             for match_rank_property in match_properties:
@@ -391,15 +401,11 @@ if __name__ == "__main__":
                 results[f"Retrieval {match_ranking_property.name} mAP"] = mAP
 
             all_results.append(results)
-            
-        except Exception as e:
-            error_message = traceback.format_exc()
-            with open("failed_combinations.txt", "a") as f:
-                f.write(f"{feature_extractor_key}\n")
-                f.write(f"{error_message}\n")
-                f.write("\n")
+
+        
             
     ################################################ STORE RESULTS ##############################################################
-
+    for metric, result in results.items():
+        print(metric, result)
     df = pd.DataFrame(all_results)
     df.to_csv("output.csv", index = False)
