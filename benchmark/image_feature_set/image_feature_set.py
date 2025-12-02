@@ -41,6 +41,16 @@ class ImageFeatureSequence:
     def __getitem__(self, index) -> list[Feature]:
         return self._all[index]
     
+    def __setitem__(self, index, value):
+        self._all[index] = value
+
+        # Also set reference and related image features
+        if index == 0:
+            self._reference_image_features = value
+        else:
+            self._related_image_features[index - 1] = value
+
+    
 
 
 class ImageFeatureSet:

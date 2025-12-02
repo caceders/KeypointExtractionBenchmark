@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
 # Load CSV
 df = pd.read_csv("output.csv")
@@ -27,12 +28,54 @@ n_rows = (len(metrics) + n_cols - 1) // n_cols  # ceil division
 fig, axes = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
 axes = axes.flatten()
 
-for i, metric in enumerate(metrics):
-    sns.lineplot(data=df, x='param', y=metric, hue='method', marker='o', ax=axes[i])
-    axes[i].set_title(metric)
-    axes[i].legend(loc='best')
+colors = sns.color_palette("tab10")  # Up to 10 distinct colors
 
-# Hide unused subplots if any
+for i, metric in enumerate(metrics):
+    ax = axes[i]
+    methods = df['method'].unique()
+    ax_list = [ax]
+
+    # Create extra y-axes if more than 1 method
+    for _ in range(len(methods) - 1):
+        ax_list.append(ax_list[-1].twinx())
+
+    # Offset extra y-axes
+    for j, extra_ax in enumerate(ax_list[1:], start=1):
+        extra_ax.spines['right'].set_position(('axes', 1 + 0.1 * j))
+
+    # Map actual x-values to evenly spaced positions
+    param_values = np.sort(df['param'].unique())
+    x_map = {val: idx for idx, val in enumerate(param_values)}
+
+    # Plot each method
+    for j, (method, a) in enumerate(zip(methods, ax_list)):
+        data = df[df['method'] == method].copy()
+        data['x_pos'] = data['param'].map(x_map)
+        sns.lineplot(
+            data=data,
+            x='x_pos',
+            y=metric,
+            marker='o',
+            ax=a,
+            color=colors[j % len(colors)],
+            label=method
+        )
+        a.set_ylabel(method)
+
+    ax.set_title(metric)
+    ax.set_xlabel('param')
+    ax.set_xticks(list(x_map.values()))
+    ax.set_xticklabels(list(x_map.keys()))
+
+    # Combine legends
+    lines, labels = [], []
+    for a in ax_list:
+        l, lab = a.get_legend_handles_labels()
+        lines += l
+        labels += lab
+    ax.legend(lines, labels, loc='best')
+
+# Hide unused subplots
 for j in range(i+1, len(axes)):
     fig.delaxes(axes[j])
 

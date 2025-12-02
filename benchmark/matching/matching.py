@@ -78,9 +78,7 @@ class MatchSet:
         if match_rank_property.higher_is_better:
             scores = [float(match.match_properties[match_rank_property.name]) for match in self._matches]
         else:
-            # Add small constant to avoid division by zero
-            epsilon = 1e-12
-            scores = [1/(match.match_properties[match_rank_property.name] + epsilon)  for match in self._matches]
+            scores = [- float(match.match_properties[match_rank_property.name])  for match in self._matches]
 
         if ignore_same_sequence:
             for match_index, match in enumerate(self._matches):
