@@ -1,0 +1,365 @@
+AKAZE+FAST
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+AKAZE+GFTT
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+AKAZE+KAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 397, in <module>
+    mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets])
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 397, in <listcomp>
+    mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets])
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\matching\matching.py", line 88, in get_average_precision_score
+    return float(average_precision_score(labels, scores))
+  File "c:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\env\lib\site-packages\sklearn\utils\_param_validation.py", line 218, in wrapper
+    return func(*args, **kwargs)
+  File "c:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\env\lib\site-packages\sklearn\metrics\_ranking.py", line 266, in average_precision_score
+    return _average_binary_score(
+  File "c:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\env\lib\site-packages\sklearn\metrics\_base.py", line 69, in _average_binary_score
+    return binary_metric(y_true, y_score, sample_weight=sample_weight)
+  File "c:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\env\lib\site-packages\sklearn\metrics\_ranking.py", line 227, in _binary_uninterpolated_average_precision
+    precision, recall, _ = precision_recall_curve(
+  File "c:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\env\lib\site-packages\sklearn\utils\_param_validation.py", line 191, in wrapper
+    return func(*args, **kwargs)
+  File "c:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\env\lib\site-packages\sklearn\metrics\_ranking.py", line 1018, in precision_recall_curve
+    fps, tps, thresholds = _binary_clf_curve(
+  File "c:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\env\lib\site-packages\sklearn\metrics\_ranking.py", line 869, in _binary_clf_curve
+    assert_all_finite(y_score)
+  File "c:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\env\lib\site-packages\sklearn\utils\validation.py", line 210, in assert_all_finite
+    _assert_all_finite(
+  File "c:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\env\lib\site-packages\sklearn\utils\validation.py", line 120, in _assert_all_finite
+    _assert_all_finite_element_wise(
+  File "c:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\env\lib\site-packages\sklearn\utils\validation.py", line 169, in _assert_all_finite_element_wise
+    raise ValueError(msg_err)
+ValueError: Input contains NaN.
+
+
+FAST+AKAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\kaze\AKAZEFeatures.cpp:1192: error: (-215:Assertion failed) 0 <= kpts[i].class_id && kpts[i].class_id < static_cast<int>(evolution_.size()) in function 'cv::AKAZEFeatures::Compute_Descriptors'
+
+
+
+FAST+FAST
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+FAST+GFTT
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+FAST+KAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\kaze\KAZEFeatures.cpp:560: error: (-215:Assertion failed) 0 <= kpts[i].class_id && kpts[i].class_id < static_cast<int>(evolution_.size()) in function 'cv::KAZEFeatures::Feature_Description'
+
+
+
+GFTT+AKAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\kaze\AKAZEFeatures.cpp:1192: error: (-215:Assertion failed) 0 <= kpts[i].class_id && kpts[i].class_id < static_cast<int>(evolution_.size()) in function 'cv::AKAZEFeatures::Compute_Descriptors'
+
+
+
+GFTT+FAST
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+GFTT+GFTT
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+GFTT+KAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\kaze\KAZEFeatures.cpp:560: error: (-215:Assertion failed) 0 <= kpts[i].class_id && kpts[i].class_id < static_cast<int>(evolution_.size()) in function 'cv::KAZEFeatures::Feature_Description'
+
+
+
+KAZE+AKAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\kaze\AKAZEFeatures.cpp:1192: error: (-215:Assertion failed) 0 <= kpts[i].class_id && kpts[i].class_id < static_cast<int>(evolution_.size()) in function 'cv::AKAZEFeatures::Compute_Descriptors'
+
+
+
+KAZE+FAST
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+KAZE+GFTT
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+ORB+AKAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\kaze\AKAZEFeatures.cpp:1192: error: (-215:Assertion failed) 0 <= kpts[i].class_id && kpts[i].class_id < static_cast<int>(evolution_.size()) in function 'cv::AKAZEFeatures::Compute_Descriptors'
+
+
+
+ORB+FAST
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+ORB+GFTT
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+ORB+KAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\kaze\KAZEFeatures.cpp:560: error: (-215:Assertion failed) 0 <= kpts[i].class_id && kpts[i].class_id < static_cast<int>(evolution_.size()) in function 'cv::KAZEFeatures::Feature_Description'
+
+
+
+SIFT+AKAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\kaze\AKAZEFeatures.cpp:1192: error: (-215:Assertion failed) 0 <= kpts[i].class_id && kpts[i].class_id < static_cast<int>(evolution_.size()) in function 'cv::AKAZEFeatures::Compute_Descriptors'
+
+
+
+SIFT+FAST
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+SIFT+GFTT
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+SIFT+KAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\kaze\KAZEFeatures.cpp:560: error: (-215:Assertion failed) 0 <= kpts[i].class_id && kpts[i].class_id < static_cast<int>(evolution_.size()) in function 'cv::KAZEFeatures::Feature_Description'
+
+
+
+SIFT+ORB
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 136, in get_extraction_time_on_image
+    self._describe_keypoints(img, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 62, in describe_keypoint_wrapper
+    _, descs = opencv_describe_keypoints(img, keypoints)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\core\src\alloc.cpp:73: error: (-4:Insufficient memory) Failed to allocate 68454964160 bytes in function 'cv::OutOfMemoryError'
+
+
+
+BRIEF+AKAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 135, in get_extraction_time_on_image
+    keypoints = self._detect_keypoints(img)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+BRIEF+FAST
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 135, in get_extraction_time_on_image
+    keypoints = self._detect_keypoints(img)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+BRIEF+GFTT
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 135, in get_extraction_time_on_image
+    keypoints = self._detect_keypoints(img)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+BRIEF+KAZE
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 135, in get_extraction_time_on_image
+    keypoints = self._detect_keypoints(img)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+BRIEF+ORB
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 135, in get_extraction_time_on_image
+    keypoints = self._detect_keypoints(img)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+BRIEF+SIFT
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 135, in get_extraction_time_on_image
+    keypoints = self._detect_keypoints(img)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+BRIEF+BRIEF
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\main.py", line 118, in <module>
+    time = feature_extractor.get_extraction_time_on_image(image)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 135, in get_extraction_time_on_image
+    keypoints = self._detect_keypoints(img)
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
