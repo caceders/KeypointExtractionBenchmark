@@ -12,22 +12,21 @@ import traceback
 import warnings
 
 ################################################ CONFIGURATIONS #######################################################
-MAX_FEATURES = 100
-RELATIVE_SCALE_DIFFERENCE_THRESHOLD = 100
-ANGLE_THRESHOLD = 180
-DISTANCE_THRESHOLD = 10
+MAX_FEATURES = 200
+USE_OVERLAP = True
+FEATURE_OVERLAP_THRESHOLD = 0.3
+ALTERNATIVE_DISTANCE_THRESHOLD = 10
 VERIFICATION_CORRECT_TO_RANDOM_RATIO = 5
-RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 100
+RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 10
+MAX_NUM_RETRIEVAL_FEATURES = 5
 USE_MEASUREMENT_AREA_NORMALISATION = False
-MAX_NUM_RETRIEVAL_FEATUERS = 20
 #######################################################################################################################
 
 if __name__ == "__main__":
 
     ####################################### SETUP TESTBENCH HERE #############################################################
 
-    DEBUG = "all" # all/matching/verification/retrieval
-    SKIP = ["speedtest"]
+    SKIP = ["speedtest", "retrieval"]
 
     ## Setup feature extractors.
     AGAST = cv2.AgastFeatureDetector_create()
@@ -56,11 +55,18 @@ if __name__ == "__main__":
 
     test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
     
-    scales = [1]
+    scales = [0.25,0.5,1,2]
+    #sigmas = [1,2,4,7,10,15,25,35,50]
+    # sigmas = [1,2,4,7,10,15,25,35]
+    sigmas = [1,4,10,25]
+    for sigma in sigmas:
+        SIFT = cv2.SIFT_create(nfeatures = MAX_FEATURES, sigma = sigma)
+        test_combinations["SIFT" + str(sigma)] = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, cv2.NORM_L2, USE_MEASUREMENT_AREA_NORMALISATION, 9, 9)
 
-    for scale in scales:
-        test_combinations["SIFT " + str(scale)] = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, cv2.NORM_L2, USE_MEASUREMENT_AREA_NORMALISATION, 9, 9)
-        test_combinations["ORB " + str(scale)] = FeatureExtractor.from_opencv(ORB.detect, ORB.compute, cv2.NORM_HAMMING, USE_MEASUREMENT_AREA_NORMALISATION, 31, 31)
+    # for scale in scales:
+    #     test_combinations["SIFT " + str(scale)] = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, cv2.NORM_L2, USE_MEASUREMENT_AREA_NORMALISATION, 9, 9)
+    #     test_combinations["SIFT2 " + str(scale)] = FeatureExtractor.from_opencv(SIFT2.detect, SIFT2.compute, cv2.NORM_L2, USE_MEASUREMENT_AREA_NORMALISATION, 9, 9)
+    #     #test_combinations["ORB " + str(scale)] = FeatureExtractor.from_opencv(ORB.detect, ORB.compute, cv2.NORM_HAMMING, USE_MEASUREMENT_AREA_NORMALISATION, 31, 31)
 
     ## Setup matching approach
     distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -75,15 +81,13 @@ if __name__ == "__main__":
 
     warnings.filterwarnings("once", category=UserWarning)
 
-
-
     for feature_extractor_key_index, feature_extractor_key in enumerate(tqdm(test_combinations.keys(), desc = "Running tests")):
         feature_extractor: FeatureExtractor = test_combinations[feature_extractor_key]
         try:
             ## Load dataset.    
             dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
 
-            scale = scales[feature_extractor_key_index//2]
+            scale = scales[feature_extractor_key_index//len(test_combinations)]
 
             ## scale dataset.
             for sequence_index, sequence in enumerate(dataset_image_sequences):
@@ -92,6 +96,26 @@ if __name__ == "__main__":
                     new_x = int(round(x * scale))
                     new_y = int(round(y * scale))
                     dataset_image_sequences[sequence_index][image_index] = cv2.resize(image, (new_x, new_y), interpolation=cv2.INTER_CUBIC)
+
+                    # if (scale == 2):
+                    #     cv2.imshow(f"sequence {sequence_index}", dataset_image_sequences[sequence_index][image_index])
+                    #     cv2.waitKey(0)
+                    #     for i in range(1):
+                            
+                    #         new_x = int(round(x * 0.34))
+                    #         new_y = int(round(y * 0.34))
+                    #         dataset_image_sequences[sequence_index][image_index] = cv2.resize(dataset_image_sequences[sequence_index][image_index], (new_x, new_y), interpolation=cv2.INTER_CUBIC)
+                    #         new_x = int(round(x * 2.72))
+                    #         new_y = int(round(y * 2.72))
+                    #         dataset_image_sequences[sequence_index][image_index] = cv2.resize(dataset_image_sequences[sequence_index][image_index], (new_x, new_y), interpolation=cv2.INTER_CUBIC)
+                    #         new_x = int(round(x * 0.76))
+                    #         new_y = int(round(y * 0.76))
+                    #         dataset_image_sequences[sequence_index][image_index] = cv2.resize(dataset_image_sequences[sequence_index][image_index], (new_x, new_y), interpolation=cv2.INTER_CUBIC)
+                    #         dataset_image_sequences[sequence_index][image_index] = cv2.resize(dataset_image_sequences[sequence_index][image_index], (x, y), interpolation=cv2.INTER_CUBIC)
+                    #     cv2.imshow(f"sequence {sequence_index}", dataset_image_sequences[sequence_index][image_index])
+                    #     cv2.waitKey(0)
+
+                    
 
 
             num_sequences = len(dataset_image_sequences)
@@ -112,7 +136,6 @@ if __name__ == "__main__":
                 speed = np.average(time_per_image)
 
 
-
             ## Find features in all images.
             for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
                 for image_index, image in enumerate(image_sequence):
@@ -130,7 +153,6 @@ if __name__ == "__main__":
                     image_feature_set[sequence_index][image_index] = features
 
 
-
             ## Calculate valid matches.
             for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating and ranking all valid matches")):
 
@@ -146,50 +168,74 @@ if __name__ == "__main__":
                     if len(related_features) == 0:
                         continue
 
-                    related_features_positions = np.array([feature.pt for feature in related_features], dtype=float)
-                    related_features_size = np.array([feature.keypoint.size for feature in related_features], dtype=float)
-                    related_features_angles = np.array([feature.keypoint.angle for feature in related_features], dtype=float)
-
+                    
                     # transform position
+                    related_features_positions = np.array([feature.pt for feature in related_features], dtype=float)
                     related_features_position_stacked = np.hstack([related_features_positions, np.ones((related_features_positions.shape[0], 1))])
                     related_features_position_stacked_T = (homography @ related_features_position_stacked.T).T
                     related_features_position_stacked_T /= related_features_position_stacked_T[:, 2:3]
                     related_features_position_transformed = related_features_position_stacked_T[:, :2]
 
                     # transform sizes
+                    related_features_size = np.array([feature.keypoint.size for feature in related_features], dtype=float)
                     related_features_size_transformed = [related_feature.get_size_after_homography_transform(homography) for related_feature in related_features]
-
-                    # Angles by transform unit circle angle vectors (approximate with linear part of homography)
-                    related_features_angle = np.deg2rad(related_features_angles)
-                    related_features_angle_stacked = np.stack([np.cos(related_features_angle), np.sin(related_features_angle)], axis=1)
-                    v_h = (homography[:2,:2] @ related_features_angle_stacked.T).T
-                    related_features_angle_transformed = np.rad2deg(np.arctan2(v_h[:, 1], v_h[:, 0]))
-
-                    image_size = len(dataset_image_sequences[sequence_index][related_image_index+1])
-                    distance_threshold = scale * DISTANCE_THRESHOLD * feature_extractor.get_description_image_scale_factor(image_size)
 
                     for reference_feature in reference_features:
                         
                         # Check distances
-                        reference_feature_position = reference_feature.pt 
-                        distances = np.linalg.norm(related_features_position_transformed - reference_feature_position, axis=1)
-
-                        # Check scales differences
-                        reference_feature_size = reference_feature.keypoint.size
-                        biggest = np.maximum(reference_feature_size, related_features_size_transformed)
-                        smallest = np.minimum(reference_feature_size, related_features_size_transformed)
-                        relative_scale_difference = np.abs(1 - biggest / smallest)
-
-                        # Check angles differences
-                        reference_feature_angle = reference_feature.keypoint.angle
-                        angle_difference = np.abs((reference_feature_angle - related_features_angle_transformed + 180) % 360 - 180)
-
+                        distances = np.linalg.norm(related_features_position_transformed - reference_feature.pt, axis=1)
+                        
                         # Create check mask
-                        mask = (
-                            (distances <= distance_threshold) &
-                            (relative_scale_difference <= RELATIVE_SCALE_DIFFERENCE_THRESHOLD) &
-                            (angle_difference <= ANGLE_THRESHOLD)
-                        )
+                        if USE_OVERLAP:
+                            ref_radius   = float(reference_feature.keypoint.size) / 2.0
+                            rel_radii    = np.asarray(related_features_size_transformed, dtype=float) / 2.0
+                            EPS = 1e-12  # small epsilon for numerical stability
+
+                            ref_area  = np.pi * (ref_radius ** 2)      # scalar
+                            rel_areas = np.pi * (rel_radii  ** 2)      # vector
+
+                            # Intersection area (vectorized)
+                            intersectional_area = np.zeros_like(distances, dtype=float)
+               
+                            # Case 1: disjoint (no overlap)
+                            disjoint_mask  = distances >= ref_radius + rel_radii
+
+                            # Case 2: one circle fully contained in the other
+                            contained_mask = distances <= np.abs(ref_radius - rel_radii)
+                            if np.any(contained_mask):
+                                intersectional_area[contained_mask] = np.pi * (np.minimum(ref_radius, rel_radii[contained_mask]) ** 2)
+
+                            # Case 3: partial overlap (lens)
+                            partial_mask = (~disjoint_mask) & (~contained_mask)
+                            if np.any(partial_mask):
+                                distances_partial  = distances[partial_mask]
+                                rel_radii_partial = rel_radii[partial_mask]
+
+                                # Stable arccos arguments
+                                cos1 = (distances_partial**2 + ref_radius**2 - rel_radii_partial**2) / (2.0 * distances_partial * ref_radius + EPS)
+                                cos2 = (distances_partial**2 + rel_radii_partial**2 - ref_radius**2) / (2.0 * distances_partial * rel_radii_partial      + EPS)
+                                cos1 = np.clip(cos1, -1.0, 1.0)
+                                cos2 = np.clip(cos2, -1.0, 1.0)
+
+                                #MATH for overlap of circles
+                                term1 = ref_radius**2 * np.arccos(cos1)
+                                term2 = rel_radii_partial**2      * np.arccos(cos2)
+                                sq = (-distances_partial + ref_radius + rel_radii_partial) * (distances_partial + ref_radius - rel_radii_partial) * (distances_partial - ref_radius + rel_radii_partial) * (distances_partial + ref_radius + rel_radii_partial)
+                                term3 = 0.5 * np.sqrt(np.clip(sq, 0.0, None))
+
+                                intersectional_area[partial_mask] = term1 + term2 - term3
+
+                            # Overlap fractions — require BOTH circles to meet the threshold
+                            overlap_ref_frac = intersectional_area / (ref_area  + EPS)   # coverage of the reference circle
+                            overlap_rel_frac = intersectional_area / (rel_areas + EPS)   # coverage of each related circle
+
+                            # Final mask: ONLY overlap criterion
+                            mask = (overlap_ref_frac >= FEATURE_OVERLAP_THRESHOLD) & (overlap_rel_frac >= FEATURE_OVERLAP_THRESHOLD)
+
+                        else:
+                            mask = (
+                                (distances <= ALTERNATIVE_DISTANCE_THRESHOLD)
+                            )
 
                         valid_feature_indexes = np.nonzero(mask)[0]
                         if valid_feature_indexes.size == 0:
@@ -201,7 +247,6 @@ if __name__ == "__main__":
                             distance = distances[index]
                             reference_feature.store_valid_match_for_image(related_image_index, related_feature, distance)
                             related_feature.store_valid_match_for_image(0, reference_feature, distance)
-
 
 
             ## Calculate repeatability and number of possible matches.
@@ -253,7 +298,7 @@ if __name__ == "__main__":
 
             ## Calculate matching results.
             matching_match_sets: list[MatchSet] = []
-            if DEBUG == "all" or DEBUG == "matching":
+            if "matching" not in SKIP:
                 for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
                     matching_match_set = MatchSet()
                     matching_match_sets.append(matching_match_set)
@@ -271,7 +316,7 @@ if __name__ == "__main__":
 
             ## Calculate verification results.
             verification_match_sets: list [MatchSet] = []
-            if DEBUG == "all" or DEBUG == "verification":
+            if "verification" not in SKIP:
                 for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave = False, desc = "Calculating verification results")):
                     verification_match_set = MatchSet()
                     verification_match_sets.append(verification_match_set)
@@ -292,8 +337,8 @@ if __name__ == "__main__":
                             # Reference and related features.
                             related_features = image_feature_sequence.related_image(related_image_index).copy()
 
-                            matches = matching_approach([reference_feature], related_features, feature_extractor.distance_type)
-                            verification_match_set.add_match(matches)
+                            match = matching_approach([reference_feature], related_features, feature_extractor.distance_type)
+                            verification_match_set.add_match(match)
                         
                         # Pick random images
                         choice_pool = [(choice_sequence_index, choice_image_index)  #(sequence index, image index)
@@ -306,19 +351,19 @@ if __name__ == "__main__":
                         # Match for all random images
                         for random_sequence_index, random_image_index in chosen_random_images:
                             random_image_features = image_feature_set[random_sequence_index][random_image_index].copy()
-                            matches = matching_approach([reference_feature], random_image_features, feature_extractor.distance_type)
-                            verification_match_set.add_match(matches)
+                            match = matching_approach([reference_feature], random_image_features, feature_extractor.distance_type)
+                            verification_match_set.add_match(match)
 
 
             ## Calculate retrieval results.
             retrieval_match_sets : list[MatchSet] = []
-            all_features = [feature 
-                            for choice_image_feature_sequence in image_feature_set
-                            for choice_image_features in choice_image_feature_sequence
-                            for feature in choice_image_features.copy()]            
+            if "retrieval" not in SKIP:
+                all_features = [feature 
+                                for choice_image_feature_sequence in image_feature_set
+                                for choice_image_features in choice_image_feature_sequence
+                                for feature in choice_image_features.copy()]            
 
-            all_features_array = np.array(all_features, dtype=object)
-            if "retrieval" not in SKIP and DEBUG == "all" or DEBUG == "retrieval" :
+                all_features_array = np.array(all_features, dtype=object)
                 for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave = False, desc = "Calculating retrieval results")):
 
                     retrieval_match_set = MatchSet()
@@ -327,10 +372,10 @@ if __name__ == "__main__":
                     
                     for reference_feature in reference_features:
 
-                        # Choose MAX_NUM_RETRIEVAL_FEATUERS correct features
+                        # Choose MAX_NUM_RETRIEVAL_FEATURES correct features
                         correct_features = reference_feature.get_all_valid_matches()
-                        if len(correct_features) > MAX_NUM_RETRIEVAL_FEATUERS:
-                            correct_features = random.sample(correct_features, MAX_NUM_RETRIEVAL_FEATUERS)
+                        if len(correct_features) > MAX_NUM_RETRIEVAL_FEATURES:
+                            correct_features = random.sample(correct_features, MAX_NUM_RETRIEVAL_FEATURES)
 
                         invalid_set = set(reference_feature.get_all_valid_matches())
                         invalid_set.add(reference_feature)
@@ -372,16 +417,37 @@ if __name__ == "__main__":
                 for match in match_set
             )
 
+            sizes = []
+            for sequence in image_feature_set:
+                for image in sequence:
+                    for feature in image:
+                        sizes.append(feature.keypoint.size)
+            
+            sizes = np.array(sizes)
+
+            avg_size = np.mean(sizes)
+            std_size = np.std(sizes)
+            min_size = np.min(sizes)
+            max_size = np.max(sizes)
+            unique_sizes_count = len(set(sizes))
+
+
             results = {
                 "combination": feature_extractor_key,
                 # "speed": speed,
-                "cm_total: mean" : np.mean(set_numbers_of_possible_correct_matches),
-                "cm_total: std" : np.std(set_numbers_of_possible_correct_matches),
+                #"cm_total: mean" : np.mean(set_numbers_of_possible_correct_matches),
+                #"cm_total: std" : np.std(set_numbers_of_possible_correct_matches),
                 "rep_total: mean" : np.mean(set_repeatabilities),
-                "rep_total: std" : np.std(set_repeatabilities),
+                #"rep_total: std" : np.std(set_repeatabilities),
+                "total features" : len(image_feature_set.get_features()),
                 "total num matches" : sum(len(match_set) for match_set in matching_match_sets),
                 "num possible correct matches" : total_possible_correct_matches,
-                "total correct matches" : total_correct_matches
+                "total correct matches" : total_correct_matches,
+                "size: mean": avg_size,
+                "size: std": std_size,
+                "size: min": min_size,
+                "size: max": max_size,
+                "size: unique count": unique_sizes_count
             }
 
             for match_rank_property in match_properties:
@@ -394,11 +460,15 @@ if __name__ == "__main__":
                 results[f"Verification {match_ranking_property.name} mAP"] = mAP
 
             # Results from retrieval
-            for match_ranking_property in match_properties:
-                mAP = np.average([match_set.get_average_precision_score(match_ranking_property) for match_set in retrieval_match_sets])
-                results[f"Retrieval {match_ranking_property.name} mAP"] = mAP
+            if "retrieval" not in SKIP:
+                for match_ranking_property in match_properties:
+                    mAP = np.average([match_set.get_average_precision_score(match_ranking_property) for match_set in retrieval_match_sets])
+                    results[f"Retrieval {match_ranking_property.name} mAP"] = mAP
 
             all_results.append(results)
+                    
+            for key, value in results.items():
+                print(f"{key}: {value}")
 
         except Exception as e:
             error_message = traceback.format_exc()
@@ -411,4 +481,4 @@ if __name__ == "__main__":
             
     ################################################ STORE RESULTS ##############################################################
     df = pd.DataFrame(all_results)
-    df.to_csv("output.csv", index = False)
+    df.to_csv("output_with_best_points.csv", index = False)

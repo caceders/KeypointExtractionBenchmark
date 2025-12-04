@@ -13,8 +13,9 @@ df['param'] = df['combination'].apply(lambda x: float(x.split()[1]))
 # Metrics to plot
 metrics = [
     # 'speed',
-    'cm_total: mean', 'cm_total: std',
-    'rep_total: mean', 'rep_total: std',
+    'cm_total: mean', #'cm_total: std',
+    'rep_total: mean', #'rep_total: std',
+    'total features',
     'num possible correct matches',
     'Matching distance mAP','Matching average_response mAP','Matching average_ratio mAP',
     'Verification distance mAP','Verification average_response mAP','Verification average_ratio mAP',

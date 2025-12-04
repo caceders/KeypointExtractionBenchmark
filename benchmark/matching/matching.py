@@ -125,12 +125,26 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
     features2_length = len(features2)
 
     # Cover singular element cases
+
     if features1_length == 1:
         feature1 = features1[0]
         dists = distance_matrix[0]
-        closest_idx, second_closest_idx = np.argpartition(dists, 2)[:2]
-        closest_distance = dists[closest_idx]
-        second_closest_distance = dists[second_closest_idx]
+        
+        if dists.size >= 2:
+            idxs = np.argpartition(dists, 1)[:2]       # two smallest, unordered
+            # find which of the two is the smallest
+            closest_idx = idxs[np.argmin(dists[idxs])]
+            # the other one is the second-smallest
+            second_idx = idxs[1] if closest_idx == idxs[0] else idxs[0]
+
+            closest_distance = float(dists[closest_idx])
+            second_closest_distance = float(dists[second_idx])
+        else:
+            closest_idx = 0
+            closest_distance = float(dists[0])
+            second_closest_distance = float('inf') 
+
+
         closest_feature = features2[closest_idx]
 
         match = Match(feature1, closest_feature)
@@ -145,9 +159,21 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
     if features2_length == 1:
         feature2 = features2[0]
         dists = distance_matrix[:, 0]
-        closest_idx, second_closest_idx = np.argpartition(dists, 2)[:2]
-        closest_distance = float(dists[closest_idx])
-        second_closest_distance = float(dists[second_closest_idx])
+
+        if dists.size >= 2:
+            idxs = np.argpartition(dists, 1)[:2]       # two smallest, unordered
+            # find which of the two is the smallest
+            closest_idx = idxs[np.argmin(dists[idxs])]
+            # the other one is the second-smallest
+            second_idx = idxs[1] if closest_idx == idxs[0] else idxs[0]
+
+            closest_distance = float(dists[closest_idx])
+            second_closest_distance = float(dists[second_idx])
+        else:
+            closest_idx = 0
+            closest_distance = float(dists[0])
+            second_closest_distance = float('inf') 
+
         closest_feature = features1[closest_idx]
 
         match = Match(closest_feature, feature2)

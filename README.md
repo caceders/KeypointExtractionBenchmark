@@ -1,4 +1,5 @@
 TODO:
+Wife stealing problem, how to do ratio when using second choice
 
 NOW:
 - Calculate homographical matching on behalf of scale and rotation.
