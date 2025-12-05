@@ -2,7 +2,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def plot_all_stats_multi_windows(csv_path="output_with_overlap.csv"):
+def plot_all_stats_multi_windows(csv_path="output_low_sigma_limited.csv"):
     df = pd.read_csv(csv_path)
 
     if "combination" not in df.columns:

@@ -1,5 +1,5 @@
 TODO:
-Wife stealing problem, how to do ratio when using second choice
+Wife stealing problem, how to do ratio when using second choice, JUST REMOVE MASK???
 
 NOW:
 - Calculate homographical matching on behalf of scale and rotation.

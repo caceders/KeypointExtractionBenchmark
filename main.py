@@ -55,12 +55,14 @@ if __name__ == "__main__":
 
     test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
     
-    scales = [0.25,0.5,1,2]
+    scales = [1]
+    #scales = [0.25,0.5,1,2]
     #sigmas = [1,2,4,7,10,15,25,35,50]
     # sigmas = [1,2,4,7,10,15,25,35]
-    sigmas = [1,4,10,25]
+    #sigmas = [1,1.6,2,3,5]
+    sigmas = []
     for sigma in sigmas:
-        SIFT = cv2.SIFT_create(nfeatures = MAX_FEATURES, sigma = sigma)
+        SIFT = cv2.SIFT_create(nfeatures = MAX_FEATURES, sigma = sigma, contrastThreshold = 0.02)
         test_combinations["SIFT" + str(sigma)] = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, cv2.NORM_L2, USE_MEASUREMENT_AREA_NORMALISATION, 9, 9)
 
     # for scale in scales:
@@ -158,7 +160,6 @@ if __name__ == "__main__":
 
                 reference_features = image_feature_sequence.reference_image
                 related_images = image_feature_sequence.related_images
-
                 num_related = len(related_images)
 
                 for related_image_index in range(num_related):
@@ -188,7 +189,7 @@ if __name__ == "__main__":
                         # Create check mask
                         if USE_OVERLAP:
                             ref_radius   = float(reference_feature.keypoint.size) / 2.0
-                            rel_radii    = np.asarray(related_features_size_transformed, dtype=float) / 2.0
+                            rel_radii    = related_features_size_transformed / 2.0
                             EPS = 1e-12  # small epsilon for numerical stability
 
                             ref_area  = np.pi * (ref_radius ** 2)      # scalar
@@ -418,18 +419,22 @@ if __name__ == "__main__":
             )
 
             sizes = []
+            responses = []
             for sequence in image_feature_set:
                 for image in sequence:
                     for feature in image:
                         sizes.append(feature.keypoint.size)
+                        responses.append(feature.keypoint.response*sigmas[feature_extractor_key_index]**2)
             
             sizes = np.array(sizes)
+            responses = np.array(responses)
 
             avg_size = np.mean(sizes)
             std_size = np.std(sizes)
             min_size = np.min(sizes)
             max_size = np.max(sizes)
             unique_sizes_count = len(set(sizes))
+            avg_response = np.mean(responses)
 
 
             results = {
@@ -444,10 +449,11 @@ if __name__ == "__main__":
                 "num possible correct matches" : total_possible_correct_matches,
                 "total correct matches" : total_correct_matches,
                 "size: mean": avg_size,
-                "size: std": std_size,
-                "size: min": min_size,
+                #"size: std": std_size,
+                #"size: min": min_size,
                 "size: max": max_size,
-                "size: unique count": unique_sizes_count
+                "size: unique count": unique_sizes_count,
+                "response: avg": avg_response
             }
 
             for match_rank_property in match_properties:
@@ -481,4 +487,4 @@ if __name__ == "__main__":
             
     ################################################ STORE RESULTS ##############################################################
     df = pd.DataFrame(all_results)
-    df.to_csv("output_with_best_points.csv", index = False)
+    df.to_csv("output_low_sigma_limited_16.csv", index = False)

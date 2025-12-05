@@ -1,0 +1,2 @@
+combination,rep_total: mean,total features,total num matches,num possible correct matches,total correct matches,size: mean,size: max,size: unique count,response: avg,Matching distance mAP,Matching average_response mAP,Matching average_ratio mAP,Verification distance mAP,Verification average_response mAP,Verification average_ratio mAP
+SIFT1.6,0.13467241379310343,139200,116000,15622,12432,5.9605659000232984,392.1612548828125,99154,0.164562972116556,0.3417563110090243,0.15106436635987558,0.37997937255212844,0.3703270997280153,0.05834951912944038,0.3828007006822279
