@@ -42,6 +42,7 @@ class ImageFeatureSequence:
         return self._all[index]
     
     def __setitem__(self, index, value):
+        if not isinstance(value, list) or (len(value) != 0 and not all(isinstance(feature, Feature) for feature in value)): raise TypeError("ImageFeatureSequence elements can only be list[Feature]")
         self._all[index] = value
 
         # Also set reference and related image features

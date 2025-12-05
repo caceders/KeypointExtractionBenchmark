@@ -52,3 +52,51 @@ def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], 
         homography_sequences.append(homographies)
 
     return image_sequences, homography_sequences
+
+
+def calculate_overlap_one_circle_to_many(circle_diameter: float, other_circles_diameters : np.ndarray, distances):
+    # circle_radius   = float(circleerence_feature.keypoint.size) / 2.0
+    # other_circles_radii    = np.asarray(other_circlesated_features_size_transformed, dtype=float) / 2.0
+    circle_radius = circle_diameter / 2.0
+    other_circles_radii = other_circles_diameters / 2.0
+    EPS = 1e-12  # small epsilon for numerical stability
+
+    circle_area  = np.pi * (circle_radius ** 2)      # scalar
+    other_circles_areas = np.pi * (other_circles_radii  ** 2)      # vector
+
+    # Intersection area (vectorized)
+    intersectional_area = np.zeros_like(distances, dtype=float)
+
+    # Case 1: disjoint (no overlap)
+    disjoint_mask  = distances >= circle_radius + other_circles_radii
+
+    # Case 2: one circle fully contained in the other
+    contained_mask = distances <= np.abs(circle_radius - other_circles_radii)
+    if np.any(contained_mask):
+        intersectional_area[contained_mask] = np.pi * (np.minimum(circle_radius, other_circles_radii[contained_mask]) ** 2)
+
+    # Case 3: partial overlap (lens)
+    partial_mask = (~disjoint_mask) & (~contained_mask)
+    if np.any(partial_mask):
+        distances_partial  = distances[partial_mask]
+        other_circles_radii_partial = other_circles_radii[partial_mask]
+
+        # Stable arccos arguments
+        cos1 = (distances_partial**2 + circle_radius**2 - other_circles_radii_partial**2) / (2.0 * distances_partial * circle_radius + EPS)
+        cos2 = (distances_partial**2 + other_circles_radii_partial**2 - circle_radius**2) / (2.0 * distances_partial * other_circles_radii_partial + EPS)
+        cos1 = np.clip(cos1, -1.0, 1.0)
+        cos2 = np.clip(cos2, -1.0, 1.0)
+
+        #MATH for overlap of circles
+        term1 = circle_radius**2 * np.arccos(cos1)
+        term2 = other_circles_radii_partial**2      * np.arccos(cos2)
+        sq = (-distances_partial + circle_radius + other_circles_radii_partial) * (distances_partial + circle_radius - other_circles_radii_partial) * (distances_partial - circle_radius + other_circles_radii_partial) * (distances_partial + circle_radius + other_circles_radii_partial)
+        term3 = 0.5 * np.sqrt(np.clip(sq, 0.0, None))
+
+        intersectional_area[partial_mask] = term1 + term2 - term3
+
+    # Overlap fractions — require BOTH circles to meet the threshold
+    overlap_circle_frac = intersectional_area / (circle_area  + EPS)   # coverage of the circleerence circle
+    overlap_other_circles_frac = intersectional_area / (other_circles_areas + EPS)   # coverage of each other_circlesated circle
+
+    return overlap_circle_frac, overlap_other_circles_frac

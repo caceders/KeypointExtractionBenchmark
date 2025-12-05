@@ -26,10 +26,15 @@ def feature_set_2() -> list[Feature]:
     
     return feats
 
-
+def create_valid_pairings(features1 : list[Feature], image_1_index : int, features2 : list[Feature], image_2_index : int):
+    for feature_index in range(len(features1)):
+        features1[feature_index].store_valid_match_for_image(image_1_index, features2[feature_index], 1)
+        features2[feature_index].store_valid_match_for_image(image_2_index, features1[feature_index], 1)
 
 def test_greedy_maximum_bipartite_matching_homographic_distance(feature_set_1, feature_set_2):
+    create_valid_pairings(feature_set_1, 0, feature_set_2, 1)
     matches = greedy_maximum_bipartite_matching_homographic_distance(feature_set_1, feature_set_2, np.eye(3))
+    assert len(matches) == len(feature_set_1)
     for match in matches:
         assert np.array_equal(match.feature1.pt, match.feature2.pt) ## Check that the match actualy got the same point
 

@@ -21,31 +21,41 @@ class Feature:
 
         if not isinstance(keypoint, cv2.KeyPoint): raise(TypeError("Keypoint must be of type cv2.KeyPoint"))
         if not isinstance(description, np.ndarray): raise(TypeError("Descriptor must be of type np.ndarray"))
+        if not isinstance(sequence_index, int): raise(TypeError("Sequence index need to be of type int"))
+        if not isinstance(image_index, int): raise(TypeError("Image index need to be of type int"))
 
         self.keypoint: cv2.KeyPoint = keypoint
         self.description: np.ndarray = description
         self.sequence_index = sequence_index
         self.image_index = image_index
         self._image_valid_matches: dict[int, dict[Feature, float]] = {}
-        self._all_valid_matches: list[Feature] = []
+        self._all_valid_matches: dict[Feature, float] = {}
 
-    def store_valid_match_for_image(self, related_image_index: int, feature: "Feature", score: float) -> None:
-            
+    def store_valid_match_for_image(self, related_image_index: int, feature: "Feature", score: int | float):
+
+        if not isinstance(related_image_index, int): raise(TypeError("Related image index must be of type int"))
+        if not isinstance(feature, Feature): raise(TypeError("Feature must be of type Feature"))
+        if not isinstance(score, (int, float)): raise(TypeError("Score need to be of type int or float"))
+
         if not related_image_index in self._image_valid_matches:
             self._image_valid_matches[related_image_index] = {}
 
         self._image_valid_matches[related_image_index][feature] = score
-        self._all_valid_matches.append(feature)
+        self._all_valid_matches[feature] = score
     
-    def get_valid_matches_for_image(self, related_image_index: int) -> dict["Feature", float] | None:
+    def get_valid_matches_for_image(self, related_image_index: int) -> dict["Feature", float]:
+        
+        if not isinstance(related_image_index, int): raise(TypeError("Related image index must be of type int"))
+
         if not related_image_index in self._image_valid_matches:
-            return None
+            return {}
         return self._image_valid_matches[related_image_index].copy()
     
-    def get_all_valid_matches(self) -> list["Feature"]:
+    def get_all_valid_matches(self) -> dict["Feature" , float]:
         return self._all_valid_matches.copy()
     
     def is_match_with_other_valid(self, other: "Feature"):
+        if not isinstance(other, Feature): raise(TypeError("Other must be of type Feature"))
         return other in self._all_valid_matches
 
     @property
@@ -53,6 +63,7 @@ class Feature:
         return np.array([self.keypoint.pt[0], self.keypoint.pt[1]])
 
     def get_pt_after_homography_transform(self, H) -> Tuple[float, float]:
+        if (not isinstance(H, np.ndarray)) or H.shape != (3,3): raise TypeError("Homography must be a 3x3 np.ndrray")
         x, y = self.pt
         v = H @ np.array([x, y, 1.0])
         return v[0] / v[2], v[1] / v[2]
