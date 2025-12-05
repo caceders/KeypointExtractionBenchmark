@@ -1,6 +1,6 @@
 from ..feature import Feature
 from sklearn.metrics import average_precision_score
-from typing import Iterator
+from typing import Iterator, Tuple
 import cv2
 import numpy as np
 
@@ -10,9 +10,9 @@ class Match:
 
     Attributes
     ----------
-    feature1 : Feature
+    reference_feature : Feature
         The first feature of the match.
-    feature2 : Feature
+    related_feature : Feature
         The second feature of the match.
     is_correct : bool
         Whether this match is correct
@@ -23,11 +23,11 @@ class Match:
         to get the average ratio of the match.
 
     '''
-    def __init__(self, feature1: Feature, feature2: Feature):
-            self.feature1 : Feature = feature1
-            self.feature2 : Feature = feature2
-            self.is_correct : bool = feature1.is_match_with_other_valid(feature2)
-            self.is_in_same_sequece : bool = feature1.sequence_index == feature2.sequence_index
+    def __init__(self, reference_feature: Feature, related_feature: Feature):
+            self.reference_feature : Feature = reference_feature
+            self.related_feature : Feature = related_feature
+            self.is_correct : bool = reference_feature.is_match_with_other_valid(related_feature)
+            self.is_in_same_sequece : bool = reference_feature.sequence_index == related_feature.sequence_index
             self.match_properties : dict[str, int | float] = {}
 
 
@@ -97,37 +97,157 @@ class MatchSet:
 
     def __getitem__(self, index) -> Match:
         return self._matches[index]
+    
 
 
 
-def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[Feature], distance_matrix: np.ndarray) -> list[Match]:
+
+
+# def greedy_maximum_bipartite_matching(reference_features: list[Feature], related_features: list[Feature], similarity_score_matrix: np.ndarray, similarity_higher_is_better: bool, calculate_match_properties: bool) -> list[Match]:
+#     """
+#     Compute the greedy maximum bipartite matching between two sets of features based on a similarity matrix, with either low values indicating similarity, like distance or high values, like overlap
+
+#     Parameters
+#     ----------
+#     reference_features : list[Feature]
+#         The list of features from the first image.
+#     related_features : list[Feature]
+#         The list of features from the second image.
+#     similarity_matrix : np.ndarray
+#         The similarity matrix with values from reference_features to related_features
+#     similarity_higher_is_better: bool
+#         True means algorithm optimizes for high similiarity values in the matches, opposite for False
+
+#     Returns
+#     -------
+#     list[match]
+#         The greedy maximum bipartite matching between the images
+#     """
+#     if not reference_features or not related_features:
+#         return []
+    
+#     NUM_SCORES_DISTINCTIVNESS = 10
+#     NUM_BEST_MATCHES = 10
+
+#     num_ref_features, num_rel_features = similarity_score_matrix.shape
+#     num_best_matches = min(NUM_BEST_MATCHES, num_rel_features)
+
+    
+#     # --- Fast path: single reference feature ---
+#     if num_ref_features == 1:
+#         # Select the best related feature for the single reference without full sorting
+#         ref_feature = reference_features[0]
+#         similarity_scores = similarity_score_matrix[0]
+#         if num_best_matches == 0:
+#             return []
+
+#         if similarity_higher_is_better:
+#             # Top-k highest (unordered)
+#             topk_unordered = np.argpartition(-similarity_scores, num_best_matches - 1)[:num_best_matches]
+#             topk_scores = similarity_scores[topk_unordered]
+#             # Choose the best among the k without sorting all k
+#             best_local = int(np.argmax(topk_scores))
+#             # For distinctiveness, order these k scores descending
+#             order_for_dist = np.argsort(-topk_scores)
+#         else:
+#             # Top-k lowest (unordered)
+#             topk_unordered = np.argpartition(similarity_scores, num_best_matches - 1)[:num_best_matches]
+#             topk_scores = similarity_scores[topk_unordered]
+#             # Choose the best among the k without sorting all k
+#             best_local = int(np.argmin(topk_scores))
+#             # For distinctiveness, order these k scores ascending
+#             order_for_dist = np.argsort(topk_scores)
+
+#         rel_feature_idx = int(topk_unordered[best_local])
+#         best_score = float(topk_scores[best_local])
+
+#         match = Match(ref_feature, related_features[rel_feature_idx])
+
+#         if calculate_match_properties:
+#             match.match_properties["distance"] = best_score
+#             match.match_properties["average_response"] = (
+#                 match.reference_feature.keypoint.response + match.related_feature.keypoint.response
+#             ) / 2.0
+#             # Distinctiveness: mean of the first NUM_SCORES_DISTINCTIVNESS scores in ordered top-k,
+#             # divided by the chosen score, consistent with your original definition.
+#             d = min(NUM_SCORES_DISTINCTIVNESS, topk_scores.size)
+#             base_mean = float(topk_scores[order_for_dist][:d].mean())
+#             match.match_properties["distinctiveness"] = base_mean / (best_score + 1e-12)
+
+#         return [match]
+
+
+#     best_rel_feature_idxs = np.empty((num_ref_features, num_best_matches), dtype=np.int64)
+#     best_similarity_scores = np.empty((num_ref_features, num_best_matches), dtype=similarity_score_matrix.dtype)
+
+#     for ref_feature_idx in range(num_ref_features):
+#         similarity_scores = similarity_score_matrix[ref_feature_idx]
+#         if similarity_higher_is_better:
+#             best_matches_idxs = np.argpartition(-similarity_scores, num_best_matches-1)[:num_best_matches]      # NUM_BEST_MATCHES largest (unordered)
+#             best_matches_idx_order = np.argsort(-similarity_scores[best_matches_idxs])             # sort those descending
+#         else:
+#             best_matches_idxs = np.argpartition(similarity_scores, num_best_matches-1)[:num_best_matches]       # NUMB_BEST_MATCHES smallest (unordered)
+#             best_matches_idx_order = np.argsort(similarity_scores[best_matches_idxs])              # sort those ascending
+
+#         best_matches_ordered = best_matches_idxs[best_matches_idx_order]
+#         best_rel_feature_idxs[ref_feature_idx] = best_matches_ordered
+#         best_similarity_scores[ref_feature_idx] = similarity_scores[best_matches_ordered]
+
+#     pairs = [(ref_feature_idx, best_rel_feature_idxs[ref_feature_idx][best_matches_idx], best_similarity_scores[ref_feature_idx][best_matches_idx]) 
+#              for ref_feature_idx in range(num_ref_features) 
+#              for best_matches_idx in range(num_best_matches)]
+    
+#     pairs_sorted = sorted(pairs, key= lambda x: -x[2] if similarity_higher_is_better else x[2])
+
+#     matched_reference_feature_idxs = set()
+#     matched_related_feature_idxs = set()
+#     matches: list[Match] = []
+
+#     for ref_feature_idx, rel_feature_idx, similarity_score in pairs_sorted:
+#         if ref_feature_idx in matched_reference_feature_idxs or rel_feature_idx in matched_related_feature_idxs:
+#             continue
+#         matched_reference_feature_idxs.add(ref_feature_idx)
+#         matched_related_feature_idxs.add(rel_feature_idx)
+#         match = Match(reference_features[ref_feature_idx], related_features[rel_feature_idx])
+#         matches.append(match)
+#         #Only when used as matching approach
+#         if calculate_match_properties:
+#             match.match_properties["distance"] = float(similarity_score)
+#             match.match_properties["average_response"] = (match.reference_feature.keypoint.response + match.related_feature.keypoint.response)/2
+#             scores = best_similarity_scores[ref_feature_idx][:NUM_SCORES_DISTINCTIVNESS]
+#             match.match_properties["distinctiveness"] = np.mean(scores)/(similarity_score + 1e-12)
+
+#     return matches
+
+
+def greedy_maximum_bipartite_matching(reference_features: list[Feature], related_features: list[Feature], distance_matrix: np.ndarray) -> list[Match]:
     """
     Compute the greedy maximum bipartite matching between two sets of features based on a distance matrix
 
     Parameters
     ----------
-    features1 : list[Feature]
+    reference_features : list[Feature]
         The list of features from the first image.
-    features2 : list[Feature]
+    related_features : list[Feature]
         The list of features from the second image.
     distance_matrix : np.ndarray
-        The distance matrix with distances from features1 to features2
+        The distance matrix with distances from reference_features to related_features
 
     Returns
     -------
     list[match]
         The greedy maximum bipartite matching between the images
     """
-    if not features1 or not features2:
+    if not reference_features or not related_features:
         return []
     
-    features1_length = len(features1)
-    features2_length = len(features2)
+    reference_features_length = len(reference_features)
+    related_features_length = len(related_features)
 
     # Cover singular element cases
 
-    if features1_length == 1:
-        feature1 = features1[0]
+    if reference_features_length == 1:
+        reference_feature = reference_features[0]
         dists = distance_matrix[0]
         
         if dists.size >= 2:
@@ -145,19 +265,19 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
             second_closest_distance = float('inf') 
 
 
-        closest_feature = features2[closest_idx]
+        closest_feature = related_features[closest_idx]
 
-        match = Match(feature1, closest_feature)
+        match = Match(reference_feature, closest_feature)
         match.match_properties["distance"] = closest_distance
-        match.match_properties["average_response"] = (closest_feature.keypoint.response + feature1.keypoint.response) / 2
+        match.match_properties["average_response"] = (closest_feature.keypoint.response + reference_feature.keypoint.response) / 2
         if second_closest_distance != 0:
             match.match_properties["average_ratio"] = closest_distance / second_closest_distance
         else:
             match.match_properties["average_ratio"] = 1
         return [match]
 
-    if features2_length == 1:
-        feature2 = features2[0]
+    if related_features_length == 1:
+        related_feature = related_features[0]
         dists = distance_matrix[:, 0]
 
         if dists.size >= 2:
@@ -174,11 +294,11 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
             closest_distance = float(dists[0])
             second_closest_distance = float('inf') 
 
-        closest_feature = features1[closest_idx]
+        closest_feature = reference_features[closest_idx]
 
-        match = Match(closest_feature, feature2)
+        match = Match(closest_feature, related_feature)
         match.match_properties["distance"] = closest_distance
-        match.match_properties["average_response"] = (closest_feature.keypoint.response + feature2.keypoint.response) / 2
+        match.match_properties["average_response"] = (closest_feature.keypoint.response + related_feature.keypoint.response) / 2
         if second_closest_distance != 0:
             match.match_properties["average_ratio"] = closest_distance / second_closest_distance
         else:
@@ -186,44 +306,44 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
         return [match]
 
     # Non-singular cases
-    feature1_indices, feature2_indices = np.nonzero(np.ones_like(distance_matrix))  # generate all pairs
-    pairs = [(i, j, distance_matrix[i, j]) for i, j in zip(feature1_indices, feature2_indices)]
+    reference_feature_indices, related_feature_indices = np.nonzero(np.ones_like(distance_matrix))  # generate all pairs
+    pairs = [(i, j, distance_matrix[i, j]) for i, j in zip(reference_feature_indices, related_feature_indices)]
     pairs.sort(key=lambda p: p[2])
 
-    matched_feature1_indices = set()
-    matched_feature2_indices = set()
-    feature1_to_match: dict[int, Match] = {}
-    feature2_to_match: dict[int, Match] = {}
+    matched_reference_feature_indices = set()
+    matched_related_feature_indices = set()
+    reference_feature_to_match: dict[int, Match] = {}
+    related_feature_to_match: dict[int, Match] = {}
     matches: list[Match] = []
 
-    for feature1_index, feature2_index, dist in pairs:
-        if feature1_index not in matched_feature1_indices and feature2_index not in matched_feature2_indices:
-            match = Match(features1[feature1_index], features2[feature2_index])
+    for reference_feature_index, related_feature_index, dist in pairs:
+        if reference_feature_index not in matched_reference_feature_indices and related_feature_index not in matched_related_feature_indices:
+            match = Match(reference_features[reference_feature_index], related_features[related_feature_index])
             matches.append(match)
-            matched_feature1_indices.add(feature1_index)
-            matched_feature2_indices.add(feature2_index)
-            feature1_to_match[feature1_index] = match
-            feature2_to_match[feature2_index] = match
+            matched_reference_feature_indices.add(reference_feature_index)
+            matched_related_feature_indices.add(related_feature_index)
+            reference_feature_to_match[reference_feature_index] = match
+            related_feature_to_match[related_feature_index] = match
             match.match_properties["distance"] = float(dist)
-            match.match_properties["average_response"] = (features1[feature1_index].keypoint.response + features2[feature2_index].keypoint.response) / 2
+            match.match_properties["average_response"] = (reference_features[reference_feature_index].keypoint.response + related_features[related_feature_index].keypoint.response) / 2
             match.match_properties["average_ratio"] = 0.0  # to be updated
 
-    # Feature1 -> Feature2: closest alternative
-    for feature1_index, match in feature1_to_match.items():
-        distances = distance_matrix[feature1_index, :]
-        matched_feature2_index = features2.index(match.feature2)
-        mask = np.arange(features2_length) != matched_feature2_index
+    # reference_feature -> related_feature: closest alternative
+    for reference_feature_index, match in reference_feature_to_match.items():
+        distances = distance_matrix[reference_feature_index, :]
+        matched_related_feature_index = related_features.index(match.related_feature)
+        mask = np.arange(related_features_length) != matched_related_feature_index
         second_closest_distance = distances[mask].min()
         if second_closest_distance != 0:
             match.match_properties["average_ratio"] = match.match_properties["distance"] / second_closest_distance
         else:
             match.match_properties["average_ratio"] = 1
             
-    # Feature2 -> Feature1: closest alternative
-    for feature2_index, match in feature2_to_match.items():
-        distances = distance_matrix[:, feature2_index]
-        matched_feature1_index = features1.index(match.feature1)
-        mask = np.arange(features1_length) != matched_feature1_index
+    # related_feature -> reference_feature: closest alternative
+    for related_feature_index, match in related_feature_to_match.items():
+        distances = distance_matrix[:, related_feature_index]
+        matched_reference_feature_index = reference_features.index(match.reference_feature)
+        mask = np.arange(reference_features_length) != matched_reference_feature_index
         second_closest_distance = distances[mask].min()
         if second_closest_distance != 0:
             match.match_properties["average_ratio"] += match.match_properties["distance"] / second_closest_distance
@@ -235,7 +355,7 @@ def greedy_maximum_bipartite_matching(features1: list[Feature], features2: list[
 
 
 
-def greedy_maximum_bipartite_matching_homographic_distance(features1: list[Feature], features2: list[Feature], homography1to2: np.ndarray) -> list[Match]:
+def greedy_maximum_bipartite_matching_homographic_distance(reference_features: list[Feature], related_features: list[Feature], homography1to2: np.ndarray) -> list[Match]:
     """
     Compute the optimal homographic matching between two sets of features with apriori knowledge about
     the homografic transformation between the two images the features were taken from. Uses a greedy
@@ -243,9 +363,9 @@ def greedy_maximum_bipartite_matching_homographic_distance(features1: list[Featu
 
     Parameters
     ----------
-    features1 : list[Feature]
+    reference_features : list[Feature]
         The list of features from the first image.
-    features2 : list[Feature]
+    related_features : list[Feature]
         The list of features from the second image.
     homography1to2: np.ndarray
         The homographic transformation matrix between the two images
@@ -255,31 +375,31 @@ def greedy_maximum_bipartite_matching_homographic_distance(features1: list[Featu
     list[match]
         The homographical optimal matching based on the homographic transformation between the images
     """
-    if not features1 or not features2:
+    if not reference_features or not related_features:
         return []
 
-    feature1_positions = np.array([feature.pt for feature in features1])
-    feature2_transformed_positions = np.array([feature.get_pt_after_homography_transform(homography1to2)
-                        for feature in features2])
+    reference_feature_positions = np.array([feature.pt for feature in reference_features])
+    related_feature_transformed_positions = np.array([feature.get_pt_after_homography_transform(homography1to2)
+                        for feature in related_features])
 
     # Compute full distance matrix once
-    differences = feature1_positions[:, None, :] - feature2_transformed_positions[None, :, :]
+    differences = reference_feature_positions[:, None, :] - related_feature_transformed_positions[None, :, :]
     distance_matrix = np.linalg.norm(differences, axis=2)
+    return distance_matrix
+    return greedy_maximum_bipartite_matching(reference_features, related_features, distance_matrix)
 
-    return greedy_maximum_bipartite_matching(features1, features2, distance_matrix)
 
 
-
-def greedy_maximum_bipartite_matching_descriptor_distance(features1: list[Feature], features2: list[Feature], distance_type: int) -> list[Match]:
+def greedy_maximum_bipartite_matching_descriptor_distance(reference_features: list[Feature], related_features: list[Feature], distance_type: int) -> list[Match]:
     """
     Compute the greedy maximum bipartite matching between two sets of features based on the descriptor
     distance between the two.
 
     Parameters
     ----------
-    features1 : list[Feature]
+    reference_features : list[Feature]
         The list of features from the first image.
-    features2 : list[Feature]
+    related_features : list[Feature]
         The list of features from the second image.
     distance_type : int
         Either cv2.NORM_L2 or cv2.NORM_HAMMING dependent on wether to use hamming or euclidian distance
@@ -289,20 +409,21 @@ def greedy_maximum_bipartite_matching_descriptor_distance(features1: list[Featur
     list[match]
         The greedy maximum bipartite matching between the images
     """
-    if not features1 or not features2:
+    if not reference_features or not related_features:
         return []
 
-    feature1_descriptions = np.array([f.description for f in features1])
-    feature2_descriptions = np.array([f.description for f in features2])
+    reference_feature_descriptions = np.array([f.description for f in reference_features])
+    related_feature_descriptions = np.array([f.description for f in related_features])
 
     # Compute full distance matrix once
     if distance_type == cv2.NORM_L2:
-        differences = feature1_descriptions[:, None, :] - feature2_descriptions[None, :, :]
+        differences = reference_feature_descriptions[:, None, :] - related_feature_descriptions[None, :, :]
         distance_matrix = np.linalg.norm(differences, axis=2)
     elif distance_type == cv2.NORM_HAMMING:
-        xor = np.bitwise_xor(feature1_descriptions[:, None, :], feature2_descriptions[None, :, :])
+        xor = np.bitwise_xor(reference_feature_descriptions[:, None, :], related_feature_descriptions[None, :, :])
         distance_matrix = np.unpackbits(xor, axis=2).sum(axis=2)
     else:
         raise TypeError(f"Unknown distance type: {distance_type}")
 
-    return greedy_maximum_bipartite_matching(features1, features2, distance_matrix)
+    #return greedy_maximum_bipartite_matching(reference_features, related_features, distance_matrix, False, True)
+    return greedy_maximum_bipartite_matching(reference_features, related_features, distance_matrix)
