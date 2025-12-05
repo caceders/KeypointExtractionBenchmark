@@ -12,12 +12,12 @@ import traceback
 import warnings
 
 ################################################ CONFIGURATIONS #######################################################
-MAX_FEATURES = 200
+MAX_FEATURES = 100
 USE_OVERLAP = True
 FEATURE_OVERLAP_THRESHOLD = 0.3
 ALTERNATIVE_DISTANCE_THRESHOLD = 10
 VERIFICATION_CORRECT_TO_RANDOM_RATIO = 5
-RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 10
+RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 100
 MAX_NUM_RETRIEVAL_FEATURES = 5
 USE_MEASUREMENT_AREA_NORMALISATION = False
 #######################################################################################################################
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     ## Setup matching approach
     distance_match_rank_property = MatchRankingProperty("distance", False)
     average_response_match_rank_property = MatchRankingProperty("average_response", True)
-    distinctiveness_match_rank_property = MatchRankingProperty("average_ratio", False)
+    distinctiveness_match_rank_property = MatchRankingProperty("distinctiveness", True)
     match_properties = [distance_match_rank_property, average_response_match_rank_property, distinctiveness_match_rank_property]
 
     matching_approach = greedy_maximum_bipartite_matching_descriptor_distance
@@ -232,8 +232,8 @@ if __name__ == "__main__":
                 # Run matching
                 overlap_matrix_np = np.array(overlap_matrix)
 
-                # matches = greedy_maximum_bipartite_matching(reference_features, related_image_features, overlap_matrix_np, True, True)
-                matches = greedy_maximum_bipartite_matching(reference_features, related_image_features, overlap_matrix_np)
+                matches = greedy_maximum_bipartite_matching(reference_features, related_image_features, overlap_matrix_np, True, False)
+                #matches = greedy_maximum_bipartite_matching(reference_features, related_image_features, overlap_matrix_np)
 
                 number_of_possible_correct_matches = sum(1 for match in matches
                                                             if (valid_matches:=match.reference_feature.get_valid_matches_for_image(related_image_index)) is not None and 
