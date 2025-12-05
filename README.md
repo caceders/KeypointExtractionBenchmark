@@ -1,24 +1,17 @@
 TODO: Wife stealing problem, how to do ratio when using second choice, JUST REMOVE MASK???
 
 NOW:
-- Remove the angles ONLY SMOOTHPEOPLE HEREEE!!!! >:c
 - Create tests for:
-    - speed_test
-    - find_all_features_for_dataset
     - calculate_valid_matches
-    - calculate_numbers_of_possible_correct_matches_and_repeatability
-    - calculate_matching_results
-    - calculate_verification_results
-    - calculate_retrieval_results
 
 
     - Matching
-        - Hamming <- Carl Anders jobber her
+        - Hamming
 
 - Update documentation
 
 LATER:
-- Calculate homographic distance only once and use it in EITHER the calculations in main or in matching.
+
 
 IF TIME:
 - Make hashing actually work with the features in dictionaries.
@@ -28,6 +21,11 @@ IF TIME:
     - Image feature sequence (edge cases)
     - Image feature set (edge cases)
     - Match set (edge cases)
+    - speed_test (edge cases)
+    - find_all_features_for_dataset (edge cases)
+    - calculate_matching_evaluation (edge cases)
+    - calculate_verification_results (edge cases)
+    - calculate_retrieval_results (edge cases)
 
 
 CHECKLIST AFTER TESTS:
@@ -41,3 +39,6 @@ CHECKLIST AFTER TESTS:
         - Rename all "All but x" to "Bad argument x"
         - Rename all indexed things from "x_1" to "x1"
         - When mentioning specific arguments in the error messages use the actual names "x_y_z", not "x y z"
+        - It is not "mock" - find a better name
+        - Check for type in lists within lists?
+        - assert fail messages

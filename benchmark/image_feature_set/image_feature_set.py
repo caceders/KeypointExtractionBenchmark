@@ -1,5 +1,6 @@
 from ..feature import Feature
 from typing import Iterator
+from beartype import beartype
 
 class ImageFeatureSequence:
     """
@@ -9,7 +10,8 @@ class ImageFeatureSequence:
     The container behaves like a Python list.
     It supports iteration, indexing, assignment, len(), and item access.
     """
-    def __init__(self, num_related_images):
+    @beartype
+    def __init__(self, num_related_images: int):
         self._reference_image_features = []
         self._related_image_features = [[] for _ in range(num_related_images)]
         self._all = [self._reference_image_features] + self._related_image_features
@@ -18,12 +20,14 @@ class ImageFeatureSequence:
     def reference_image(self) -> list[Feature]:
         return self._reference_image_features
 
+    @beartype
     def related_image(self, related_image_index) -> list[Feature]:
         return self._related_image_features[related_image_index]
     
     @property
     def related_images(self) -> list[list[Feature]]:
         return self._related_image_features.copy()
+
 
     def get_features(self) -> list[Feature]:
         features = self._reference_image_features
@@ -41,8 +45,8 @@ class ImageFeatureSequence:
     def __getitem__(self, index) -> list[Feature]:
         return self._all[index]
     
-    def __setitem__(self, index, value):
-        if not isinstance(value, list) or (len(value) != 0 and not all(isinstance(feature, Feature) for feature in value)): raise TypeError("ImageFeatureSequence elements can only be list[Feature]")
+    @beartype
+    def __setitem__(self, index, value : list[Feature]):
         self._all[index] = value
 
         # Also set reference and related image features
@@ -61,6 +65,7 @@ class ImageFeatureSet:
     The container behaves like a Python list.
     It supports iteration, indexing, assignment, len(), and item access.
     """
+    @beartype
     def __init__(self, num_sequences, num_related_images):
         self._sequences: list[ImageFeatureSequence] = [ImageFeatureSequence(num_related_images) for _ in range(num_sequences)]
 

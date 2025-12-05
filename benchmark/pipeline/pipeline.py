@@ -3,15 +3,17 @@ from benchmark.utils import calculate_overlap_one_circle_to_many
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
-from benchmark.matching import MatchSet, greedy_maximum_bipartite_matching_homographic_distance
+from benchmark.matching import MatchSet, greedy_maximum_bipartite_matching
 from typing import Tuple, Callable
 import random
 import numpy as np
 import warnings
+from beartype import beartype
 
 
-
+@beartype
 def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]]):
+     
     time_per_image = []
     for _, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Calculating speed")):
         for _, image in enumerate(image_sequence):
@@ -23,8 +25,9 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
     return speed
 
 
+@beartype
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int):  
 
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int):
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
 
@@ -41,9 +44,16 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
             image_feature_set[sequence_index][image_index] = features
 
 
-
+@beartype
 def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homography_sequence: list[list[np.ndarray]], threshold: float, use_overlap: bool = True):
+    
+    set_numbers_of_possible_correct_matches= []
+    set_repeatabilities = []
+    
     for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating and ranking all valid matches")):
+
+        numbers_of_possible_correct_matches = []
+        repeatabilities = []
 
         reference_features = image_feature_sequence.reference_image
         related_images = image_feature_sequence.related_images
@@ -51,6 +61,9 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
         num_related = len(related_images)
 
         for related_image_index in range(num_related):
+            
+            scores_reference_to_related_image = []
+
             related_features = related_images[related_image_index]
             homography = dataset_homography_sequence[sequence_index][related_image_index]
 
@@ -72,13 +85,14 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
                 
                 # Check distances
                 distances = np.linalg.norm(related_features_position_transformed - reference_feature.pt, axis=1)
-                
+                scores = - distances
                 # Create check mask
                 if use_overlap:
                     overlap_ref_frac, overlap_rel_frac = calculate_overlap_one_circle_to_many(reference_feature.keypoint.size, related_features_size_transformed, distances)
 
                     # Final mask: ONLY overlap criterion
                     mask = (overlap_ref_frac >= threshold) & (overlap_rel_frac >= threshold)
+                    scores = np.minimum(overlap_ref_frac, overlap_rel_frac)
 
                 else:
                     mask = (
@@ -86,51 +100,22 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
                     )
 
                 valid_feature_indexes = np.nonzero(mask)[0]
-                if valid_feature_indexes.size == 0:
-                    continue
+
+                # Store all scores
+                scores_reference_to_related_image.append(scores)
 
                 # Store valid features for that check mask
                 for index in valid_feature_indexes:
                     related_feature = related_features[index]
-                    distance = distances[index]
-                    reference_feature.store_valid_match_for_image(related_image_index, related_feature, distance)
-                    related_feature.store_valid_match_for_image(0, reference_feature, distance)
-
-
-
-def calculate_numbers_of_possible_correct_matches_and_repeatability(image_feature_set: ImageFeatureSet, dataset_homography_sequence: list[list[np.ndarray]]) -> Tuple[list[int], list[float]]:
-    set_numbers_of_possible_correct_matches= []
-    set_repeatabilities = []
-    for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating optimal matching results")):
-
-        numbers_of_possible_correct_matches = []
-        repeatabilities = []
-
-        reference_features = image_feature_sequence.reference_image
-        number_of_reference_features = len(reference_features)
-
-        for related_image_index, related_image_features in enumerate(image_feature_sequence.related_images):
+                    score = float(scores[index])
+                    reference_feature.store_valid_match_for_image(related_image_index, related_feature, score)
+                    related_feature.store_valid_match_for_image(0, reference_feature, score)
             
-            homography = dataset_homography_sequence[sequence_index][related_image_index]
+            score_matrix = np.asarray(scores_reference_to_related_image)
+            matches = greedy_maximum_bipartite_matching(reference_features, related_features, score_matrix, True)
 
-            # Run matching
-            matches = greedy_maximum_bipartite_matching_homographic_distance(
-                reference_features.copy(),
-                related_image_features.copy(),
-                homography
-            )
-
-            # Count how many matches are valid
-            number_of_possible_correct_matches = 0
-
-            for match in matches:
-                reference_feature = match.feature1
-                related_feature = match.feature2
-
-                features_for_valid_match = reference_feature.get_valid_matches_for_image(related_image_index)
-
-                if features_for_valid_match is not None and related_feature in features_for_valid_match:
-                    number_of_possible_correct_matches += 1
+            number_of_possible_correct_matches = len(matches)
+            number_of_reference_features = len(reference_features)
 
             numbers_of_possible_correct_matches.append(number_of_possible_correct_matches)
 
@@ -146,7 +131,7 @@ def calculate_numbers_of_possible_correct_matches_and_repeatability(image_featur
     return set_numbers_of_possible_correct_matches, set_repeatabilities
 
 
-
+@beartype
 def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable) -> list[MatchSet]:
     matching_match_sets: list[MatchSet] = []
     for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
@@ -163,7 +148,7 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
     return matching_match_sets
 
 
-
+@beartype
 def calculate_verification_evaluation(feature_extractor : FeatureExtractor, image_feature_set: ImageFeatureSet, correct_to_random_ratio: int, matching_approach : Callable) -> list[MatchSet]:
     verification_match_sets: list [MatchSet] = []
     for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave = False, desc = "Calculating verification results")):
@@ -206,7 +191,7 @@ def calculate_verification_evaluation(feature_extractor : FeatureExtractor, imag
     return verification_match_sets
 
 
-
+@beartype
 def calculate_retrieval_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, correct_to_random_ratio : int, matching_approach : Callable) -> list[MatchSet]:
     retrieval_match_sets : list[MatchSet] = []
     all_features = [feature 

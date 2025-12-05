@@ -2,7 +2,8 @@ from benchmark.feature import Feature
 import pytest
 import cv2
 import numpy as np
-
+from beartype import beartype
+from beartype.roar import BeartypeCallHintParamViolation
 
 @pytest.fixture()
 def sample_feature_1() -> Feature:
@@ -47,7 +48,7 @@ def feature_with_valid_matches() -> Feature:
         "All but image index"
     ])
 def test_invalid_arguments_constructor(kp, desc, sequence_index, image_index):
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         Feature(kp, desc, sequence_index, image_index)
 
 
@@ -62,25 +63,25 @@ def test_invalid_arguments_constructor(kp, desc, sequence_index, image_index):
         "All but score",
     ])
 def test_invalid_arguments_store_valid_match_for_image(sample_feature_1, related_image_index, feature, score):
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         sample_feature_1.store_valid_match_for_image(related_image_index, feature, score)
 
 
 
 def test_invalid_arguments_get_valid_matches_for_image(feature_with_valid_matches):
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         feature_with_valid_matches.get_valid_matches_for_image(None)
 
 
 
 def test_invalid_arguments_is_match_with_other_valid(feature_with_valid_matches):
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         feature_with_valid_matches.is_match_with_other_valid(None)
 
 
 
 def test_invalid_arguments_get_pt_after_homography_transform(sample_feature_1):
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         sample_feature_1.get_pt_after_homography_transform("Not a numpy array")
 
 

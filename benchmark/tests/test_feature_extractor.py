@@ -4,7 +4,8 @@ import cv2
 import numpy as np
 from typing import Callable, Tuple
 import time
-
+from beartype import beartype
+from beartype.roar import BeartypeCallHintParamViolation
 
 
 @pytest.fixture()
@@ -95,7 +96,7 @@ def test_invalid_arguments_constructor(
     elif bad_argument == "distance":
         distance = None
 
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         FeatureExtractor(detect, describe, distance)
 
 
@@ -124,12 +125,12 @@ def test_invalid_from_opencv(
     elif bad_argument == "distance":
         distance = None
 
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         FeatureExtractor.from_opencv(detect, describe, distance)
 
 
 def test_invalid_detect_keypoints(sample_feature_extractor):
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         sample_feature_extractor.detect_keypoints(None)
 
 
@@ -150,13 +151,13 @@ def test_invalid_describe_keypoints(sample_feature_extractor, sample_keypoints_1
     elif bad_argument == "keypoints":
         keypoints = None
 
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         sample_feature_extractor.describe_keypoints(image, keypoints)
 
 
 def test_invalid_get_extraction_time_on_image(sample_feature_extractor):
 
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         sample_feature_extractor.get_extraction_time_on_image(None)
 
 

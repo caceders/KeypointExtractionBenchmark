@@ -5,6 +5,8 @@ import cv2
 import numpy as np
 from typing import Callable, Tuple
 import time
+from beartype import beartype
+from beartype.roar import BeartypeCallHintParamViolation
 
 NUM_RELATED_IMAGES = 5
 
@@ -40,17 +42,17 @@ def sample_image_feature_sequence(sample_features) -> ImageFeatureSequence:
 
 
 def test_invalid_arguments_constructor():
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         ImageFeatureSequence(None)
 
 
 def test_invalid_arguments_related_image(sample_image_feature_sequence):
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         sample_image_feature_sequence.related_image(None)
 
 
 def test_invalid_arguments_set_item(sample_image_feature_sequence):
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         sample_image_feature_sequence[3] = None
 
 

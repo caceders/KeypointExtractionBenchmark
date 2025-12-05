@@ -5,6 +5,9 @@ import cv2
 import numpy as np
 from typing import Callable, Tuple
 import time
+from beartype import beartype
+from beartype.roar import BeartypeCallHintParamViolation
+
 
 NUM_SEQUENCES = 116
 NUM_RELATED_IMAGES = 5
@@ -58,7 +61,7 @@ def sample_image_feature_set(sample_features_1, sample_features_2) -> ImageFeatu
                              "All but number of related images"]
                             )
 def test_invalid_arguments_constructor(num_sequences, num_related_images):
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         ImageFeatureSet(num_sequences, num_related_images)
 
 

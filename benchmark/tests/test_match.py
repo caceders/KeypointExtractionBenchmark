@@ -3,6 +3,9 @@ from benchmark.feature import Feature
 import cv2
 import numpy as np
 import pytest
+from beartype import beartype
+from beartype.roar import BeartypeCallHintParamViolation
+
 
 @pytest.fixture()
 def sample_feature_1() -> Feature:
@@ -47,7 +50,7 @@ def test_invalid_arguments_constructor(sample_feature_1, sample_feature_2, bad_a
     elif bad_argument == "feature2":
         feature2 = None
 
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         Match(feature1, feature2)
 
 

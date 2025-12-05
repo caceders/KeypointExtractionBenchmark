@@ -1,1 +1,1 @@
-from .matching import Match, MatchRankingProperty, MatchSet, greedy_maximum_bipartite_matching_homographic_distance, greedy_maximum_bipartite_matching_descriptor_distance
+from .matching import Match, MatchRankingProperty, MatchSet, greedy_maximum_bipartite_matching, greedy_maximum_bipartite_matching_descriptor_distance

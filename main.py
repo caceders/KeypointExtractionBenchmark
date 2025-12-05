@@ -16,7 +16,6 @@ USE_OVERLAP = True
 THRESHOLD = 0.3
 VERIFICATION_CORRECT_TO_RANDOM_RATIO = 5
 RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 100
-USE_MEASUREMENT_AREA_NORMALISATION = False
 #######################################################################################################################
 
 if __name__ == "__main__":
@@ -111,8 +110,7 @@ if __name__ == "__main__":
             speed = speed_test(feature_extractor, dataset_image_sequences)
 
         find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
-        calculate_valid_matches(image_feature_set, dataset_homography_sequence, THRESHOLD, USE_OVERLAP)
-        set_numbers_of_possible_correct_matches, set_repeatabilities = calculate_numbers_of_possible_correct_matches_and_repeatability(image_feature_set, dataset_homography_sequence)
+        set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence, THRESHOLD, USE_OVERLAP)
 
         if "matching" not in SKIP:
             matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach)

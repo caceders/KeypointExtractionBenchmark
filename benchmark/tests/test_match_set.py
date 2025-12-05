@@ -3,6 +3,9 @@ from benchmark.feature import Feature
 import cv2
 import numpy as np
 import pytest
+from beartype import beartype
+from beartype.roar import BeartypeCallHintParamViolation
+
 
 @pytest.fixture()
 def sample_feature_1() -> Feature:
@@ -60,12 +63,23 @@ def sample_match_set():
 
 
 ### Test that invalid arguments fail ###
-def test_invalid_argument_add_match(sample_match_set, sample_match):
-    with pytest.raises(TypeError):
-        sample_match_set.add_match(None)
-    
-    with pytest.raises(TypeError):
-        sample_match_set.add_match([None, sample_match])
+
+@pytest.mark.parametrize("bad_argument", 
+                         ["None",
+                          "Single element"],
+                        ids = [
+                        "Bad argument None",
+                        "Bad argument single element None"
+                        ])
+def test_invalid_argument_add_match(sample_match_set, sample_match, bad_argument):
+    if bad_argument == "None":
+        argument = None
+    elif bad_argument == "Single element":
+        argument = ["Something else", sample_match]
+
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
+        sample_match_set.add_match(argument)
+
 
 @pytest.mark.parametrize("match_rank_property, ignore_negatives_in_same_sequence",
                          [
@@ -77,7 +91,7 @@ def test_invalid_argument_add_match(sample_match_set, sample_match):
                             "Bad argument ignore_negative_in_same_sequence"
                          ])
 def test_invalid_argument_get_average_precision_score(sample_match_set, match_rank_property, ignore_negatives_in_same_sequence):
-    with pytest.raises(TypeError):
+    with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
         sample_match_set.get_average_precision_score(match_rank_property, ignore_negatives_in_same_sequence)
 
 

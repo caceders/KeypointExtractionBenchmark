@@ -1,8 +1,12 @@
-from benchmark.matching import greedy_maximum_bipartite_matching_descriptor_distance, greedy_maximum_bipartite_matching_homographic_distance
+from benchmark.matching import greedy_maximum_bipartite_matching_descriptor_distance, greedy_maximum_bipartite_matching
 from benchmark.feature import Feature
+from benchmark.utils import calculate_overlap_one_circle_to_many
 import numpy as np
 import cv2
 import pytest
+from beartype import beartype
+from beartype.roar import BeartypeCallHintParamViolation
+
 
 @pytest.fixture()
 def feature_set_1() -> list[Feature]:
@@ -31,9 +35,20 @@ def create_valid_pairings(features1 : list[Feature], image_1_index : int, featur
         features1[feature_index].store_valid_match_for_image(image_1_index, features2[feature_index], 1)
         features2[feature_index].store_valid_match_for_image(image_2_index, features1[feature_index], 1)
 
-def test_greedy_maximum_bipartite_matching_homographic_distance(feature_set_1, feature_set_2):
+def test_greedy_maximum_bipartite_matching(feature_set_1, feature_set_2):
     create_valid_pairings(feature_set_1, 0, feature_set_2, 1)
-    matches = greedy_maximum_bipartite_matching_homographic_distance(feature_set_1, feature_set_2, np.eye(3))
+    
+    feature1_positions = np.array([f.pt for f in feature_set_1])
+    feature2_positions = np.array([f.pt for f in feature_set_2])
+
+    # Compute full distance matrix once
+    distances = np.linalg.norm(feature2_positions - feature1_positions, axis=1)
+    overlaps = []
+    for feature in feature_set_1:
+        overlap1, overlap2 = calculate_overlap_one_circle_to_many(feature.keypoint.size, [feature.keypoint.size for feature in feature_set_2], distances)
+        overlaps.append(np.minimum(overlap1, overlap2))
+    scores = np.asarray(overlaps)
+    matches = greedy_maximum_bipartite_matching(feature_set_1, feature_set_2, scores)
     assert len(matches) == len(feature_set_1)
     for match in matches:
         assert np.array_equal(match.feature1.pt, match.feature2.pt) ## Check that the match actualy got the same point
