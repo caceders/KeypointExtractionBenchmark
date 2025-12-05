@@ -1,7 +1,7 @@
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
-from benchmark.matching import MatchSet, MatchRankingProperty, greedy_maximum_bipartite_matching_homographic_distance, greedy_maximum_bipartite_matching_descriptor_distance
+from benchmark.matching import MatchSet, MatchRankingProperty, greedy_maximum_bipartite_matching_homographic_distance, greedy_maximum_bipartite_matching_descriptor_distance, greedy_maximum_bipartite_matching
 from benchmark.utils import load_HPSequences
 from tqdm import tqdm
 import cv2
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     #sigmas = [1,2,4,7,10,15,25,35,50]
     # sigmas = [1,2,4,7,10,15,25,35]
     #sigmas = [1,1.6,2,3,5]
-    sigmas = []
+    sigmas = [1]
     for sigma in sigmas:
         SIFT = cv2.SIFT_create(nfeatures = MAX_FEATURES, sigma = sigma, contrastThreshold = 0.02)
         test_combinations["SIFT" + str(sigma)] = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, cv2.NORM_L2, USE_MEASUREMENT_AREA_NORMALISATION, 9, 9)
@@ -155,32 +155,30 @@ if __name__ == "__main__":
                     image_feature_set[sequence_index][image_index] = features
 
 
-            ## Calculate valid matches.
+            ## Calculate valid matches, number of possible correct matches and repeatability
+            set_numbers_of_possible_correct_matches= []
+            set_repeatabilities = []
             for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating and ranking all valid matches")):
 
-                reference_features = image_feature_sequence.reference_image
-                related_images = image_feature_sequence.related_images
-                num_related = len(related_images)
+                numbers_of_possible_correct_matches = []
+                repeatabilities = []
 
-                for related_image_index in range(num_related):
-                    related_features = related_images[related_image_index]
+                number_of_reference_features = len(image_feature_sequence.reference_image)
+                reference_features = image_feature_sequence.reference_image
+
+                for related_image_index, related_image_features in enumerate(image_feature_sequence.related_images):
+
                     homography = dataset_homography_sequence[sequence_index][related_image_index]
 
-                    if len(related_features) == 0:
+                    if len(related_image_features) == 0:
                         continue
 
-                    
-                    # transform position
-                    related_features_positions = np.array([feature.pt for feature in related_features], dtype=float)
-                    related_features_position_stacked = np.hstack([related_features_positions, np.ones((related_features_positions.shape[0], 1))])
-                    related_features_position_stacked_T = (homography @ related_features_position_stacked.T).T
-                    related_features_position_stacked_T /= related_features_position_stacked_T[:, 2:3]
-                    related_features_position_transformed = related_features_position_stacked_T[:, :2]
+                    # transform position 
+                    related_features_position_transformed = np.array([feature.get_pt_after_homography_transform(homography) for feature in related_image_features])
 
                     # transform sizes
-                    related_features_size = np.array([feature.keypoint.size for feature in related_features], dtype=float)
-                    related_features_size_transformed = [related_feature.get_size_after_homography_transform(homography) for related_feature in related_features]
-
+                    related_features_size_transformed = np.array([feature.get_size_after_homography_transform(homography) for feature in related_image_features])
+                    overlap_matrix = []
                     for reference_feature in reference_features:
                         
                         # Check distances
@@ -229,6 +227,8 @@ if __name__ == "__main__":
                             # Overlap fractions — require BOTH circles to meet the threshold
                             overlap_ref_frac = intersectional_area / (ref_area  + EPS)   # coverage of the reference circle
                             overlap_rel_frac = intersectional_area / (rel_areas + EPS)   # coverage of each related circle
+                            overlap_min = np.minimum(overlap_ref_frac,overlap_rel_frac)
+                            overlap_matrix.append(overlap_min)
 
                             # Final mask: ONLY overlap criterion
                             mask = (overlap_ref_frac >= FEATURE_OVERLAP_THRESHOLD) & (overlap_rel_frac >= FEATURE_OVERLAP_THRESHOLD)
@@ -244,45 +244,21 @@ if __name__ == "__main__":
 
                         # Store valid features for that check mask
                         for index in valid_feature_indexes:
-                            related_feature = related_features[index]
+                            related_feature = related_image_features[index]
                             distance = distances[index]
                             reference_feature.store_valid_match_for_image(related_image_index, related_feature, distance)
                             related_feature.store_valid_match_for_image(0, reference_feature, distance)
 
-
-            ## Calculate repeatability and number of possible matches.
-            set_numbers_of_possible_correct_matches= []
-            set_repeatabilities = []
-            for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating optimal matching results")):
-
-                numbers_of_possible_correct_matches = []
-                repeatabilities = []
-
-                reference_features = image_feature_sequence.reference_image
-                number_of_reference_features = len(reference_features)
-
-                for related_image_index, related_image_features in enumerate(image_feature_sequence.related_images):
-                    
-                    homography = dataset_homography_sequence[sequence_index][related_image_index]
-
                     # Run matching
-                    matches = greedy_maximum_bipartite_matching_homographic_distance(
+                    matches = greedy_maximum_bipartite_matching(
                         reference_features.copy(),
                         related_image_features.copy(),
-                        homography
+                        np.vstack(overlap_matrix)
                     )
 
-                    # Count how many matches are valid
-                    number_of_possible_correct_matches = 0
-
-                    for match in matches:
-                        reference_feature = match.feature1
-                        related_feature = match.feature2
-
-                        features_for_valid_match = reference_feature.get_valid_matches_for_image(related_image_index)
-
-                        if features_for_valid_match is not None and related_feature in features_for_valid_match:
-                            number_of_possible_correct_matches += 1
+                    number_of_possible_correct_matches = sum(1 for match in matches
+                                                             if (valid_matches:=match.feature1.get_valid_matches_for_image(related_image_index)) is not None and 
+                                                             match.feature2 in valid_matches)
 
                     numbers_of_possible_correct_matches.append(number_of_possible_correct_matches)
 
@@ -307,9 +283,9 @@ if __name__ == "__main__":
 
                         # Reference and related features.
                         reference_features = image_feature_sequence.reference_image.copy()
-                        related_features = image_feature_sequence.related_image(related_image_index).copy()
+                        related_image_features = image_feature_sequence.related_image(related_image_index).copy()
 
-                        matches = matching_approach(reference_features, related_features, feature_extractor.distance_type)
+                        matches = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
                         matching_match_set.add_match(matches)
 
 
@@ -336,9 +312,9 @@ if __name__ == "__main__":
                         for related_image_index in range(len(related_images_to_use)):
 
                             # Reference and related features.
-                            related_features = image_feature_sequence.related_image(related_image_index).copy()
+                            related_image_features = image_feature_sequence.related_image(related_image_index).copy()
 
-                            match = matching_approach([reference_feature], related_features, feature_extractor.distance_type)
+                            match = matching_approach([reference_feature], related_image_features, feature_extractor.distance_type)
                             verification_match_set.add_match(match)
                         
                         # Pick random images
@@ -487,4 +463,4 @@ if __name__ == "__main__":
             
     ################################################ STORE RESULTS ##############################################################
     df = pd.DataFrame(all_results)
-    df.to_csv("output_low_sigma_limited_16.csv", index = False)
+    df.to_csv("output.csv", index = False)
