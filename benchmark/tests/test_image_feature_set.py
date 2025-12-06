@@ -9,8 +9,11 @@ from beartype import beartype
 from beartype.roar import BeartypeCallHintParamViolation
 
 
+
 NUM_SEQUENCES = 116
 NUM_RELATED_IMAGES = 5
+
+
 
 @pytest.fixture()
 def sample_feature() -> Feature:
@@ -20,7 +23,7 @@ def sample_feature() -> Feature:
 
 
 @pytest.fixture()
-def sample_features_1():
+def sample_features_1() -> list[Feature]:
     features = []
     for i in range(60):
         kp = cv2.KeyPoint(100 + i, 200 + i, 1)
@@ -30,7 +33,7 @@ def sample_features_1():
 
 
 @pytest.fixture()
-def sample_features_2():
+def sample_features_2() -> list[Feature]:
     features = []
     for i in range(30):
         kp = cv2.KeyPoint(200 + i, 300 + i, 1)
@@ -47,7 +50,6 @@ def sample_image_feature_set(sample_features_1, sample_features_2) -> ImageFeatu
     for feature in sample_features_2:
         image_feature_set[1][feature.image_index].append(feature)
     return image_feature_set
-
 
 
 
@@ -80,14 +82,15 @@ def test_get_features(sample_image_feature_set):
 
 ### Test that general cases behave expectedly ###
 
+
 def test_itteration(sample_image_feature_set, sample_features_1, sample_features_2):
     for image_feature_sequence_index, image_feature_sequence in enumerate(sample_image_feature_set):
         if image_feature_sequence_index == 0:
-            assert len(image_feature_sequence.get_features()) == len(sample_features_1)
+            assert len(image_feature_sequence.get_features()) == len(sample_features_1), "The length of image_feature_sequence with index 0 was expected to be the same length as sample_features_1"
         elif image_feature_sequence_index == 1:
-            assert len(image_feature_sequence.get_features()) == len(sample_features_2)
+            assert len(image_feature_sequence.get_features()) == len(sample_features_2), "The length of image_feature_sequence with index 1 was expected to be the same length as sample_features_2"
         else:
-            assert len((image_feature_sequence.get_features())) == 0
+            assert len((image_feature_sequence.get_features())) == 0, "The length of image_feature_sequence with index was expected to be 0"
 
 
 def test_get_features_expected_length(sample_image_feature_set, sample_features_1, sample_features_2):

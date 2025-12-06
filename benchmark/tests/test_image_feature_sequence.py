@@ -8,7 +8,11 @@ import time
 from beartype import beartype
 from beartype.roar import BeartypeCallHintParamViolation
 
+
+
 NUM_RELATED_IMAGES = 5
+
+
 
 @pytest.fixture()
 def sample_feature() -> Feature:
@@ -18,7 +22,7 @@ def sample_feature() -> Feature:
 
 
 @pytest.fixture()
-def sample_features():
+def sample_features() -> list[Feature]:
     features = []
     for i in range(30):
         kp = cv2.KeyPoint(100 + i, 200 + i, 1)
@@ -83,9 +87,11 @@ def test_valid_arguments_set_item(sample_image_feature_sequence, sample_features
 
 ### Test that general cases behave expectedly ###
 
+
 def test_store_feature_in_reference_image(sample_image_feature_sequence, sample_feature):
     sample_image_feature_sequence.reference_image.append(sample_feature)
-    assert sample_feature in sample_image_feature_sequence[0]
+    assert sample_feature in sample_image_feature_sequence[0], "A stored feature for the reference image was not found in the first index of the relevant feature sequence"
+
 
 @pytest.mark.parametrize(
     "image_index",
@@ -94,11 +100,12 @@ def test_store_feature_in_reference_image(sample_image_feature_sequence, sample_
 )
 def test_store_feature_in_related_image(sample_image_feature_sequence, sample_feature, image_index):
     sample_image_feature_sequence.related_image(image_index).append(sample_feature)
-    assert sample_feature in sample_image_feature_sequence[image_index + 1]
+    assert sample_feature in sample_image_feature_sequence[image_index + 1], "A stored feature for the related image was not found in the relevant index for the related image"
+
 
 def test_all_features_in_get_features(sample_image_feature_sequence, sample_features):
     all_features = sample_image_feature_sequence.get_features()
-    assert len(all_features) == len(all_features), "Sample features used to set the features, so sizes should be equal"
+    assert len(all_features) == len(all_features), "sample_features fixture used to set the features, but their sizes was not equal"
 
 
 def test_all_features_in_refrence_image(sample_image_feature_sequence, sample_features):
