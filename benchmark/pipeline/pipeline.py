@@ -10,8 +10,8 @@ import numpy as np
 import warnings
 from beartype import beartype
 
-
-@beartype
+# Beartype commented out for performance
+#@beartype
 def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]]):
      
     time_per_image = []
@@ -34,12 +34,19 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
             keypoints = feature_extractor.detect_keypoints(image)
             descriptions = feature_extractor.describe_keypoints(image, keypoints)
             
-            features = [Feature(keypoint, description, sequence_index, image_index)
-                        for _, (keypoint, description)
-                        in enumerate(zip(keypoints, descriptions))]
+            # prebinding locals for performance increase
+            Feature_ = Feature
+            seq = sequence_index
+            img = image_index
+            zip_ = zip
+
+            features = [Feature_(kp, desc, seq, img) for kp, desc in zip_(keypoints, descriptions)]
             
             if max_features < len(features):
-                features = random.sample(features, max_features)
+                # Pick the top max_features elements
+                scores = np.array([f.keypoint.response for f in features])
+                idx = np.argpartition(scores, -max_features)[-max_features:]
+                features = [features[i] for i in idx]
             
             image_feature_set[sequence_index][image_index] = features
 
@@ -136,9 +143,8 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
                 # Store valid features for that check mask
                 for index in valid_feature_indexes:
                     related_feature = related_image_features[index]
-                    distance = distances[index]
-                    reference_feature.store_valid_match_for_image(related_image_index, related_feature, distance)
-                    related_feature.store_valid_match_for_image(0, reference_feature, distance)
+                    reference_feature.store_valid_match_for_image(related_image_index, related_feature)
+                    related_feature.store_valid_match_for_image(0, reference_feature)
 
             # Run matching
             overlap_matrix_np = np.array(overlap_matrix)
@@ -192,7 +198,8 @@ def calculate_verification_evaluation(feature_extractor : FeatureExtractor, imag
             # Find related images with equivalent feature
             related_images_to_use = []
             for image_index in range(len(image_feature_sequence.related_images)):
-                if isinstance(reference_feature.get_valid_matches_for_image(image_index), dict):
+                valid_matches = reference_feature.get_valid_matches_for_image(image_index)
+                if len(valid_matches) != 0:
                     related_images_to_use.append(image_index)
             
             num_random_images = len(related_images_to_use) * correct_to_random_ratio
@@ -232,6 +239,9 @@ def calculate_retrieval_evaluation(feature_extractor : FeatureExtractor, image_f
                     for feature in choice_image_features.copy()]            
 
     all_features_array = np.array(all_features, dtype=object)
+
+    # Precompute once
+    all_ids = np.fromiter((id(f) for f in all_features_array), dtype=np.int64)
     for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave = False, desc = "Calculating retrieval results")):
 
         retrieval_match_set = MatchSet()
@@ -240,14 +250,20 @@ def calculate_retrieval_evaluation(feature_extractor : FeatureExtractor, image_f
         
         for reference_feature in reference_features:
 
-            # Choose maximum 5 correct features
-            correct_features = list(reference_feature.get_all_valid_matches().keys())
+            valid_matches = reference_feature.get_all_valid_matches()
+
+            # choose up to 5 correct features
+            correct_features = list(valid_matches)
             if len(correct_features) > 5:
                 correct_features = random.sample(correct_features, 5)
 
-            invalid_set = set(reference_feature.get_all_valid_matches())
-            invalid_set.add(reference_feature)
-            invalid_mask = np.array([feature not in invalid_set for feature in all_features_array])
+            # Build invalid id set
+            invalid_ids = {id(reference_feature)}
+            invalid_ids.update(id(f) for f in valid_matches)
+
+            invalid_ids_list = np.fromiter(invalid_ids, dtype=np.int64)
+
+            invalid_mask = ~np.isin(all_ids, invalid_ids_list)
             valid_features = all_features_array[invalid_mask]
             num_random_features = len(correct_features) * correct_to_random_ratio
             

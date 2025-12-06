@@ -2,6 +2,7 @@ from typing import Tuple
 import cv2
 import numpy as np
 from beartype import beartype
+from config import *
 
 class Feature:
     '''
@@ -18,35 +19,37 @@ class Feature:
     image_inedx : int
         The image inedx of the image in a sequence this feature was found in.
     '''
-    @beartype
+    
+    # Beartype commented for performance reasons
+    #@beartype
     def __init__(self, keypoint: cv2.KeyPoint, description: np.ndarray, sequence_index: int, image_index: int):
 
         self.keypoint: cv2.KeyPoint = keypoint
         self.description: np.ndarray = description
         self.sequence_index = sequence_index
         self.image_index = image_index
-        self._image_valid_matches: dict[int, dict[Feature, float]] = {}
-        self._all_valid_matches: dict[Feature, float] = {}
+        self._image_valid_matches: dict[int, list[Feature]] = {}
+        self._all_valid_matches: list[Feature] = []
     
     @beartype
-    def store_valid_match_for_image(self, related_image_index: int, feature: "Feature", score: int | float):
+    def store_valid_match_for_image(self, related_image_index: int, feature: "Feature"):
 
         if not related_image_index in self._image_valid_matches:
-            self._image_valid_matches[related_image_index] = {}
+            self._image_valid_matches[related_image_index] = []
 
-        self._image_valid_matches[related_image_index][feature] = score
-        self._all_valid_matches[feature] = score
+        self._image_valid_matches[related_image_index].append(feature)
+        self._all_valid_matches.append(feature)
     
     @beartype
-    def get_valid_matches_for_image(self, related_image_index: int) -> dict["Feature", float] | dict:
+    def get_valid_matches_for_image(self, related_image_index: int) -> list["Feature"]:
     
 
         if not related_image_index in self._image_valid_matches:
-            return {}
+            return []
         return self._image_valid_matches[related_image_index].copy()
     
 
-    def get_all_valid_matches(self) -> dict["Feature" , float]:
+    def get_all_valid_matches(self) -> list["Feature"]:
         return self._all_valid_matches.copy()
     
     @beartype

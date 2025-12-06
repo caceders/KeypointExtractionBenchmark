@@ -1,3 +1,6 @@
+import os
+os.environ["BEARTYPE_IS_BEING_TYPE_CHECKED"] = "0" # Enable or disable beartype
+
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
 from benchmark.pipeline import *
@@ -10,14 +13,7 @@ import pandas as pd
 import traceback
 import warnings
 
-################################################ CONFIGURATIONS #######################################################
-MAX_FEATURES = 150
-USE_OVERLAP = True
-THRESHOLD = 0.3
-VERIFICATION_CORRECT_TO_RANDOM_RATIO = 5
-RETRIEVAL_CORRECT_TO_RANDOM_RATIO = 100
-#######################################################################################################################
-
+from config import *
 
 
 ## Load dataset.    
@@ -62,7 +58,7 @@ features2d = {
     # "SIMPLEBLOB" : SIMPLEBLOB,
     "BRIEF" : BRIEF,
     "DAISY" : DAISY,
-    #"FREAK" : FREAK,
+    # "FREAK" : FREAK,
     # "HARRISLAPLACE" : HARRISLAPLACE,
     # "LATCH" : LATCH,
     # "LUCID" : LUCID,
@@ -93,10 +89,7 @@ matching_approach = greedy_maximum_bipartite_matching_descriptor_distance
 all_results = []
 
 warnings.filterwarnings("once", category=UserWarning)
-
-num_sequences = len(dataset_image_sequences)
-num_related_images = len(dataset_image_sequences[0]) - 1
-image_feature_set = ImageFeatureSet(num_sequences, num_related_images)
+image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
 
 for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="Calculating for all combinations"):
     print(f"Calculating for {feature_extractor_key}")   

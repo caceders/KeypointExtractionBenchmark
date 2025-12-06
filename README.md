@@ -3,14 +3,13 @@ TODO: Wife stealing problem, how to do ratio when using second choice, JUST REMO
 NOW:
 - Create tests for:
     - calculate_valid_matches
-
-
     - Matching
         - Hamming
 
 - Update documentation
 
 LATER:
+- Fix
 
 
 IF TIME:
