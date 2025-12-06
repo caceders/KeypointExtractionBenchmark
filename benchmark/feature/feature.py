@@ -39,15 +39,14 @@ class Feature:
     
     @beartype
     def get_valid_matches_for_image(self, related_image_index: int) -> dict["Feature", float] | dict:
-    
 
         if not related_image_index in self._image_valid_matches:
             return {}
-        return self._image_valid_matches[related_image_index].copy()
+        return self._image_valid_matches[related_image_index]
     
 
     def get_all_valid_matches(self) -> dict["Feature" , float]:
-        return self._all_valid_matches.copy()
+        return self._all_valid_matches
     
     @beartype
     def is_match_with_other_valid(self, other: "Feature"):
