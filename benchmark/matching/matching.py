@@ -100,9 +100,6 @@ class MatchSet:
     
 
 
-
-
-
 def greedy_maximum_bipartite_matching(reference_features: list[Feature], related_features: list[Feature], similarity_score_matrix: np.ndarray, similarity_higher_is_better: bool, calculate_match_properties: bool) -> list[Match]:
     """
     Compute the greedy maximum bipartite matching between two sets of features based on a similarity matrix, with either low values indicating similarity, like distance or high values, like overlap
@@ -127,54 +124,10 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
         return []
     
     NUM_SCORES_DISTINCTIVNESS = 10
-    NUM_BEST_MATCHES = 10
+    NUM_BEST_MATCHES = 20
 
     num_ref_features, num_rel_features = similarity_score_matrix.shape
     num_best_matches = min(NUM_BEST_MATCHES, num_rel_features)
-
-    
-    # --- Fast path: single reference feature ---
-    if num_ref_features == 1:
-        # Select the best related feature for the single reference without full sorting
-        ref_feature = reference_features[0]
-        similarity_scores = similarity_score_matrix[0]
-        if num_best_matches == 0:
-            return []
-
-        if similarity_higher_is_better:
-            # Top-k highest (unordered)
-            topk_unordered = np.argpartition(-similarity_scores, num_best_matches - 1)[:num_best_matches]
-            topk_scores = similarity_scores[topk_unordered]
-            # Choose the best among the k without sorting all k
-            best_local = int(np.argmax(topk_scores))
-            # For distinctiveness, order these k scores descending
-            order_for_dist = np.argsort(-topk_scores)
-        else:
-            # Top-k lowest (unordered)
-            topk_unordered = np.argpartition(similarity_scores, num_best_matches - 1)[:num_best_matches]
-            topk_scores = similarity_scores[topk_unordered]
-            # Choose the best among the k without sorting all k
-            best_local = int(np.argmin(topk_scores))
-            # For distinctiveness, order these k scores ascending
-            order_for_dist = np.argsort(topk_scores)
-
-        rel_feature_idx = int(topk_unordered[best_local])
-        best_score = float(topk_scores[best_local])
-
-        match = Match(ref_feature, related_features[rel_feature_idx])
-
-        if calculate_match_properties:
-            match.match_properties["distance"] = best_score
-            match.match_properties["average_response"] = (
-                match.reference_feature.keypoint.response + match.related_feature.keypoint.response
-            ) / 2.0
-            # Distinctiveness: mean of the first NUM_SCORES_DISTINCTIVNESS scores in ordered top-k,
-            # divided by the chosen score, consistent with your original definition.
-            d = min(NUM_SCORES_DISTINCTIVNESS, topk_scores.size)
-            base_mean = float(topk_scores[order_for_dist][:d].mean())
-            match.match_properties["distinctiveness"] = base_mean / (best_score + 1e-12)
-
-        return [match]
 
 
     best_rel_feature_idxs = np.empty((num_ref_features, num_best_matches), dtype=np.int64)
@@ -215,7 +168,23 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
             match.match_properties["distance"] = float(similarity_score)
             match.match_properties["average_response"] = (match.reference_feature.keypoint.response + match.related_feature.keypoint.response)/2
             scores = best_similarity_scores[ref_feature_idx][:NUM_SCORES_DISTINCTIVNESS]
-            match.match_properties["distinctiveness"] = np.mean(scores)/(similarity_score + 1e-12)
+
+            # Linear preference: higher weight for lower scores
+            N = len(scores)
+            pref = (np.max(scores) - scores)
+            pref = np.clip(pref, 0.0, None)
+            if pref.sum() == 0:
+                pref = np.ones_like(scores)
+            pref /= pref.sum()  # normalize to sum=1
+
+            # Fair weights: mean = 1
+            strength = 1.0  # adjust emphasis (0 = uniform, 1 = strong)
+            w_fair = 1.0 + strength * N * (pref - 1.0 / N)
+
+            # Weighted average with fair weights
+            fair_avg = np.mean(w_fair * scores)
+
+            match.match_properties["distinctiveness"] = fair_avg/(similarity_score+1e-12)
 
     return matches
 

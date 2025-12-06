@@ -233,7 +233,6 @@ if __name__ == "__main__":
                 overlap_matrix_np = np.array(overlap_matrix)
 
                 matches = greedy_maximum_bipartite_matching(reference_features, related_image_features, overlap_matrix_np, True, False)
-                #matches = greedy_maximum_bipartite_matching(reference_features, related_image_features, overlap_matrix_np)
 
                 number_of_possible_correct_matches = sum(1 for match in matches
                                                             if (valid_matches:=match.reference_feature.get_valid_matches_for_image(related_image_index)) is not None and 
