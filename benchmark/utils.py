@@ -98,5 +98,6 @@ def calculate_overlap_one_circle_to_many(circle_diameter: float, other_circles_d
     # Overlap fractions — require BOTH circles to meet the threshold
     overlap_circle_frac = intersectional_area / (circle_area  + EPS)   # coverage of the circleerence circle
     overlap_other_circles_frac = intersectional_area / (other_circles_areas + EPS)   # coverage of each other_circlesated circle
+    overlap_min = np.minimum(overlap_circle_frac,overlap_other_circles_frac)
 
-    return overlap_circle_frac, overlap_other_circles_frac
+    return overlap_min

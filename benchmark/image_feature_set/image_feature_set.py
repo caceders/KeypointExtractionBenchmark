@@ -12,28 +12,9 @@ class ImageFeatureSequence:
     """
     @beartype
     def __init__(self, num_related_images: int):
-        self._reference_image_features = []
-        self._related_image_features = [[] for _ in range(num_related_images)]
-        self._all = [self._reference_image_features] + self._related_image_features
-    
-    @property
-    def reference_image(self) -> list[Feature]:
-        return self._reference_image_features
-
-    @beartype
-    def related_image(self, related_image_index) -> list[Feature]:
-        return self._related_image_features[related_image_index]
-    
-    @property
-    def related_images(self) -> list[list[Feature]]:
-        return self._related_image_features.copy()
-
-
-    def get_features(self) -> list[Feature]:
-        features = self._reference_image_features
-        for related_image in self.related_images:
-            features.extend(related_image)
-        return features
+        self.reference_image_features = []
+        self.related_images_features = [[] for _ in range(num_related_images)]
+        self._all = [self.reference_image_features] + self.related_images_features
 
     def __iter__(self) -> Iterator[list[Feature]]:
         for image_features in self._all:
@@ -51,9 +32,9 @@ class ImageFeatureSequence:
 
         # Also set reference and related image features
         if index == 0:
-            self._reference_image_features = value
+            self.reference_image_features = value
         else:
-            self._related_image_features[index - 1] = value
+            self.related_images_features[index - 1] = value
         
 
 
@@ -68,12 +49,6 @@ class ImageFeatureSet:
     @beartype
     def __init__(self, num_sequences, num_related_images):
         self._sequences: list[ImageFeatureSequence] = [ImageFeatureSequence(num_related_images) for _ in range(num_sequences)]
-
-    def get_features(self) -> list[Feature]:
-        features = []
-        for image_feature_sequence in self._sequences:
-            features.extend(image_feature_sequence.get_features())
-        return features
 
     def __len__(self):
         return len(self._sequences)
