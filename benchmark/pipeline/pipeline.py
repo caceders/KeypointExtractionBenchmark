@@ -49,50 +49,80 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
     
     set_numbers_of_possible_correct_matches= []
     set_repeatabilities = []
-    
     for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating and ranking all valid matches")):
 
         numbers_of_possible_correct_matches = []
         repeatabilities = []
 
+        number_of_reference_features = len(image_feature_sequence.reference_image)
         reference_features = image_feature_sequence.reference_image
-        related_images = image_feature_sequence.related_images
 
-        num_related = len(related_images)
+        for related_image_index, related_image_features in enumerate(image_feature_sequence.related_images):
 
-        for related_image_index in range(num_related):
-            
-            scores_reference_to_related_image = []
-
-            related_features = related_images[related_image_index]
             homography = dataset_homography_sequence[sequence_index][related_image_index]
 
-            if len(related_features) == 0:
+            if len(related_image_features) == 0:
                 continue
 
-            
-            # transform position
-            related_features_positions = np.array([feature.pt for feature in related_features], dtype=float)
-            related_features_position_stacked = np.hstack([related_features_positions, np.ones((related_features_positions.shape[0], 1))])
-            related_features_position_stacked_T = (homography @ related_features_position_stacked.T).T
-            related_features_position_stacked_T /= related_features_position_stacked_T[:, 2:3]
-            related_features_position_transformed = related_features_position_stacked_T[:, :2]
+            # transform position 
+            related_features_position_transformed = np.array([feature.get_pt_after_homography_transform(homography) for feature in related_image_features])
 
             # transform sizes
-            related_features_size_transformed = np.array([related_feature.get_size_after_homography_transform(homography) for related_feature in related_features])
-
+            related_features_size_transformed = np.array([feature.get_size_after_homography_transform(homography) for feature in related_image_features])
+            overlap_matrix = []
             for reference_feature in reference_features:
                 
                 # Check distances
                 distances = np.linalg.norm(related_features_position_transformed - reference_feature.pt, axis=1)
-                scores = - distances
+                
                 # Create check mask
                 if use_overlap:
-                    overlap_ref_frac, overlap_rel_frac = calculate_overlap_one_circle_to_many(reference_feature.keypoint.size, related_features_size_transformed, distances)
+                    ref_radius   = float(reference_feature.keypoint.size) / 2.0
+                    rel_radii    = related_features_size_transformed / 2.0
+                    EPS = 1e-12  # small epsilon for numerical stability
+
+                    ref_area  = np.pi * (ref_radius ** 2)      # scalar
+                    rel_areas = np.pi * (rel_radii  ** 2)      # vector
+
+                    # Intersection area (vectorized)
+                    intersectional_area = np.zeros_like(distances, dtype=float)
+        
+                    # Case 1: disjoint (no overlap)
+                    disjoint_mask  = distances >= ref_radius + rel_radii
+
+                    # Case 2: one circle fully contained in the other
+                    contained_mask = distances <= np.abs(ref_radius - rel_radii)
+                    if np.any(contained_mask):
+                        intersectional_area[contained_mask] = np.pi * (np.minimum(ref_radius, rel_radii[contained_mask]) ** 2)
+
+                    # Case 3: partial overlap (lens)
+                    partial_mask = (~disjoint_mask) & (~contained_mask)
+                    if np.any(partial_mask):
+                        distances_partial  = distances[partial_mask]
+                        rel_radii_partial = rel_radii[partial_mask]
+
+                        # Stable arccos arguments
+                        cos1 = (distances_partial**2 + ref_radius**2 - rel_radii_partial**2) / (2.0 * distances_partial * ref_radius + EPS)
+                        cos2 = (distances_partial**2 + rel_radii_partial**2 - ref_radius**2) / (2.0 * distances_partial * rel_radii_partial      + EPS)
+                        cos1 = np.clip(cos1, -1.0, 1.0)
+                        cos2 = np.clip(cos2, -1.0, 1.0)
+
+                        #MATH for overlap of circles
+                        term1 = ref_radius**2 * np.arccos(cos1)
+                        term2 = rel_radii_partial**2      * np.arccos(cos2)
+                        sq = (-distances_partial + ref_radius + rel_radii_partial) * (distances_partial + ref_radius - rel_radii_partial) * (distances_partial - ref_radius + rel_radii_partial) * (distances_partial + ref_radius + rel_radii_partial)
+                        term3 = 0.5 * np.sqrt(np.clip(sq, 0.0, None))
+
+                        intersectional_area[partial_mask] = term1 + term2 - term3
+
+                    # Overlap fractions — require BOTH circles to meet the threshold
+                    overlap_ref_frac = intersectional_area / (ref_area  + EPS)   # coverage of the reference circle
+                    overlap_rel_frac = intersectional_area / (rel_areas + EPS)   # coverage of each related circle
+                    overlap_min = np.minimum(overlap_ref_frac,overlap_rel_frac)
+                    overlap_matrix.append(overlap_min)
 
                     # Final mask: ONLY overlap criterion
                     mask = (overlap_ref_frac >= threshold) & (overlap_rel_frac >= threshold)
-                    scores = np.minimum(overlap_ref_frac, overlap_rel_frac)
 
                 else:
                     mask = (
@@ -100,22 +130,24 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
                     )
 
                 valid_feature_indexes = np.nonzero(mask)[0]
-
-                # Store all scores
-                scores_reference_to_related_image.append(scores)
+                if valid_feature_indexes.size == 0:
+                    continue
 
                 # Store valid features for that check mask
                 for index in valid_feature_indexes:
-                    related_feature = related_features[index]
-                    score = float(scores[index])
-                    reference_feature.store_valid_match_for_image(related_image_index, related_feature, score)
-                    related_feature.store_valid_match_for_image(0, reference_feature, score)
-            
-            score_matrix = np.asarray(scores_reference_to_related_image)
-            matches = greedy_maximum_bipartite_matching(reference_features, related_features, score_matrix, True)
+                    related_feature = related_image_features[index]
+                    distance = distances[index]
+                    reference_feature.store_valid_match_for_image(related_image_index, related_feature, distance)
+                    related_feature.store_valid_match_for_image(0, reference_feature, distance)
 
-            number_of_possible_correct_matches = len(matches)
-            number_of_reference_features = len(reference_features)
+            # Run matching
+            overlap_matrix_np = np.array(overlap_matrix)
+
+            matches = greedy_maximum_bipartite_matching(reference_features, related_image_features, overlap_matrix_np, True, False)
+
+            number_of_possible_correct_matches = sum(1 for match in matches
+                                                        if (valid_matches:=match.reference_feature.get_valid_matches_for_image(related_image_index)) is not None and 
+                                                        match.related_feature in valid_matches)
 
             numbers_of_possible_correct_matches.append(number_of_possible_correct_matches)
 
