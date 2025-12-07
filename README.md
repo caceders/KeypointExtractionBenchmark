@@ -4,12 +4,10 @@ NOW:
 - Create tests for:
     - calculate_valid_matches
     - Matching
-        - Hamming
 
 - Update documentation
 
 LATER:
-- Fix
 
 
 IF TIME:

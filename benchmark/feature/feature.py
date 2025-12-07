@@ -72,16 +72,14 @@ class Feature:
         x, y = self.keypoint.pt
         r = self.keypoint.size / 2
 
-        # Four sample points around the keypoint
+        # Sample points around the keypoint
+        angles = np.linspace(0, 2*np.pi, NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, endpoint=False)
         pts = np.array([
-            [x + r, y],
-            [x - r, y],
-            [x, y + r],
-            [x, y - r]
+            [x + r * np.cos(a), y + r * np.sin(a)] for a in angles
         ], dtype=np.float32)
-
+        
         # Stack with transform dimension
-        pts_h = np.hstack([pts, np.ones((4, 1), dtype=np.float32)])  # (4,3)
+        pts_h = np.hstack([pts, np.ones((NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, 1), dtype=np.float32)])  # (NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION,3)
         center_h = np.array([x, y, 1.0], dtype=np.float32)
 
         # Apply homography
