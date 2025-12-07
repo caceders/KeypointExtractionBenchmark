@@ -142,6 +142,7 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
 
     num_ref_features, num_rel_features = similarity_score_matrix.shape
     num_best_matches = min(NUM_BEST_MATCHES, num_rel_features)
+    num_scores_for_distinctivess = min(NUM_SCORES_DISTINCTIVNESS, num_best_matches)
 
 
     best_rel_feature_idxs = np.empty((num_ref_features, num_best_matches), dtype=np.int64)
@@ -181,7 +182,7 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
         if calculate_match_properties:
             match.match_properties["distance"] = float(similarity_score)
             match.match_properties["average_response"] = (match.reference_feature.keypoint.response + match.related_feature.keypoint.response)/2
-            scores = best_similarity_scores[ref_feature_idx][:NUM_SCORES_DISTINCTIVNESS]
+            scores = best_similarity_scores[ref_feature_idx][:num_scores_for_distinctivess].astype(np.float64)
 
             # Linear preference: higher weight for lower scores
             N = len(scores)
