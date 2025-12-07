@@ -27,7 +27,7 @@ def sample_feature_with_valid_matches() -> Feature:
     for i in range(3):
         kp = cv2.KeyPoint(100 + i, 200 + i, 1)
         desc = np.ones(128) * i
-        this_feature.store_valid_match_for_image(i, Feature(kp, desc, 1, 1), i)
+        this_feature.store_valid_match_for_image(i, Feature(kp, desc, 1, 1))
     return this_feature
 
 
@@ -51,18 +51,16 @@ def test_invalid_arguments_constructor(kp, desc, sequence_index, image_index):
         Feature(kp, desc, sequence_index, image_index)
 
 
-@pytest.mark.parametrize("related_image_index, feature, score", [
-    (None, Feature(cv2.KeyPoint(1,2,3), np.ones(3), 1, 2), 5),
-    (4, None, 5),
-    (4, Feature(cv2.KeyPoint(1,2,3), np.ones(3), 1, 2), None),
+@pytest.mark.parametrize("related_image_index, feature", [
+    (None, Feature(cv2.KeyPoint(1,2,3), np.ones(3), 1, 2)),
+    (4, None),
     ], ids = [
         "Bad argument related_image_index",
         "Bad argument feature",
-        "Bad argument score",
     ])
-def test_invalid_arguments_store_valid_match_for_image(sample_feature1, related_image_index, feature, score):
+def test_invalid_arguments_store_valid_match_for_image(sample_feature1, related_image_index, feature):
     with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
-        sample_feature1.store_valid_match_for_image(related_image_index, feature, score)
+        sample_feature1.store_valid_match_for_image(related_image_index, feature)
 
 
 def test_invalid_arguments_get_valid_matches_for_image(sample_feature_with_valid_matches):
@@ -89,7 +87,7 @@ def test_valid_arguments_constructor():
 
 
 def test_valid_arguments_store_valid_match_for_image(sample_feature1, sample_feature2):
-    sample_feature1.store_valid_match_for_image(1, sample_feature2, 10)
+    sample_feature1.store_valid_match_for_image(1, sample_feature2)
 
 
 def test_valid_arguments_get_valid_matches_for_image(sample_feature_with_valid_matches):
@@ -117,13 +115,13 @@ def test_valid_arguments_get_pt_after_homography_transform(sample_feature1):
 
 
 def test_store_valid_feature(sample_feature1: Feature, sample_feature2: Feature):
-    sample_feature1.store_valid_match_for_image(0, sample_feature2, 10)
+    sample_feature1.store_valid_match_for_image(0, sample_feature2)
     assert len(sample_feature1._image_valid_matches) == 1, "After calling store_valid_match_for_image() with a single feature for the first time, the _image_valid_matches did not contain only one image"
     assert len(sample_feature1._image_valid_matches[0]) == 1, "After calling store_valid_match_for_image() with a single feature for the first time, the related image in _image_valid_matches did not contain ONE feature"
-    assert sample_feature2 in sample_feature1._image_valid_matches[0].keys(), "After calling store_valid_match_for_image() with a single feature for the first time, the related image in _image_valid_matches did not contain ONLY that feature"
+    assert sample_feature2 in sample_feature1._image_valid_matches[0], "After calling store_valid_match_for_image() with a single feature for the first time, the related image in _image_valid_matches did not contain ONLY that feature"
 
     assert len(sample_feature1._all_valid_matches) == 1, "After calling store_valid_match_for_image() with a single feature for the first time, there was not in total only ONE feature in _all_valid_matches"
-    assert sample_feature2 in sample_feature1._all_valid_matches.keys(), "After calling store_valid_match_for_image() with a single feature for the first time, there was not only that one feature in _all_valid_matches"
+    assert sample_feature2 in sample_feature1._all_valid_matches, "After calling store_valid_match_for_image() with a single feature for the first time, there was not only that one feature in _all_valid_matches"
 
 
 def test_get_all_valid_matches(sample_feature_with_valid_matches: Feature, sample_feature2: Feature):
@@ -131,27 +129,27 @@ def test_get_all_valid_matches(sample_feature_with_valid_matches: Feature, sampl
     all_valid = sample_feature_with_valid_matches.get_all_valid_matches()
     assert len(all_valid) == 3, "sample_feature_with_valid_matches was expected to have 3 valid features, but it did not"
 
-    sample_feature_with_valid_matches.store_valid_match_for_image(500, sample_feature2, 1)
+    sample_feature_with_valid_matches.store_valid_match_for_image(500, sample_feature2)
     all_valid = sample_feature_with_valid_matches.get_all_valid_matches()
     assert len(all_valid) == 4, "After storing a single feature there was not 4 valid features in the fixture"
 
-    assert sample_feature2 in all_valid.keys(), "The added feature was not part of the return dictionary from the get_all_valid_matches() function"
+    assert sample_feature2 in all_valid, "The added feature was not part of the return dictionary from the get_all_valid_matches() function"
 
 
 def test_get_valid_matches_for_image(sample_feature_with_valid_matches: Feature, sample_feature2: Feature):
     valid = sample_feature_with_valid_matches.get_valid_matches_for_image(0)
     assert len(valid) == 1, "Before storing a feature there was not only 1 valid features for image 0 in the fixture"
 
-    sample_feature_with_valid_matches.store_valid_match_for_image(0, sample_feature2, 1)
+    sample_feature_with_valid_matches.store_valid_match_for_image(0, sample_feature2)
     valid = sample_feature_with_valid_matches.get_valid_matches_for_image(0)
     assert len(valid) == 2, "After storing a feature there was not 2 valid features for image 0 in the fixture"
 
-    assert sample_feature2 in valid.keys(), "The added feature was not part of all the dictionary returned from get_valid_matches_for_image for the relevant image in the fixture"
+    assert sample_feature2 in valid, "The added feature was not part of all the dictionary returned from get_valid_matches_for_image for the relevant image in the fixture"
 
 
 def test_is_match_with_other_valid(sample_feature_with_valid_matches: Feature, sample_feature2: Feature):
     assert not sample_feature_with_valid_matches.is_match_with_other_valid(sample_feature2), "Before storing a feature to the images valid matches the match with that feature was valid"
-    sample_feature_with_valid_matches.store_valid_match_for_image(0, sample_feature2, 1)
+    sample_feature_with_valid_matches.store_valid_match_for_image(0, sample_feature2)
     assert sample_feature_with_valid_matches.is_match_with_other_valid(sample_feature2), "Afer storing the feature to the images valid matches the match with that feature was not valid"
 
 

@@ -10,10 +10,10 @@ class ImageFeatureSequence:
     The container behaves like a Python list.
     It supports iteration, indexing, assignment, len(), and item access.
     """
-    @beartype
+    #@beartype
     def __init__(self, num_related_images: int):
-        self.reference_image_features = []
-        self.related_images_features = [[] for _ in range(num_related_images)]
+        self.reference_image_features : list[Feature] = []
+        self.related_images_features : list[list[Feature]] = [[] for _ in range(num_related_images)]
         self._all = [self.reference_image_features] + self.related_images_features
 
     def __iter__(self) -> Iterator[list[Feature]]:
@@ -26,7 +26,7 @@ class ImageFeatureSequence:
     def __getitem__(self, index) -> list[Feature]:
         return self._all[index]
     
-    @beartype
+    #@beartype
     def __setitem__(self, index, value : list[Feature]):
         self._all[index] = value
 
@@ -46,7 +46,7 @@ class ImageFeatureSet:
     The container behaves like a Python list.
     It supports iteration, indexing, assignment, len(), and item access.
     """
-    @beartype
+    #@beartype
     def __init__(self, num_sequences, num_related_images):
         self._sequences: list[ImageFeatureSequence] = [ImageFeatureSequence(num_related_images) for _ in range(num_sequences)]
 

@@ -31,7 +31,7 @@ class Feature:
         self._image_valid_matches: dict[int, list[Feature]] = {}
         self._all_valid_matches: list[Feature] = []
     
-    @beartype
+    #@beartype
     def store_valid_match_for_image(self, related_image_index: int, feature: "Feature"):
 
         if not related_image_index in self._image_valid_matches:
@@ -40,7 +40,7 @@ class Feature:
         self._image_valid_matches[related_image_index].append(feature)
         self._all_valid_matches.append(feature)
     
-    @beartype
+    #@beartype
     def get_valid_matches_for_image(self, related_image_index: int) -> list["Feature"]:
     
 
@@ -52,7 +52,7 @@ class Feature:
     def get_all_valid_matches(self) -> list["Feature"]:
         return self._all_valid_matches.copy()
     
-    @beartype
+    #@beartype
     def is_match_with_other_valid(self, other: "Feature"):
         return other in self._all_valid_matches
 
@@ -60,14 +60,14 @@ class Feature:
     def pt(self)->np.ndarray:
         return np.array([self.keypoint.pt[0], self.keypoint.pt[1]])
 
-    @beartype
+    #@beartype
     def get_pt_after_homography_transform(self, H : np.ndarray) -> Tuple[float, float]:
         if H.shape != (3,3): raise TypeError("Homography must be a 3x3 np.ndrray")
         x, y = self.pt
         v = H @ np.array([x, y, 1.0])
         return v[0] / v[2], v[1] / v[2]
     
-    @beartype
+    #@beartype
     def get_size_after_homography_transform(self, H : np.ndarray):
         x, y = self.keypoint.pt
         r = self.keypoint.size / 2

@@ -50,9 +50,9 @@ def test_invalid_arguments_constructor():
         ImageFeatureSequence(None)
 
 
-def test_invalid_arguments_related_image(sample_image_feature_sequence):
+def test_invalid_arguments_related_images_features(sample_image_feature_sequence):
     with pytest.raises((BeartypeCallHintParamViolation, TypeError)):
-        sample_image_feature_sequence.related_image(None)
+        sample_image_feature_sequence.related_images_features[None]
 
 
 def test_invalid_arguments_set_item(sample_image_feature_sequence):
@@ -68,16 +68,12 @@ def test_valid_arguments_constructor():
     ImageFeatureSequence(NUM_RELATED_IMAGES)
 
 
-def test_valid_arguments_reference_image(sample_image_feature_sequence):
-    sample_image_feature_sequence.reference_image
+def test_valid_arguments_reference_image_features(sample_image_feature_sequence):
+    sample_image_feature_sequence.reference_image_features
 
 
-def test_valid_arguments_related_image(sample_image_feature_sequence):
-    sample_image_feature_sequence.related_image(NUM_RELATED_IMAGES//2)
-
-
-def test_valid_arguments_related_images(sample_image_feature_sequence):
-    sample_image_feature_sequence.related_images
+def test_valid_arguments_related_images_features(sample_image_feature_sequence):
+    sample_image_feature_sequence.related_images_features[NUM_RELATED_IMAGES//2]
 
 
 def test_valid_arguments_set_item(sample_image_feature_sequence, sample_features):
@@ -88,8 +84,8 @@ def test_valid_arguments_set_item(sample_image_feature_sequence, sample_features
 ### Test that general cases behave expectedly ###
 
 
-def test_store_feature_in_reference_image(sample_image_feature_sequence, sample_feature):
-    sample_image_feature_sequence.reference_image.append(sample_feature)
+def test_store_feature_in_reference_image_features(sample_image_feature_sequence, sample_feature):
+    sample_image_feature_sequence.reference_image_features.append(sample_feature)
     assert sample_feature in sample_image_feature_sequence[0], "A stored feature for the reference image was not found in the first index of the relevant feature sequence"
 
 
@@ -98,8 +94,8 @@ def test_store_feature_in_reference_image(sample_image_feature_sequence, sample_
     [image_index for image_index in range(NUM_RELATED_IMAGES)],
     ids=[str(image_index) for image_index in range(NUM_RELATED_IMAGES)]
 )
-def test_store_feature_in_related_image(sample_image_feature_sequence, sample_feature, image_index):
-    sample_image_feature_sequence.related_image(image_index).append(sample_feature)
+def test_store_feature_in_related_images_features(sample_image_feature_sequence, sample_feature, image_index):
+    sample_image_feature_sequence.related_images_features(image_index).append(sample_feature)
     assert sample_feature in sample_image_feature_sequence[image_index + 1], "A stored feature for the related image was not found in the relevant index for the related image"
 
 
@@ -114,13 +110,13 @@ def test_all_features_in_refrence_image(sample_image_feature_sequence, sample_fe
         if feature.image_index == 0:
             check_image_features.append(feature)
 
-    assert len(sample_image_feature_sequence.reference_image) == len(check_image_features), "The amount of features in the reference image should be equal to the amount of features with index 0"
+    assert len(sample_image_feature_sequence.reference_image_features) == len(check_image_features), "The amount of features in the reference image should be equal to the amount of features with index 0"
 
 
-def test_all_features_in_related_image(sample_image_feature_sequence, sample_features):
-    assert len(sample_image_feature_sequence.related_images) == NUM_RELATED_IMAGES, "There should be in total 5 related images"
-    for related_image_index in range(len(sample_image_feature_sequence.related_images)):
-        assert len(sample_image_feature_sequence.related_images[related_image_index]) == np.sum([1 if feature.image_index == (related_image_index + 1) else 0 for feature in sample_features]), "The amount of features in each related image should be equal to the amount of features with that related image's index as their index"
+def test_all_features_in_related_images_features(sample_image_feature_sequence, sample_features):
+    assert len(sample_image_feature_sequence.related_images_features) == NUM_RELATED_IMAGES, "There should be in total 5 related images"
+    for related_images_features_index in range(len(sample_image_feature_sequence.related_images_features)):
+        assert len(sample_image_feature_sequence.related_images_features[related_images_features_index]) == np.sum([1 if feature.image_index == (related_images_features_index + 1) else 0 for feature in sample_features]), "The amount of features in each related image should be equal to the amount of features with that related image's index as their index"
 
 
 def test_itteration(sample_image_feature_sequence):

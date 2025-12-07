@@ -20,7 +20,7 @@ class FeatureExtractor:
         function for detecting keypoints. Needs to take in python list of openCV keypoints
         and an image on the from of a numpy array and return the descriptor vectors on the form of a numpy array.
     """
-    @beartype
+    #@beartype
     def __init__(self,
                 detect_keypoints : Callable[[np.ndarray], list[cv2.KeyPoint]],
                 describe_keypoints: Callable[[np.ndarray, list[cv2.KeyPoint]], list[np.ndarray]],
@@ -34,7 +34,7 @@ class FeatureExtractor:
         self._describe_keypoints = describe_keypoints
         self.distance_type = distance_type
 
-    @beartype
+    #@beartype
     @classmethod
     def from_opencv(cls,
                 opencv_detect_keypoints : Callable[[np.ndarray], list[cv2.KeyPoint]],
@@ -59,15 +59,15 @@ class FeatureExtractor:
             )
 
 
-    @beartype
+    #@beartype
     def detect_keypoints(self, image: np.ndarray) -> list[cv2.KeyPoint]:
         return self._detect_keypoints(image)
 
-    @beartype
+    #@beartype
     def describe_keypoints(self, image: np.ndarray, keypoints: list[cv2.KeyPoint]) -> list[np.ndarray]:
         return self._describe_keypoints(image, keypoints)
         
-    @beartype
+    #@beartype
     def get_extraction_time_on_image(self, image: np.ndarray) -> float:
         start = timer()
         keypoints = self._detect_keypoints(image)

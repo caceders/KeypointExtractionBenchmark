@@ -4,6 +4,7 @@ from typing import Iterator
 import cv2
 import numpy as np
 from beartype import beartype
+from config import *
 
 
 
@@ -26,7 +27,7 @@ class Match:
         to get the average ratio of the match.
 
     '''
-    @beartype
+    #@beartype
     def __init__(self, reference_feature: Feature, related_feature: Feature):
 
             self.reference_feature : Feature = reference_feature
@@ -65,7 +66,7 @@ class MatchSet:
     def __init__(self):
         self._matches: list[Match] = []
     
-    @beartype
+    #@beartype
     def add_match(self, matches : Match | list[Match]):
 
         if isinstance(matches, Match):
@@ -75,7 +76,7 @@ class MatchSet:
             self._matches += matches
         
 
-    @beartype
+    #@beartype
     def get_average_precision_score(self, match_ranking_property: MatchRankingProperty, ignore_negatives_in_same_sequence: bool = False) -> float:
 
         labels = [(1 if match.is_correct else 0) for match in self._matches]
@@ -115,7 +116,7 @@ class MatchSet:
         return self._matches[index]
 
 
-@beartype
+#@beartype
 def greedy_maximum_bipartite_matching(reference_features: list[Feature], related_features: list[Feature], similarity_score_matrix: np.ndarray, similarity_higher_is_better: bool, calculate_match_properties: bool) -> list[Match]:
     """
     Compute the greedy maximum bipartite matching between two sets of features based on a similarity matrix, with either low values indicating similarity, like distance or high values, like overlap
@@ -138,9 +139,6 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
     """
     if not reference_features or not related_features:
         return []
-    
-    NUM_SCORES_DISTINCTIVNESS = 10
-    NUM_BEST_MATCHES = 20
 
     num_ref_features, num_rel_features = similarity_score_matrix.shape
     num_best_matches = min(NUM_BEST_MATCHES, num_rel_features)
@@ -205,7 +203,7 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
     return matches
 
 
-@beartype
+#@beartype
 def greedy_maximum_bipartite_matching_descriptor_distance(reference_features: list[Feature], related_features: list[Feature], distance_type: int) -> list[Match]:
     """
     Compute the greedy maximum bipartite matching between two sets of features based on the descriptor

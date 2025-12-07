@@ -9,6 +9,7 @@ import random
 import numpy as np
 import warnings
 from beartype import beartype
+from config import *
 
 # Beartype commented out for performance
 #@beartype
@@ -25,7 +26,7 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
     return speed
 
 
-@beartype
+#@beartype
 def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int):  
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
@@ -51,7 +52,7 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
             image_feature_set[sequence_index][image_index] = features
 
 
-@beartype
+#@beartype
 def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homography_sequence: list[list[np.ndarray]], FEATURE_OVERLAP_THRESHOLD: float):
     
     set_numbers_of_possible_correct_matches= []
@@ -123,7 +124,7 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
     return set_numbers_of_possible_correct_matches, set_repeatabilities
 
 
-@beartype
+#@beartype
 def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable) -> list[MatchSet]:
     matching_match_sets: list[MatchSet] = []
     for image_feature_sequence in tqdm(image_feature_set, leave=False, desc="Calculating matching results"):
@@ -138,7 +139,7 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
     return matching_match_sets
 
 
-@beartype
+#@beartype
 def calculate_verification_evaluation(feature_extractor : FeatureExtractor, image_feature_set: ImageFeatureSet, correct_to_random_ratio: int, matching_approach : Callable) -> list[MatchSet]:
     verification_match_sets: list [MatchSet] = []
 
@@ -174,7 +175,7 @@ def calculate_verification_evaluation(feature_extractor : FeatureExtractor, imag
     return verification_match_sets
 
 
-@beartype
+#@beartype
 def calculate_retrieval_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, correct_to_random_ratio : int, max_num_retrieval_features : int, matching_approach : Callable) -> list[MatchSet]:
     retrieval_match_sets : list[MatchSet] = []
     all_features = [feature 
@@ -190,7 +191,7 @@ def calculate_retrieval_evaluation(feature_extractor : FeatureExtractor, image_f
         
         for reference_feature in image_feature_sequence.reference_image_features:
             # Choose max_num_retrieval_features
-            correct_features = list(reference_feature.get_all_valid_matches().keys())
+            correct_features = list(reference_feature.get_all_valid_matches())
             if len(correct_features) > max_num_retrieval_features:
                 correct_features = random.sample(correct_features, max_num_retrieval_features)
             num_random_features = len(correct_features) * correct_to_random_ratio
@@ -209,9 +210,10 @@ def calculate_retrieval_evaluation(feature_extractor : FeatureExtractor, image_f
              
             while len(random_features_idxs) < num_random_features:
                 candidate_idx = rng.integers(0, num_features)
-                candidate_feature = all_features[candidate_idx]
-                if candidate_feature not in invalid_set:
-                    random_features_idxs.add(candidate_idx)
+                if (candidate_idx not in random_features_idxs):
+                    candidate_feature = all_features[candidate_idx]
+                    if candidate_feature not in invalid_set:
+                        random_features_idxs.add(candidate_idx)
 
             random_features = [all_features[i] for i in random_features_idxs]
             
