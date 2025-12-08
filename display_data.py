@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 
 ASCENDING = True
 
-if not ASCENDING:
-    # Load CSV
-    df = pd.read_csv("output_goat.csv")
+# Load CSV
+df = pd.read_csv("output.csv")
 
+if not ASCENDING:
     # Identify numeric columns automatically
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
 
@@ -30,8 +30,6 @@ if not ASCENDING:
     plt.show()
 
 else:
-    # Load CSV
-    df = pd.read_csv("output_goat.csv")
 
     # Identify numeric columns automatically
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
