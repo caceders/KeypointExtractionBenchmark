@@ -178,28 +178,80 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
         matched_related_feature_idxs.add(rel_feature_idx)
         match = Match(reference_features[ref_feature_idx], related_features[rel_feature_idx])
         matches.append(match)
-        #Only when used as matching approach
+        #Only when used as matching approach and only works for distance, no higher_is_better here
         if calculate_match_properties:
             match.match_properties["distance"] = float(similarity_score)
             match.match_properties["average_response"] = (match.reference_feature.keypoint.response + match.related_feature.keypoint.response)/2
+
             scores = best_similarity_scores[ref_feature_idx][:num_scores_for_distinctivess].astype(np.float64)
 
-            # Linear preference: higher weight for lower scores
-            N = len(scores)
-            pref = (np.max(scores) - scores)
-            pref = np.clip(pref, 0.0, None)
-            if pref.sum() == 0:
-                pref = np.ones_like(scores)
-            pref /= pref.sum()  # normalize to sum=1
 
-            # Fair weights: mean = 1
-            strength = 1.0  # adjust emphasis (0 = uniform, 1 = strong)
-            w_fair = 1.0 + strength * N * (pref - 1.0 / N)
+            # BAD LINEAR
+            # scores = scores[scores != similarity_score]
+            # N = len(scores)
+            # pref = (np.max(scores) - scores)
+            # pref = np.clip(pref, 0.0, None)
+            # if pref.sum() == 0:
+            #     pref = np.ones_like(scores)
+            # pref /= pref.sum()  # normalize to sum=1
 
-            # Weighted average with fair weights
-            fair_avg = np.mean(w_fair * scores)
+            # # Fair weights: mean = 1
+            # strength = 1  # adjust emphasis (0 = uniform, 1 = strong)
+            # w_fair = 1.0 + strength * N * (pref - 1.0 / N)
 
-            match.match_properties["distinctiveness"] = fair_avg/(similarity_score+1e-12)
+            # # Weighted average with fair weights
+            # fair_avg = np.mean(w_fair * scores)
+            # distinctiveness = fair_avg/(similarity_score+1e-12)
+            # match.match_properties["distinctiveness"] = distinctiveness
+
+
+
+            idxs = np.where(scores == similarity_score)[0]
+            if (idxs.size > 0):
+                similarity_score_rank = idxs[0]
+
+                #CA method
+                #distinctiveness = (1/(scores[similarity_score_rank]+1e-12))/np.sum(1/(scores+1e-12))
+
+
+                # #SOFTMAX
+                temperature = 10
+                shifted = -(scores - np.min(scores)) / temperature
+                exps = np.exp(shifted)
+                distinctiveness = exps[similarity_score_rank]/np.sum(exps)
+
+                #LOWES RATIO
+                # if (similarity_score_rank == 0):
+                #     distinctiveness = scores[1]/(scores[0]+1e-12)
+                # else:
+                #     distinctiveness = scores[0]/scores[similarity_score_rank]
+
+            else:
+                #match not within top num_scores_for_distinctiveness matches
+                distinctiveness = 0
+            match.match_properties["distinctiveness"] = distinctiveness
+    
+
+            #HÅVARD DIDNT COOK ON THIS ONE
+            # scores = scores[scores != similarity_score]
+            # eps = 1e-12
+            # temperature = 10
+            # # Softmax weights over negative distances with temperature.
+            # # Shift by min(scores) to keep exps in a safe numeric range.
+            # shifted = -(scores - np.min(scores)) / temperature
+            # exps = np.exp(shifted)
+            # w = exps / (np.sum(exps) + eps)
+            # #print(w)
+
+            # weighted_alt = float(np.sum(w * scores))
+            # #print(w*scores)
+
+            # # Distinctiveness high when alternatives are (on average) farther than the chosen match.
+            # # Guard against near-zero chosen distance.
+            # distinctiveness = float(weighted_alt / (float(similarity_score) + eps))
+            # #print(distinctiveness)
+            # match.match_properties["distinctiveness"] = distinctiveness
+
 
     return matches
 
