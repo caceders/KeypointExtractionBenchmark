@@ -19,7 +19,6 @@ dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatch
 
 ####################################### SETUP BENCHMARK HERE #############################################################
 
-SKIP = []
 
 ## Setup feature extractors.
 AGAST = cv2.AgastFeatureDetector_create()
@@ -74,6 +73,8 @@ for detector_key in features2d.keys():
         else: 
             distance_type = cv2.NORM_L2
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
+
+SKIP = []
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -167,6 +168,12 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
 
         all_results.append(results)
 
+        ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
+        for metric, result in results.items():
+            print(metric, result)
+        df = pd.DataFrame(all_results)
+        df.to_csv("output.csv", index = False)
+
     except Exception as e:
         error_message = traceback.format_exc()
         with open("failed_combinations.txt", "a") as f:
@@ -176,8 +183,3 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
 
 
         
-################################################ STORE RESULTS ##############################################################
-for metric, result in results.items():
-    print(metric, result)
-df = pd.DataFrame(all_results)
-df.to_csv("output.csv", index = False)
