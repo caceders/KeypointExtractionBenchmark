@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 ASCENDING = False
-COLORED_SECTIONS_ALPHABETICAL = False
-df = pd.read_csv("output_big_overlap_test.csv")
+COLORED_SECTIONS_ALPHABETICAL = True
+df = pd.read_csv("output_keypoint_size_scaling.csv")
 if not ASCENDING:
 
     if COLORED_SECTIONS_ALPHABETICAL:
