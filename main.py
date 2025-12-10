@@ -43,16 +43,16 @@ STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 
 features2d = {
-    "AGAST" : AGAST,
-    "AKAZE" : AKAZE,
+    #"AGAST" : AGAST,
+    #"AKAZE" : AKAZE,
     #"BRISK" : BRISK,
-    "FAST" : FAST,
-    "GFTT" : GFTT,
+    #"FAST" : FAST,
+    #"GFTT" : GFTT,
     #"KAZE" : KAZE,
     #"MSER" : MSER,
-    "ORB" : ORB,
+    #"ORB" : ORB,
     "SIFT" : SIFT,
-    "SIFT_HIGH_SIG" : SIFT_HIGH_SIG,
+    #"SIFT_HIGH_SIG" : SIFT_HIGH_SIG,
     # "SIMPLEBLOB" : SIMPLEBLOB,
     #"BRIEF" : BRIEF,
     #"DAISY" : DAISY,
@@ -74,7 +74,7 @@ for detector_key in features2d.keys():
             distance_type = cv2.NORM_L2
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
-SKIP = []
+SKIP = ["speedtest"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -154,9 +154,14 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
             results[f"Matching {match_rank_property.name} mAP"] =  mAP
 
         # Results from verification
+        total_verification_set = MatchSet()
+        for match_set in verification_match_sets:
+            for match in match_set:
+                total_verification_set.add_match(match)
+                
         for match_ranking_property in match_properties:
-            mAP = np.average([match_set.get_average_precision_score(match_ranking_property) for match_set in verification_match_sets])
-            results[f"Verification {match_ranking_property.name} mAP"] = mAP
+            AP = total_verification_set.get_average_precision_score(match_ranking_property)
+            results[f"Verification {match_ranking_property.name} AP"] = AP
 
         # Results from retrieval
         for match_ranking_property in match_properties:

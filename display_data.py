@@ -5,7 +5,7 @@ import matplotlib.patches as mpatches
 
 ASCENDING = False
 COLORED_SECTIONS_ALPHABETICAL = True
-df = pd.read_csv("output_keypoint_size_scaling.csv")
+df = pd.read_csv("output_keypoint_size_scaling2.csv")
 if not ASCENDING:
 
     if COLORED_SECTIONS_ALPHABETICAL:
@@ -20,7 +20,7 @@ if not ASCENDING:
         df["detector"] = df["combination"].str.split("+").str[0]
 
         # 2) Sort alphabetically: by detector, then by combination
-        df = df.sort_values(by=["detector", "combination"], ascending=[True, True]).reset_index(drop=True)
+        #df = df.sort_values(by=["detector", "combination"], ascending=[True, True]).reset_index(drop=True)
 
         # 3) Identify numeric columns automatically
         numeric_cols = df.select_dtypes(include="number").columns.tolist()
