@@ -33,7 +33,7 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
         for image_index, image in enumerate(image_sequence):
 
             keypoints = feature_extractor.detect_keypoints(image)
-            descriptions = feature_extractor.describe_keypoints(image, keypoints)
+            keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
             
             # prebinding locals for performance increase
             Feature_ = Feature

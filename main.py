@@ -30,7 +30,8 @@ KAZE = cv2.KAZE_create()
 MSER = cv2.MSER_create()
 ORB = cv2.ORB_create()
 SIFT = cv2.SIFT_create()
-SIFT_HIGH_SIG = cv2.SIFT_create(sigma = 6)
+SIFT_SIGMA_5 = cv2.SIFT_create(sigma = 5)
+SIFT_SIGMA_10 = cv2.SIFT_create(sigma = 10)
 SIMPLEBLOB = cv2.SimpleBlobDetector_create()
 BRIEF = cv2.xfeatures2d.BriefDescriptorExtractor_create()
 DAISY = cv2.xfeatures2d.DAISY_create()
@@ -41,40 +42,40 @@ LUCID = cv2.xfeatures2d.LUCID.create()
 MSD = cv2.xfeatures2d.MSDDetector_create()
 STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
-
 features2d = {
-    #"AGAST" : AGAST,
-    #"AKAZE" : AKAZE,
-    #"BRISK" : BRISK,
-    #"FAST" : FAST,
-    #"GFTT" : GFTT,
-    #"KAZE" : KAZE,
-    #"MSER" : MSER,
-    #"ORB" : ORB,
+    # "AGAST" : AGAST,
+    # "AKAZE" : AKAZE,
+    # "BRISK" : BRISK,
+    # "FAST" : FAST,
+    # "GFTT" : GFTT,
+    # "KAZE" : KAZE,
+    # "MSER" : MSER,
+    # "ORB" : ORB,
     "SIFT" : SIFT,
-    #"SIFT_HIGH_SIG" : SIFT_HIGH_SIG,
+    # "SIFT_SIGMA_5" : SIFT_SIGMA_5,
+    # "SIFT_SIGMA_10" : SIFT_SIGMA_10,
     # "SIMPLEBLOB" : SIMPLEBLOB,
-    #"BRIEF" : BRIEF,
-    #"DAISY" : DAISY,
-    #"FREAK" : FREAK,
+    # "BRIEF" : BRIEF,
+    # "DAISY" : DAISY,
+    # "FREAK" : FREAK,
     # "HARRISLAPLACE" : HARRISLAPLACE,
     # "LATCH" : LATCH,
     # "LUCID" : LUCID,
     # "MSD" : MSD,
-    #"STARDETECTOR" : STARDETECTOR 
+    # "STARDETECTOR" : STARDETECTOR 
 }
 
 test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
         distance_type = ""
-        if descriptor_key in ["BRISK", "ORB", "AKAZE"]: 
+        if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]: 
             distance_type = cv2.NORM_HAMMING
         else: 
             distance_type = cv2.NORM_L2
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
-SKIP = ["speedtest"]
+SKIP = []
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -119,36 +120,142 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
             retrieval_match_sets : list [MatchSet] = [MatchSet()]        
 
         ## Store results
-        set_numbers_of_possible_correct_matches = np.array(set_numbers_of_possible_correct_matches)
-        set_numbers_of_possible_correct_matches.flatten()
+        # Flatten matching matches once
+        all_matches = [m for s in matching_match_sets for m in s]
+        num_matches = len(all_matches)
 
-        set_repeatabilities = np.array(set_repeatabilities)
-        set_repeatabilities.flatten()
+        # Pre-extract fields (vectorized)
+        is_correct = np.fromiter((m.is_correct for m in all_matches), bool, count=num_matches)
+        match_rank = np.fromiter((m.match_properties["match rank"] for m in all_matches), int, count=num_matches)
+        distances = np.fromiter((m.match_properties["distance"] for m in all_matches), float, count=num_matches)
+        distinctiveness = np.fromiter((m.match_properties["distinctiveness"] for m in all_matches), float, count=num_matches)
+        sizes = np.fromiter(((m.reference_feature.keypoint.size + m.related_feature.keypoint.size) / 2 for m in all_matches), float, count=num_matches)
+        responses = np.fromiter(((m.reference_feature.keypoint.response + m.related_feature.keypoint.response) / 2 for m in all_matches), float, count=num_matches)
 
-        total_possible_correct_matches = sum(
-            num_correct_matches
-            for num_correct_sequence_matches in set_numbers_of_possible_correct_matches
-            for num_correct_matches in num_correct_sequence_matches
+        # Precompute masks
+        correct_mask = is_correct
+        incorrect_mask = ~is_correct
+
+        # Total possible matches (vectorized)
+        set_numbers_of_possible_correct_matches = np.array(set_numbers_of_possible_correct_matches, dtype=object)
+        total_possible_correct_matches = set_numbers_of_possible_correct_matches.sum()
+
+        # Totals
+        total_correct_matches = is_correct.sum()
+        ratio_correct = total_correct_matches / num_matches
+        ratio_possible_found = total_correct_matches / total_possible_correct_matches
+
+        # --- Rank-based stats ---
+        max_rank = NUM_BEST_MATCHES
+        match_rank_totals = np.bincount(match_rank, minlength=max_rank)
+        match_rank_correct = np.bincount(match_rank[correct_mask], minlength=max_rank)
+
+        match_rank_ratios = np.divide(
+            match_rank_correct.astype(float),
+            match_rank_totals.astype(float),
+            out=np.zeros_like(match_rank_correct, dtype=float),
+            where=match_rank_totals != 0
         )
 
-        total_correct_matches = sum(
-            1 if match.is_correct else 0
-            for match_set in matching_match_sets
-            for match in match_set
-        )
+        # --- Size, distance, response, distinctiveness stats ---
+        def safe_mean(x):
+            return float(np.mean(x)) if len(x) else 0.0
+
+        avg_size = sizes.mean()
+        std_size = sizes.std()
+        min_size = sizes.min()
+        max_size = sizes.max()
+        unique_sizes_count = len(np.unique(sizes))
+
+        # Correct-only subsets
+        sizes_correct = sizes[correct_mask]
+        distances_correct = distances[correct_mask]
+        responses_correct = responses[correct_mask]
+        distinctiveness_correct = distinctiveness[correct_mask]
+
+        # Additional requested metrics
+        total_num_features = sum(len(image) for sequence in image_feature_set for image in sequence)
+
+        # Per-image metrics
+        correct_per_sequence = np.array([sum(m.is_correct for m in s) for s in matching_match_sets])
+        avg_correct_per_sequence = correct_per_sequence.mean()
+        std_correct_per_sequence = correct_per_sequence.std()
+
+        avg_size_correct = safe_mean(sizes_correct)
+        ratio_size_correct = avg_size_correct / avg_size if avg_size != 0 else 0
+
+        norm_std_size = std_size / avg_size if avg_size != 0 else 0
+
+        avg_dist = distances.mean()
+        avg_dist_correct = safe_mean(distances_correct)
+        ratio_dist_correct = avg_dist_correct / avg_dist if avg_dist != 0 else 0
+
+        avg_resp = responses.mean()
+        avg_resp_correct = safe_mean(responses_correct)
+        ratio_resp_correct = avg_resp_correct / avg_resp if avg_resp != 0 else 0
+
+        avg_distinct = distinctiveness.mean()
+        avg_distinct_correct = safe_mean(distinctiveness_correct)
+        ratio_distinct_correct = avg_distinct_correct / avg_distinct if avg_distinct != 0 else 0
+
+        # Rank stats: all + correct
+        avg_rank_all = match_rank.mean()
+        std_rank_all = match_rank.std()
+        avg_rank_correct = match_rank[correct_mask].mean() if correct_mask.any() else 0
+        std_rank_correct = match_rank[correct_mask].std() if correct_mask.any() else 0
+
+        outside_10_all = np.mean(match_rank > 10)
+        outside_10_correct = np.mean(match_rank[correct_mask] > 10) if correct_mask.any() else 0
+
+
+        # ========================
+        # STORE RESULTS
+        # ========================
 
         results = {
             "combination": f"{feature_extractor_key}",
             "speed": speed,
-            "cm_total: mean" : np.mean(set_numbers_of_possible_correct_matches),
-            "cm_total: std" : np.std(set_numbers_of_possible_correct_matches),
-            "rep_total: mean" : np.mean(set_repeatabilities),
-            "rep_total: std" : np.std(set_repeatabilities),
-            "total num matches" : sum(len(match_set) for match_set in matching_match_sets),
-            "num possible correct matches" : total_possible_correct_matches,
-            "total correct matches" : total_correct_matches
+            "repeatability mean": np.mean(set_repeatabilities),
+            "repeatability std": np.std(set_repeatabilities),
+
+            "total num matches": num_matches,
+            "number possible correct matches": total_possible_correct_matches,
+            "total correct matches": total_correct_matches,
+            "ratio correct/total matches": ratio_correct,
+            "ratio correct/possible correct matches": ratio_possible_found,
+
+            # Size metrics
+            "size mean": avg_size,
+            "size std": std_size,
+            "size normalized std": norm_std_size,
+            "size min": min_size,
+            "size max": max_size,
+            "size unique count": unique_sizes_count,
+            "size correct: avg": avg_size_correct,
+            "size correct/all ratio": ratio_size_correct,
+
+            "total num keypoints": total_num_features,
+            "correct matches per sequence: avg": avg_correct_per_sequence,
+            "correct matches per sequence: std": std_correct_per_sequence,
+
+            "distance correct/all ratio": ratio_dist_correct,
+
+            "response correct/all ratio": ratio_resp_correct,
+
+            "distinctiveness all: avg": avg_distinct,
+            "distinctiveness correct: avg": avg_distinct_correct,
+            "distinctiveness correct/all ratio": ratio_distinct_correct,
+
+            # Rank metrics
+            "match rank: avg": avg_rank_all,
+            "match rank: std": std_rank_all,
+            "match rank correct: avg": avg_rank_correct,
+            "match rank correct: std": std_rank_correct,
+            "ratio rank >10 / all": outside_10_all,
+            "ratio rank >10 correct / rank >10": outside_10_correct,
         }
 
+        # Results from matching
         for match_rank_property in match_properties:
             mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets])
             results[f"Matching {match_rank_property.name} mAP"] =  mAP
@@ -185,6 +292,3 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
             f.write(f"{feature_extractor_key}\n")
             f.write(f"{error_message}\n")
             f.write("\n")
-
-
-        

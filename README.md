@@ -8,6 +8,7 @@ NOW:
 - Update documentation
 
 LATER:
+- Calculate number of unmatched features.
 
 
 IF TIME:
@@ -26,7 +27,6 @@ IF TIME:
     - calculate_verification_results (edge cases)
     - calculate_retrieval_results (edge cases)
 
-
 CHECKLIST AFTER TESTS:
     - Does everything have:
         - Test for invalid input
@@ -43,3 +43,11 @@ CHECKLIST AFTER TESTS:
 
     - Check main source code
         - When mentioning specific arguments in the error messages use the actual names "x_y_z", not "x y z"
+
+
+
+
+56
+71
+
+127

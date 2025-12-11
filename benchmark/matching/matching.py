@@ -252,6 +252,10 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
             # #print(distinctiveness)
             # match.match_properties["distinctiveness"] = distinctiveness
 
+            if len(idxs) != 0:
+                match.match_properties["match rank"] = idxs[0]
+            else:
+                match.match_properties["match rank"] = NUM_BEST_MATCHES
 
     return matches
 
