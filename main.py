@@ -43,26 +43,26 @@ MSD = cv2.xfeatures2d.MSDDetector_create()
 STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
-    # "AGAST" : AGAST,
-    # "AKAZE" : AKAZE,
-    # "BRISK" : BRISK,
-    # "FAST" : FAST,
-    # "GFTT" : GFTT,
-    # "KAZE" : KAZE,
-    # "MSER" : MSER,
-    # "ORB" : ORB,
+    "AGAST" : AGAST,
+    "AKAZE" : AKAZE,
+    "BRISK" : BRISK,
+    "FAST" : FAST,
+    "GFTT" : GFTT,
+    "KAZE" : KAZE,
+    "MSER" : MSER,
+    "ORB" : ORB,
     "SIFT" : SIFT,
-    # "SIFT_SIGMA_5" : SIFT_SIGMA_5,
-    # "SIFT_SIGMA_10" : SIFT_SIGMA_10,
-    # "SIMPLEBLOB" : SIMPLEBLOB,
-    # "BRIEF" : BRIEF,
-    # "DAISY" : DAISY,
-    # "FREAK" : FREAK,
-    # "HARRISLAPLACE" : HARRISLAPLACE,
-    # "LATCH" : LATCH,
+    "SIFT_SIGMA_5" : SIFT_SIGMA_5,
+    "SIFT_SIGMA_10" : SIFT_SIGMA_10,
+    "SIMPLEBLOB" : SIMPLEBLOB,
+    "BRIEF" : BRIEF,
+    "DAISY" : DAISY,
+    "FREAK" : FREAK,
+    "HARRISLAPLACE" : HARRISLAPLACE,
+    "LATCH" : LATCH,
     # "LUCID" : LUCID,
-    # "MSD" : MSD,
-    # "STARDETECTOR" : STARDETECTOR 
+    "MSD" : MSD,
+    "STARDETECTOR" : STARDETECTOR 
 }
 
 test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
@@ -204,8 +204,8 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         avg_rank_correct = match_rank[correct_mask].mean() if correct_mask.any() else 0
         std_rank_correct = match_rank[correct_mask].std() if correct_mask.any() else 0
 
-        outside_10_all = np.mean(match_rank > 10)
-        outside_10_correct = np.mean(match_rank[correct_mask] > 10) if correct_mask.any() else 0
+        outside_num_best_matches_all = np.mean(match_rank > NUM_BEST_MATCHES//2)
+        outside_num_best_matches_correct = np.mean(match_rank[correct_mask] > NUM_BEST_MATCHES//2) if correct_mask.any() else 0
 
 
         # ========================
@@ -251,8 +251,8 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
             "match rank: std": std_rank_all,
             "match rank correct: avg": avg_rank_correct,
             "match rank correct: std": std_rank_correct,
-            "ratio rank >10 / all": outside_10_all,
-            "ratio rank >10 correct / rank >10": outside_10_correct,
+            f"ratio rank >{NUM_BEST_MATCHES//2} / all": outside_num_best_matches_all,
+            f"ratio rank >{NUM_BEST_MATCHES//2} correct / rank >{NUM_BEST_MATCHES//2}": outside_num_best_matches_correct,
         }
 
         # Results from matching
