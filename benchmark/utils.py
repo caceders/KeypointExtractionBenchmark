@@ -49,6 +49,7 @@ def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], 
             # and homographies.
             elif filename.startswith("H_"):
                 homography = np.loadtxt(filepath)
+                homography = np.linalg.inv(homography)
                 homographies.append(homography)
 
         image_sequences.append(images)
