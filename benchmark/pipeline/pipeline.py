@@ -27,7 +27,7 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
 
 
 #@beartype
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int):  
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int):  
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
@@ -48,7 +48,8 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
                 scores = np.array([f.keypoint.response for f in features])
                 idx = np.argpartition(scores, -max_features)[-max_features:]
                 features = [features[i] for i in idx]
-            
+            for feature in features:
+                feature.keypoint.size = feature.keypoint.size * keypoint_size_scaling
             image_feature_set[sequence_index][image_index] = features
 
 
