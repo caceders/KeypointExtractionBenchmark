@@ -43,39 +43,42 @@ MSD = cv2.xfeatures2d.MSDDetector_create()
 STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
-    "AGAST" : AGAST,
-    "AKAZE" : AKAZE,
-    "BRISK" : BRISK,
-    "FAST" : FAST,
-    "GFTT" : GFTT,
-    "KAZE" : KAZE,
-    "MSER" : MSER,
+    #"AGAST" : AGAST,
+    #"AKAZE" : AKAZE,
+    #"BRISK" : BRISK,
+    #"FAST" : FAST,
+    #"GFTT" : GFTT,
+    #"KAZE" : KAZE,
+    # "MSER" : MSER,
     "ORB" : ORB,
-    "SIFT" : SIFT,
-    "SIFT_SIGMA_5" : SIFT_SIGMA_5,
-    "SIFT_SIGMA_10" : SIFT_SIGMA_10,
-    "SIMPLEBLOB" : SIMPLEBLOB,
-    "BRIEF" : BRIEF,
-    "DAISY" : DAISY,
-    "FREAK" : FREAK,
-    "HARRISLAPLACE" : HARRISLAPLACE,
-    "LATCH" : LATCH,
-    # "LUCID" : LUCID,
-    "MSD" : MSD,
-    "STARDETECTOR" : STARDETECTOR 
+    #"SIFT" : SIFT,
+    #"SIFT_SIGMA_5" : SIFT_SIGMA_5,
+    #"SIFT_SIGMA_10" : SIFT_SIGMA_10,
+    # "SIMPLEBLOB" : SIMPLEBLOB,
+    #"BRIEF" : BRIEF,
+    # "DAISY" : DAISY,
+    # "FREAK" : FREAK,
+    # "HARRISLAPLACE" : HARRISLAPLACE,
+    # "LATCH" : LATCH,
+    # # "LUCID" : LUCID,
+    # "MSD" : MSD,
+    # "STARDETECTOR" : STARDETECTOR 
 }
 
 test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
-for detector_key in features2d.keys():
-    for descriptor_key in features2d.keys():
-        distance_type = ""
-        if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]: 
-            distance_type = cv2.NORM_HAMMING
-        else: 
-            distance_type = cv2.NORM_L2
-        test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
+sigmas = [1]
+for sigma in sigmas:
+    SIFT = cv2.SIFT_create(sigma = sigma)
+    #for detector_key in features2d.keys():
+        #for descriptor_key in features2d.keys():
+    #distance_type = ""
+    #if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]: 
+    #    distance_type = cv2.NORM_HAMMING
+    #else: 
+    distance_type = cv2.NORM_L2
+    test_combinations["SIFT" + "+" +  str(sigma)] = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, distance_type)
 
-SKIP = []
+SKIP = ["speedtest"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
