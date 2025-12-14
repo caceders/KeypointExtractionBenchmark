@@ -66,7 +66,7 @@ features2d = {
 }
 
 test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
-sigmas = [1.6,3.2,4.8,6.4,8,10,20]
+sigmas = [0.8,1.6,2.4,3.2,4]
 for sigma in sigmas:
     SIFT = cv2.SIFT_create(sigma = sigma)
     #for detector_key in features2d.keys():
@@ -287,7 +287,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(all_results)
-        df.to_csv("output_sigma.csv", index = False)
+        df.to_csv("output_sigma_2.csv", index = False)
 
     except Exception as e:
         error_message = traceback.format_exc()
