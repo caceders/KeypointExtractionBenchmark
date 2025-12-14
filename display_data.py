@@ -5,7 +5,7 @@ import matplotlib.patches as mpatches
 
 ASCENDING = False
 COLORED_SECTIONS_ALPHABETICAL = True
-df = pd.read_csv("output.csv")
+df = pd.read_csv("output_big_500_25_500.csv")
 
 if not ASCENDING:
 
