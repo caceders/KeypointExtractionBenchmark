@@ -44,13 +44,13 @@ STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
     #"AGAST" : AGAST,
-    "AKAZE" : AKAZE,
-    "BRISK" : BRISK,
+    #"AKAZE" : AKAZE,
+    #"BRISK" : BRISK,
     #"FAST" : FAST,
-    #"GFTT" : GFTT,
+    "GFTT" : GFTT,
     #"KAZE" : KAZE,
     # "MSER" : MSER,
-    "ORB" : ORB,
+    #"ORB" : ORB,
     "SIFT" : SIFT,
     #"SIFT_SIGMA_5" : SIFT_SIGMA_5,
     #"SIFT_SIGMA_10" : SIFT_SIGMA_10,
@@ -69,7 +69,7 @@ test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
         distance_type = ""
-        detector_key = descriptor_key
+        #detector_key = descriptor_key
         if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]: 
             distance_type = cv2.NORM_HAMMING
         else: 
@@ -287,7 +287,7 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
             for metric, result in results.items():
                 print(metric, result)
             df = pd.DataFrame(all_results)
-            df.to_csv("output_size_scaling.csv", index = False)
+            df.to_csv("output_size_scaling_gfft.csv", index = False)
 
         except Exception as e:
             error_message = traceback.format_exc()
