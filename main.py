@@ -49,20 +49,20 @@ features2d = {
     "FAST" : FAST,
     "GFTT" : GFTT,
     "KAZE" : KAZE,
-    "MSER" : MSER,
+    # "MSER" : MSER,
     "ORB" : ORB,
     "SIFT" : SIFT,
     "SIFT_SIGMA_5" : SIFT_SIGMA_5,
     "SIFT_SIGMA_10" : SIFT_SIGMA_10,
-    "SIMPLEBLOB" : SIMPLEBLOB,
+    # "SIMPLEBLOB" : SIMPLEBLOB,
     "BRIEF" : BRIEF,
-    "DAISY" : DAISY,
-    "FREAK" : FREAK,
-    "HARRISLAPLACE" : HARRISLAPLACE,
-    "LATCH" : LATCH,
+    # "DAISY" : DAISY,
+    # "FREAK" : FREAK,
+    # "HARRISLAPLACE" : HARRISLAPLACE,
+    # "LATCH" : LATCH,
     # "LUCID" : LUCID,
-    "MSD" : MSD,
-    "STARDETECTOR" : STARDETECTOR 
+    # "MSD" : MSD,
+    # "STARDETECTOR" : STARDETECTOR 
 }
 
 test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
@@ -284,7 +284,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(all_results)
-        df.to_csv("output.csv", index = False)
+        df.to_csv("output_selected.csv", index = False)
 
     except Exception as e:
         error_message = traceback.format_exc()
