@@ -30,6 +30,7 @@ KAZE = cv2.KAZE_create()
 MSER = cv2.MSER_create()
 ORB = cv2.ORB_create()
 SIFT = cv2.SIFT_create()
+SIFT_SIGMA_3_2 = cv2.SIFT_create(sigma = 3.2)
 SIFT_SIGMA_5 = cv2.SIFT_create(sigma = 5)
 SIFT_SIGMA_10 = cv2.SIFT_create(sigma = 10)
 SIMPLEBLOB = cv2.SimpleBlobDetector_create()
@@ -49,15 +50,16 @@ features2d = {
     #"FAST" : FAST,
     #"GFTT" : GFTT,
     #"KAZE" : KAZE,
-    # "MSER" : MSER,
+    #"MSER" : MSER,
     "ORB" : ORB,
     #"SIFT" : SIFT,
+    "SIFT SIG 3.2" : SIFT_SIGMA_3_2,
     #"SIFT_SIGMA_5" : SIFT_SIGMA_5,
     #"SIFT_SIGMA_10" : SIFT_SIGMA_10,
     # "SIMPLEBLOB" : SIMPLEBLOB,
     #"BRIEF" : BRIEF,
-    # "DAISY" : DAISY,
-    # "FREAK" : FREAK,
+    #"DAISY" : DAISY,
+    #"FREAK" : FREAK,
     # "HARRISLAPLACE" : HARRISLAPLACE,
     # "LATCH" : LATCH,
     # # "LUCID" : LUCID,
@@ -68,6 +70,11 @@ features2d = {
 test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
+        descriptor_key = detector_key
+        if detector_key == "SIFT SIG 3.2" and descriptor_key == "SIFT":
+            descriptor_key = "SIFT SIG 3.2"
+        if descriptor_key == "SIFT SIG 3.2" and detector_key != "SIFT SIG 3.2":
+            continue
         distance_type = ""
         if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]: 
             distance_type = cv2.NORM_HAMMING
@@ -275,8 +282,11 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
             mAP = np.average([match_set.get_average_precision_score(match_ranking_property, True) for match_set in retrieval_match_sets])
             results[f"Retrieval {match_ranking_property.name} mAP"] = mAP
 
-        spearman_rank_correlation_distance_distinctiveness = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)[0][2]
+        spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
+        spearman_rank_correlation_distance_distinctiveness = spearman_rank_correlations[0][2]
+        spearman_rank_correlation_distance_average_response = spearman_rank_correlations[0][1]
         results["distance-distinctiveness correlation"] = spearman_rank_correlation_distance_distinctiveness
+        results["distance-average response correlation"] = spearman_rank_correlation_distance_average_response
 
         all_results.append(results)
 
@@ -284,7 +294,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(all_results)
-        df.to_csv("output.csv", index = False)
+        df.to_csv("output_4000_ret.csv", index = False)
 
     except Exception as e:
         error_message = traceback.format_exc()
