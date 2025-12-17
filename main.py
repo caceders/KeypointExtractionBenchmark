@@ -69,7 +69,7 @@ test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
         distance_type = ""
-        #detector_key = descriptor_key
+        detector_key = descriptor_key
         if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]: 
             distance_type = cv2.NORM_HAMMING
         else: 
