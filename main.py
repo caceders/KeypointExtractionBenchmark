@@ -44,13 +44,13 @@ STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
     #"AGAST" : AGAST,
-    #"AKAZE" : AKAZE,
-    #"BRISK" : BRISK,
+    "AKAZE" : AKAZE,
+    "BRISK" : BRISK,
     #"FAST" : FAST,
-    "GFTT" : GFTT,
+    #"GFTT" : GFTT,
     #"KAZE" : KAZE,
     # "MSER" : MSER,
-    #"ORB" : ORB,
+    "ORB" : ORB,
     "SIFT" : SIFT,
     #"SIFT_SIGMA_5" : SIFT_SIGMA_5,
     #"SIFT_SIGMA_10" : SIFT_SIGMA_10,
@@ -91,7 +91,8 @@ all_results = []
 
 warnings.filterwarnings("once", category=UserWarning)
 image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
-keypoint_size_scalings = [0.125, 0.25, 0.5, 1, 2, 4, 8]
+#keypoint_size_scalings = [0.125, 0.25, 0.5, 1, 2, 4, 8]
+keypoint_size_scalings = [0.030625, 0.06125, 16, 32, 64]
 #keypoint_size_scalings = [1]
 for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Calculating for all sizes"):
     for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="Calculating for all combinations"):
@@ -287,7 +288,7 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
             for metric, result in results.items():
                 print(metric, result)
             df = pd.DataFrame(all_results)
-            df.to_csv("output_size_scaling_gfft.csv", index = False)
+            df.to_csv("output_size_scaling2.csv", index = False)
 
         except Exception as e:
             error_message = traceback.format_exc()
