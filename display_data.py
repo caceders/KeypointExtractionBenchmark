@@ -3,191 +3,213 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import re
 
 # ---------------------------- CONFIG ----------------------------
-CSV_PATH = "output_size_scaling.csv"
+CSV_PATH = "output_size_scaling2.csv"
 
-# SORT_MODE options:
-#   "alphabetical_by_detector"   -> natural sort: detector primary, then descriptor, then rest
-#   "alphabetical_by_descriptor" -> natural sort: descriptor primary, then detector, then rest
-#   "metric"                     -> per-metric sort, ties keep alphabetical_by_detector order
-SORT_MODE = "alphabetical_by_detector"   # "alphabetical_by_detector" | "alphabetical_by_descriptor" | "metric"
-METRIC_ASCENDING = True  # used only when SORT_MODE == "metric"
+# SORT_MODE:
+#   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
+#   "alphabetical_by_descriptor" -> descriptor name, then descriptor number, then detector
+#   "metric"                     -> per-metric sort; ties respect detector-first order
+SORT_MODE = "alphabetical_by_descriptor"   # "alphabetical_by_detector" | "alphabetical_by_descriptor" | "metric"
+METRIC_ASCENDING = False                   # used only when SORT_MODE == "metric"
 
-# Colors & section shading mode:
-#   "auto":       'descriptor' when SORT_MODE is alphabetical_by_descriptor, otherwise 'detector'
+# Descriptor number ordering when present
+NUMBER_DESCENDING = True   # True => 32 above 4; False => 4 above 32
+
+# Color/section grouping:
+#   "auto":       descriptor when SORT_MODE is alphabetical_by_descriptor, else detector
 #   "detector":   always color/section by detector
-#   "descriptor": always color/section by descriptor
+#   "descriptor": always color/section by descriptor name
 SECTION_COLOR_MODE = "auto"
 SHADE_SECTIONS = True
 
-# Blacklists: can be a string (e.g., "MSER") or an iterable (e.g., {"MSER", "FAST"})
-BLACKLIST_DETECTORS = "MSER"       # examples: "MSER"  or {"MSER", "FAST"}
-BLACKLIST_DESCRIPTORS = "DAISY"    # examples: "DAISY" or {"DAISY", "SIFT"}
+# ---------------- Blacklists (REQUIRED as sets) ----------------
+# Detector blacklist (case-insensitive match)
+BLACKLIST_DETECTORS   = {"MSER"}         # e.g., {"MSER", "FAST"}
+# Descriptor NAME blacklist (case-insensitive; number ignored)
+BLACKLIST_DESCRIPTORS = {"DAISY"}        # e.g., {"DAISY", "SIFT"}
+# Trailing NUMBER blacklist (numeric match against the parsed number)
+BLACKLIST_NUMBERS     = set({64,32, 0.030625})            # e.g., {64, 32.0, 0.06125}
+
+# Optional tolerance when matching BLACKLIST_NUMBERS (None = exact match)
+BLACKLIST_NUMBERS_EPSILON = None  # e.g., 1e-9 for float tolerance; None for exact match
+
+# Case-insensitive for detector/descriptor name
 BLACKLIST_CASE_INSENSITIVE = True
-DEBUG = True  # print how many rows are filtered by blacklist
+DEBUG = False  # print how many rows were blacklisted
+
 # Visuals
 FIG_DPI = 120
 FONT_FAMILY_YTICKS = "monospace"
+EXCLUDE_DESCRIPTOR_NUM_FROM_PLOTS = True  # exclude the parsed descriptor number column from metrics
 # ---------------------------------------------------------------
 
-# ---- small helpers (used >1 time) ----
-def _as_token_set(x):
-    """Normalize config blacklist to a set of full tokens (not characters)."""
-    if x is None:
-        return set()
-    if isinstance(x, str):
-        return {x}
-    return set(x)
+# -------- Validate blacklist types (require sets) --------
+def _require_set(name, val):
+    if not isinstance(val, (set, frozenset)):
+        raise TypeError(f"{name} must be a set, e.g., {{'MSER','FAST'}}. Got: {type(val).__name__}")
 
-def _token_key(s: str):
-    """Numeric-first compare: numbers sort numerically, else case-insensitive strings."""
-    s = "" if s is None else str(s).strip()
-    try:
-        return (0, float(s))
-    except ValueError:
-        return (1, s.lower())
+_require_set("BLACKLIST_DETECTORS", BLACKLIST_DETECTORS)
+_require_set("BLACKLIST_DESCRIPTORS", BLACKLIST_DESCRIPTORS)
+_require_set("BLACKLIST_NUMBERS", BLACKLIST_NUMBERS)
 
-def _natural_combo_key(comb: str):
-    """Natural key across all '+' tokens for deterministic tie-breaking."""
-    parts = str(comb).split("+")
-    return tuple(_token_key(p) for p in parts)
-# ---------------------------------------
-
-# Load data
+# -------------------------- Load & Parse -------------------------
 df = pd.read_csv(CSV_PATH)
 
-# Ensure 'combination' exists and is str
+# Ensure combination exists and is clean string
 if "combination" not in df.columns:
     df = df.copy()
     df["combination"] = df.index.astype(str)
 else:
     df = df.copy()
-    df["combination"] = df["combination"].astype(str)
+    df["combination"] = df["combination"].astype(str).str.strip()
 
-# Parse detector (token 0) and descriptor (token 1)
-tokens = df["combination"].str.split("+", n=2, expand=True)
-df["detector"]   = tokens[0].fillna("").str.strip()
-df["descriptor"] = tokens[1].fillna("").str.strip()
+# Split at FIRST '+': Detector | DescriptorFull
+parts = df["combination"].str.split("+", n=1, expand=True)
+if parts.shape[1] < 2:
+    raise ValueError("Each 'combination' must contain one '+', e.g. 'AKAZE+AKAZE 0.030625'.")
 
-# ---- blacklist filtering (robust to strings vs iterables) ----
-bl_det = _as_token_set(BLACKLIST_DETECTORS)
-bl_desc = _as_token_set(BLACKLIST_DESCRIPTORS)
+df["detector"]        = parts[0].fillna("").str.strip()
+df["descriptor_full"] = parts[1].fillna("").str.strip()
 
+# Extract descriptor_name and descriptor_num (number at end after whitespace is optional)
+# Examples:
+#  "AKAZE 0.030625" -> name="AKAZE", num=0.030625
+#  "DAISY"          -> name="DAISY", num=NaN
+desc_extract = df["descriptor_full"].str.extract(r"^(.*?)(?:\s+([+-]?\d+(?:\.\d+)?))?$")
+df["descriptor_name"] = desc_extract[0].fillna("").str.strip()
+df["descriptor_num"]  = pd.to_numeric(desc_extract[1], errors="coerce")
+
+# --------------------------- Blacklist ---------------------------
+# Detector / descriptor name (case-insensitive by default)
 if BLACKLIST_CASE_INSENSITIVE:
-    bl_det_norm = {s.lower().strip() for s in bl_det}
-    bl_desc_norm = {s.lower().strip() for s in bl_desc}
-    mask_keep = (~df["detector"].str.lower().isin(bl_det_norm)) & (~df["descriptor"].str.lower().isin(bl_desc_norm))
+    det_mask  = df["detector"].str.lower().isin({s.lower() for s in BLACKLIST_DETECTORS})
+    desc_mask = df["descriptor_name"].str.lower().isin({s.lower() for s in BLACKLIST_DESCRIPTORS})
 else:
-    bl_det_norm = bl_det
-    bl_desc_norm = bl_desc
-    mask_keep = (~df["detector"].isin(bl_det_norm)) & (~df["descriptor"].isin(bl_desc_norm))
+    det_mask  = df["detector"].isin(BLACKLIST_DETECTORS)
+    desc_mask = df["descriptor_name"].isin(BLACKLIST_DESCRIPTORS)
 
+# Numbers: exact or epsilon match
+if len(BLACKLIST_NUMBERS) == 0:
+    num_mask = pd.Series(False, index=df.index)
+else:
+    # Build mask against numeric column df["descriptor_num"]
+    if BLACKLIST_NUMBERS_EPSILON is None:
+        # Exact membership (NaN never matches)
+        num_mask = df["descriptor_num"].isin(list(BLACKLIST_NUMBERS))
+    else:
+        eps = float(BLACKLIST_NUMBERS_EPSILON)
+        num_mask = pd.Series(False, index=df.index)
+        # For each banned number, mark rows where |descriptor_num - banned| <= eps
+        for b in BLACKLIST_NUMBERS:
+            # Skip non-numeric entries
+            try:
+                bval = float(b)
+            except Exception:
+                continue
+            num_mask = num_mask | (df["descriptor_num"].notna() & (np.abs(df["descriptor_num"] - bval) <= eps))
+
+# Combine masks and drop
+drop_mask = det_mask | desc_mask | num_mask
 if DEBUG:
     before = len(df)
-    drop_mask = ~mask_keep
-    dropped = df.loc[drop_mask, ["combination", "detector", "descriptor"]]
+    dropped = df.loc[drop_mask, ["combination","detector","descriptor_name","descriptor_num"]]
     print(f"[Blacklist] Dropping {len(dropped)} of {before} rows.")
-    if len(dropped) > 0:
-        print(dropped.head(min(5, len(dropped))))
+    if not dropped.empty:
+        print(dropped.head(10))
 
-df = df.loc[mask_keep].reset_index(drop=True)
+df = df.loc[~drop_mask].reset_index(drop=True)
 
-# Numeric columns to plot
+# ---------------------- Metrics to plot -------------------------
 numeric_cols = df.select_dtypes(include="number").columns.tolist()
+if EXCLUDE_DESCRIPTOR_NUM_FROM_PLOTS and "descriptor_num" in numeric_cols:
+    numeric_cols.remove("descriptor_num")
+
 if len(numeric_cols) == 0:
-    raise ValueError("No numeric columns found to plot.")
+    raise ValueError("No numeric columns found to plot (after applying blacklist and exclusions).")
 
-# ---- build global alphabetical baselines ----
-# A) detector-first baseline
-order_alpha_by_detector = sorted(
-    range(len(df)),
-    key=lambda i: (
-        _token_key(df.iloc[i]["detector"]),
-        _token_key(df.iloc[i]["descriptor"]),
-        _natural_combo_key(df.iloc[i]["combination"])
-    )
+# ---------------------- Build sort baselines --------------------
+# Vectorized keys (temporary columns for stable mergesort)
+df_work = df.assign(
+    __det_key  = df["detector"].fillna("").str.lower(),
+    __desc_key = df["descriptor_name"].fillna("").str.lower(),
+    __comb_key = df["combination"].fillna("").str.lower()
 )
-df_alpha_by_detector = df.iloc[order_alpha_by_detector].reset_index(drop=True)
 
-# B) descriptor-first baseline
-order_alpha_by_descriptor = sorted(
-    range(len(df)),
-    key=lambda i: (
-        _token_key(df.iloc[i]["descriptor"]),
-        _token_key(df.iloc[i]["detector"]),
-        _natural_combo_key(df.iloc[i]["combination"])
-    )
-)
-df_alpha_by_descriptor = df.iloc[order_alpha_by_descriptor].reset_index(drop=True)
+# Numeric key for descriptor number (desc/asc + sentinel for NaN)
+if NUMBER_DESCENDING:
+    desc_num_key = np.where(df["descriptor_num"].notna(), -df["descriptor_num"].values, -np.inf)
+else:
+    desc_num_key = np.where(df["descriptor_num"].notna(), df["descriptor_num"].values, np.inf)
+df_work["__desc_num_key"] = desc_num_key
 
-# ---- build stable color maps for both grouping options (detector & descriptor) ----
-all_detectors = sorted(df["detector"].dropna().astype(str).unique().tolist(), key=str.lower)
-all_descriptors = sorted(df["descriptor"].dropna().astype(str).unique().tolist(), key=str.lower)
-cmap_det = plt.cm.get_cmap("tab20")
-cmap_desc = plt.cm.get_cmap("tab20")  # can use tab20b/c if you want a different palette
-det_color_map = {d: cmap_det(i % cmap_det.N) for i, d in enumerate(all_detectors)}
+# Detector-first baseline
+df_alpha_by_detector = df_work.sort_values(
+    by=["__det_key", "__desc_key", "__desc_num_key", "__comb_key"],
+    kind="mergesort"
+).drop(columns=["__det_key","__desc_key","__desc_num_key","__comb_key"]).reset_index(drop=True)
+
+# Descriptor-first baseline
+df_alpha_by_descriptor = df_work.sort_values(
+    by=["__desc_key", "__desc_num_key", "__det_key", "__comb_key"],
+    kind="mergesort"
+).drop(columns=["__det_key","__desc_key","__desc_num_key","__comb_key"]).reset_index(drop=True)
+
+# ---------------------- Color maps (stable) ---------------------
+all_detectors   = sorted(df["detector"].dropna().astype(str).unique(), key=str.lower)
+all_descriptors = sorted(df["descriptor_name"].dropna().astype(str).unique(), key=str.lower)
+cmap_det  = plt.cm.get_cmap("tab20")
+cmap_desc = plt.cm.get_cmap("tab20")
+det_color_map  = {d: cmap_det(i % cmap_det.N) for i, d in enumerate(all_detectors)}
 desc_color_map = {d: cmap_desc(i % cmap_desc.N) for i, d in enumerate(all_descriptors)}
 
-# ---- plotting ----
+# ---------------------- Plotting ----------------------
 smode = SORT_MODE.lower()
 
 for col in numeric_cols:
-    # Choose order
+    # Choose row order
     if smode == "alphabetical_by_detector":
         df_sorted = df_alpha_by_detector.copy()
-        sort_label = "alphabetical by DETECTOR (natural)"
+        sort_label = "alphabetical by DETECTOR (name → descriptor → number)"
     elif smode == "alphabetical_by_descriptor":
         df_sorted = df_alpha_by_descriptor.copy()
-        sort_label = "alphabetical by DESCRIPTOR (natural)"
+        sort_label = "alphabetical by DESCRIPTOR (name → number → detector)"
     elif smode == "metric":
-        # Stable: ties respect detector-first alphabetical order
+        # Stable metric sort; ties keep detector-first order
         df_sorted = df_alpha_by_detector.sort_values(by=col, ascending=METRIC_ASCENDING, kind="mergesort").reset_index(drop=True)
         sort_label = f"by metric '{col}' ({'asc' if METRIC_ASCENDING else 'desc'})"
     else:
         raise ValueError("SORT_MODE must be 'alphabetical_by_detector', 'alphabetical_by_descriptor', or 'metric'.")
 
-    # Decide grouping key *inside* the loop to avoid stale state
+    # Grouping key for colors/sections
     if SECTION_COLOR_MODE == "descriptor":
-        group_key = "descriptor"
+        group_key = "descriptor_name"; legend_title = "Descriptor"; color_map = desc_color_map
     elif SECTION_COLOR_MODE == "detector":
-        group_key = "detector"
+        group_key = "detector";        legend_title = "Detector";  color_map = det_color_map
     else:  # "auto"
-        group_key = "descriptor" if smode == "alphabetical_by_descriptor" else "detector"
+        if smode == "alphabetical_by_descriptor":
+            group_key = "descriptor_name"; legend_title = "Descriptor"; color_map = desc_color_map
+        else:
+            group_key = "detector";        legend_title = "Detector";  color_map = det_color_map
 
-    # Pick the appropriate color map
-    if group_key == "detector":
-        color_map = det_color_map
-        legend_title = "Detector"
-    else:
-        color_map = desc_color_map
-        legend_title = "Descriptor"
-
-    # Compute bar colors from the current df_sorted and group_key
+    # Colors per bar (extend map for unseen groups if needed)
     group_vals = df_sorted[group_key].astype(str).tolist()
-    # If a value isn't in the color_map (e.g., rare case after filtering), add it on the fly
     if any(g not in color_map for g in group_vals):
-        # extend with new colors deterministically
+        base = cmap_desc if group_key == "descriptor_name" else cmap_det
         existing = set(color_map.keys())
-        missing = [g for g in group_vals if g not in existing]
-        base_map = cmap_det if group_key == "detector" else cmap_desc
-        start_idx = len(existing)
-        for j, g in enumerate(sorted(set(missing), key=str.lower), start=start_idx):
-            color_map[g] = base_map(j % base_map.N)
-
+        missing = sorted({g for g in group_vals if g not in existing}, key=str.lower)
+        start = len(existing)
+        for j, g in enumerate(missing, start=start):
+            color_map[g] = base(j % base.N)
     bar_colors = [color_map[g] for g in group_vals]
 
-    # Y-axis labels aligned on first '+', detector-first text
-    raw = df_sorted["combination"].astype(str).tolist()
-    split_labels = [lbl.split("+", 1) for lbl in raw]
-    left_parts  = [p[0] for p in split_labels]
-    right_parts = [p[1] if len(p) > 1 else "" for p in split_labels]
-    max_left  = max(len(s) for s in left_parts) if left_parts else 0
-    max_right = max(len(s) for s in right_parts) if right_parts else 0
-    y_labels = [
-        left.ljust(max_left) + " + " + right.ljust(max_right)
-        for left, right in zip(left_parts, right_parts)
-    ]
+    # Labels: aligned "Detector + DescriptorFull"
+    split_two = [s.split("+", 1) for s in (df_sorted["detector"].astype(str) + "+" + df_sorted["descriptor_full"].astype(str))]
+    max_left  = max(len(p[0]) for p in split_two) if split_two else 0
+    max_right = max(len(p[1]) for p in split_two) if split_two else 0
+    y_labels = [p[0].ljust(max_left) + " + " + p[1].ljust(max_right) for p in split_two]
 
     y_pos = np.arange(len(df_sorted))
     fig_h = max(6, len(df_sorted) * 0.14)
@@ -199,7 +221,7 @@ for col in numeric_cols:
 
     ax.barh(y_pos, df_sorted[col].values, color=bar_colors)
 
-    # Shaded sections follow the same grouping key as colors
+    # Shaded contiguous runs by chosen grouping key
     if SHADE_SECTIONS and len(df_sorted) > 0:
         seq = df_sorted[group_key].astype(str).tolist()
         runs = []
@@ -234,8 +256,8 @@ for col in numeric_cols:
 
     ax.grid(True, axis="x", linestyle=":", alpha=0.5)
 
-    # Legend based on groups visible in this plot (keeps legend clean)
-    visible_groups = [g for g in sorted(set(group_vals), key=str.lower)]
+    # Legend: only visible groups
+    visible_groups = sorted(set(group_vals), key=str.lower)
     legend_handles = [mpatches.Patch(color=color_map[g], label=g) for g in visible_groups]
     ax.legend(handles=legend_handles, title=legend_title, loc="upper left", bbox_to_anchor=(1.02, 1.0))
 
