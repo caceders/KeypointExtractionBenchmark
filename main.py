@@ -66,7 +66,7 @@ features2d = {
 }
 
 test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
-sigmas = [0.8,1.6,2.4,3.2,4]
+sigmas = [0.8,1.6,2.4,3.2,4,4.8,6.4,8,10]
 for sigma in sigmas:
     SIFT = cv2.SIFT_create(sigma = sigma)
     #for detector_key in features2d.keys():
@@ -78,7 +78,7 @@ for sigma in sigmas:
     distance_type = cv2.NORM_L2
     test_combinations["SIFT" + "+" +  str(sigma)] = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, distance_type)
 
-SKIP = ["speedtest"]
+SKIP = ["verification", "matching", "retrieval"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -214,80 +214,86 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         # ========================
         # STORE RESULTS
         # ========================
+        if "matching" in SKIP:
+            results = {"combination": f"{feature_extractor_key}",
+                       "speed": speed
+                       }
+        else:
+            results = {
+                "combination": f"{feature_extractor_key}",
+                "speed": speed,
+                "repeatability mean": np.mean(set_repeatabilities),
+                "repeatability std": np.std(set_repeatabilities),
 
-        results = {
-            "combination": f"{feature_extractor_key}",
-            "speed": speed,
-            "repeatability mean": np.mean(set_repeatabilities),
-            "repeatability std": np.std(set_repeatabilities),
+                "total num matches": num_matches,
+                "number possible correct matches": total_possible_correct_matches,
+                "total correct matches": total_correct_matches,
+                "ratio correct/total matches": ratio_correct,
+                "ratio correct/possible correct matches": ratio_possible_found,
 
-            "total num matches": num_matches,
-            "number possible correct matches": total_possible_correct_matches,
-            "total correct matches": total_correct_matches,
-            "ratio correct/total matches": ratio_correct,
-            "ratio correct/possible correct matches": ratio_possible_found,
+                # Size metrics
+                "size mean": avg_size,
+                "size std": std_size,
+                "size normalized std": norm_std_size,
+                "size min": min_size,
+                "size max": max_size,
+                "size unique count": unique_sizes_count,
+                "size correct: avg": avg_size_correct,
+                "size correct/all ratio": ratio_size_correct,
 
-            # Size metrics
-            "size mean": avg_size,
-            "size std": std_size,
-            "size normalized std": norm_std_size,
-            "size min": min_size,
-            "size max": max_size,
-            "size unique count": unique_sizes_count,
-            "size correct: avg": avg_size_correct,
-            "size correct/all ratio": ratio_size_correct,
+                "total num keypoints": total_num_features,
+                "correct matches per sequence: avg": avg_correct_per_sequence,
+                "correct matches per sequence: std": std_correct_per_sequence,
 
-            "total num keypoints": total_num_features,
-            "correct matches per sequence: avg": avg_correct_per_sequence,
-            "correct matches per sequence: std": std_correct_per_sequence,
+                "distance correct/all ratio": ratio_dist_correct,
 
-            "distance correct/all ratio": ratio_dist_correct,
+                "response correct/all ratio": ratio_resp_correct,
 
-            "response correct/all ratio": ratio_resp_correct,
+                "distinctiveness all: avg": avg_distinct,
+                "distinctiveness correct: avg": avg_distinct_correct,
+                "distinctiveness correct/all ratio": ratio_distinct_correct,
 
-            "distinctiveness all: avg": avg_distinct,
-            "distinctiveness correct: avg": avg_distinct_correct,
-            "distinctiveness correct/all ratio": ratio_distinct_correct,
+                # Rank metrics
+                "match rank: avg": avg_rank_all,
+                "match rank: std": std_rank_all,
+                "match rank correct: avg": avg_rank_correct,
+                "match rank correct: std": std_rank_correct,
+                f"ratio rank >{NUM_BEST_MATCHES//2} / all": outside_num_best_matches_all,
+                f"ratio rank >{NUM_BEST_MATCHES//2} correct / rank >{NUM_BEST_MATCHES//2}": outside_num_best_matches_correct,
+            }
 
-            # Rank metrics
-            "match rank: avg": avg_rank_all,
-            "match rank: std": std_rank_all,
-            "match rank correct: avg": avg_rank_correct,
-            "match rank correct: std": std_rank_correct,
-            f"ratio rank >{NUM_BEST_MATCHES//2} / all": outside_num_best_matches_all,
-            f"ratio rank >{NUM_BEST_MATCHES//2} correct / rank >{NUM_BEST_MATCHES//2}": outside_num_best_matches_correct,
-        }
+            # Results from matching
+            for match_rank_property in match_properties:
+                mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets])
+                results[f"Matching {match_rank_property.name} mAP"] =  mAP
 
-        # Results from matching
-        for match_rank_property in match_properties:
-            mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets])
-            results[f"Matching {match_rank_property.name} mAP"] =  mAP
+            # Results from verification
+            if "verification" not in SKIP:
+                total_verification_set = MatchSet()
+                for match_set in verification_match_sets:
+                    for match in match_set:
+                        total_verification_set.add_match(match)
+                        
+                for match_ranking_property in match_properties:
+                    AP = total_verification_set.get_average_precision_score(match_ranking_property)
+                    results[f"Verification {match_ranking_property.name} AP"] = AP
 
-        # Results from verification
-        total_verification_set = MatchSet()
-        for match_set in verification_match_sets:
-            for match in match_set:
-                total_verification_set.add_match(match)
-                
-        for match_ranking_property in match_properties:
-            AP = total_verification_set.get_average_precision_score(match_ranking_property)
-            results[f"Verification {match_ranking_property.name} AP"] = AP
+            # Results from retrieval
+            if "retrieval" not in SKIP:
+                for match_ranking_property in match_properties:
+                    mAP = np.average([match_set.get_average_precision_score(match_ranking_property, True) for match_set in retrieval_match_sets])
+                    results[f"Retrieval {match_ranking_property.name} mAP"] = mAP
 
-        # Results from retrieval
-        for match_ranking_property in match_properties:
-            mAP = np.average([match_set.get_average_precision_score(match_ranking_property, True) for match_set in retrieval_match_sets])
-            results[f"Retrieval {match_ranking_property.name} mAP"] = mAP
+            spearman_rank_correlation_distance_distinctiveness = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)[0][2]
+            results["distance-distinctiveness correlation"] = spearman_rank_correlation_distance_distinctiveness
 
-        spearman_rank_correlation_distance_distinctiveness = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)[0][2]
-        results["distance-distinctiveness correlation"] = spearman_rank_correlation_distance_distinctiveness
-
-        all_results.append(results)
+            all_results.append(results)
 
         ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(all_results)
-        df.to_csv("output_sigma_2.csv", index = False)
+        df.to_csv("output_sigma_speed.csv", index = False)
 
     except Exception as e:
         error_message = traceback.format_exc()
