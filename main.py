@@ -78,7 +78,7 @@ for sigma in sigmas:
     distance_type = cv2.NORM_L2
     test_combinations["SIFT" + "+" +  str(sigma)] = FeatureExtractor.from_opencv(SIFT.detect, SIFT.compute, distance_type)
 
-SKIP = ["verification", "matching", "retrieval"]
+SKIP = ["find_features", "verification", "matching", "retrieval"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -104,8 +104,9 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         if "speedtest" not in SKIP:
             speed = speed_test(feature_extractor, dataset_image_sequences)
 
-        find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
-        set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence, FEATURE_OVERLAP_THRESHOLD)
+        if "find_features" not in SKIP:
+            find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+            set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence, FEATURE_OVERLAP_THRESHOLD)
 
         if "matching" not in SKIP:
             matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach)
@@ -122,103 +123,105 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         else:
             retrieval_match_sets : list [MatchSet] = [MatchSet()]        
 
-        ## Store results
-        # Flatten matching matches once
-        all_matches = [m for s in matching_match_sets for m in s]
-        num_matches = len(all_matches)
-
-        # Pre-extract fields (vectorized)
-        is_correct = np.fromiter((m.is_correct for m in all_matches), bool, count=num_matches)
-        match_rank = np.fromiter((m.match_properties["match rank"] for m in all_matches), int, count=num_matches)
-        distances = np.fromiter((m.match_properties["distance"] for m in all_matches), float, count=num_matches)
-        distinctiveness = np.fromiter((m.match_properties["distinctiveness"] for m in all_matches), float, count=num_matches)
-        sizes = np.fromiter(((m.reference_feature.keypoint.size + m.related_feature.keypoint.size) / 2 for m in all_matches), float, count=num_matches)
-        responses = np.fromiter(((m.reference_feature.keypoint.response + m.related_feature.keypoint.response) / 2 for m in all_matches), float, count=num_matches)
-
-        # Precompute masks
-        correct_mask = is_correct
-        incorrect_mask = ~is_correct
-
-        # Total possible matches (vectorized)
-        set_numbers_of_possible_correct_matches = np.array(set_numbers_of_possible_correct_matches, dtype=object)
-        total_possible_correct_matches = set_numbers_of_possible_correct_matches.sum()
-
-        # Totals
-        total_correct_matches = is_correct.sum()
-        ratio_correct = total_correct_matches / num_matches
-        ratio_possible_found = total_correct_matches / total_possible_correct_matches
-
-        # --- Rank-based stats ---
-        max_rank = NUM_BEST_MATCHES
-        match_rank_totals = np.bincount(match_rank, minlength=max_rank)
-        match_rank_correct = np.bincount(match_rank[correct_mask], minlength=max_rank)
-
-        match_rank_ratios = np.divide(
-            match_rank_correct.astype(float),
-            match_rank_totals.astype(float),
-            out=np.zeros_like(match_rank_correct, dtype=float),
-            where=match_rank_totals != 0
-        )
-
-        # --- Size, distance, response, distinctiveness stats ---
-        def safe_mean(x):
-            return float(np.mean(x)) if len(x) else 0.0
-
-        avg_size = sizes.mean()
-        std_size = sizes.std()
-        min_size = sizes.min()
-        max_size = sizes.max()
-        unique_sizes_count = len(np.unique(sizes))
-
-        # Correct-only subsets
-        sizes_correct = sizes[correct_mask]
-        distances_correct = distances[correct_mask]
-        responses_correct = responses[correct_mask]
-        distinctiveness_correct = distinctiveness[correct_mask]
-
-        # Additional requested metrics
-        total_num_features = sum(len(image) for sequence in image_feature_set for image in sequence)
-
-        # Per-image metrics
-        correct_per_sequence = np.array([sum(m.is_correct for m in s) for s in matching_match_sets])
-        avg_correct_per_sequence = correct_per_sequence.mean()
-        std_correct_per_sequence = correct_per_sequence.std()
-
-        avg_size_correct = safe_mean(sizes_correct)
-        ratio_size_correct = avg_size_correct / avg_size if avg_size != 0 else 0
-
-        norm_std_size = std_size / avg_size if avg_size != 0 else 0
-
-        avg_dist = distances.mean()
-        avg_dist_correct = safe_mean(distances_correct)
-        ratio_dist_correct = avg_dist_correct / avg_dist if avg_dist != 0 else 0
-
-        avg_resp = responses.mean()
-        avg_resp_correct = safe_mean(responses_correct)
-        ratio_resp_correct = avg_resp_correct / avg_resp if avg_resp != 0 else 0
-
-        avg_distinct = distinctiveness.mean()
-        avg_distinct_correct = safe_mean(distinctiveness_correct)
-        ratio_distinct_correct = avg_distinct_correct / avg_distinct if avg_distinct != 0 else 0
-
-        # Rank stats: all + correct
-        avg_rank_all = match_rank.mean()
-        std_rank_all = match_rank.std()
-        avg_rank_correct = match_rank[correct_mask].mean() if correct_mask.any() else 0
-        std_rank_correct = match_rank[correct_mask].std() if correct_mask.any() else 0
-
-        outside_num_best_matches_all = np.mean(match_rank > NUM_BEST_MATCHES//2)
-        outside_num_best_matches_correct = np.mean(match_rank[correct_mask] > NUM_BEST_MATCHES//2) if correct_mask.any() else 0
-
-
-        # ========================
-        # STORE RESULTS
-        # ========================
-        if "matching" in SKIP:
+        if "matching" or "find_features" in SKIP:
             results = {"combination": f"{feature_extractor_key}",
                        "speed": speed
                        }
         else:
+            ## Store results
+            # Flatten matching matches once
+            all_matches = [m for s in matching_match_sets for m in s]
+            num_matches = len(all_matches)
+
+            # Pre-extract fields (vectorized)
+            is_correct = np.fromiter((m.is_correct for m in all_matches), bool, count=num_matches)
+            match_rank = np.fromiter((m.match_properties["match rank"] for m in all_matches), int, count=num_matches)
+            distances = np.fromiter((m.match_properties["distance"] for m in all_matches), float, count=num_matches)
+            distinctiveness = np.fromiter((m.match_properties["distinctiveness"] for m in all_matches), float, count=num_matches)
+            sizes = np.fromiter(((m.reference_feature.keypoint.size + m.related_feature.keypoint.size) / 2 for m in all_matches), float, count=num_matches)
+            responses = np.fromiter(((m.reference_feature.keypoint.response + m.related_feature.keypoint.response) / 2 for m in all_matches), float, count=num_matches)
+
+            # Precompute masks
+            correct_mask = is_correct
+            incorrect_mask = ~is_correct
+
+            # Total possible matches (vectorized)
+            set_numbers_of_possible_correct_matches = np.array(set_numbers_of_possible_correct_matches, dtype=object)
+            total_possible_correct_matches = set_numbers_of_possible_correct_matches.sum()
+
+            # Totals
+            total_correct_matches = is_correct.sum()
+            ratio_correct = total_correct_matches / num_matches
+            ratio_possible_found = total_correct_matches / total_possible_correct_matches
+
+            # --- Rank-based stats ---
+            max_rank = NUM_BEST_MATCHES
+            match_rank_totals = np.bincount(match_rank, minlength=max_rank)
+            match_rank_correct = np.bincount(match_rank[correct_mask], minlength=max_rank)
+
+            match_rank_ratios = np.divide(
+                match_rank_correct.astype(float),
+                match_rank_totals.astype(float),
+                out=np.zeros_like(match_rank_correct, dtype=float),
+                where=match_rank_totals != 0
+            )
+
+            # --- Size, distance, response, distinctiveness stats ---
+            def safe_mean(x):
+                return float(np.mean(x)) if len(x) else 0.0
+
+            avg_size = sizes.mean()
+            std_size = sizes.std()
+            min_size = sizes.min()
+            max_size = sizes.max()
+            unique_sizes_count = len(np.unique(sizes))
+
+            # Correct-only subsets
+            sizes_correct = sizes[correct_mask]
+            distances_correct = distances[correct_mask]
+            responses_correct = responses[correct_mask]
+            distinctiveness_correct = distinctiveness[correct_mask]
+
+            # Additional requested metrics
+            total_num_features = sum(len(image) for sequence in image_feature_set for image in sequence)
+
+            # Per-image metrics
+            correct_per_sequence = np.array([sum(m.is_correct for m in s) for s in matching_match_sets])
+            avg_correct_per_sequence = correct_per_sequence.mean()
+            std_correct_per_sequence = correct_per_sequence.std()
+
+            avg_size_correct = safe_mean(sizes_correct)
+            ratio_size_correct = avg_size_correct / avg_size if avg_size != 0 else 0
+
+            norm_std_size = std_size / avg_size if avg_size != 0 else 0
+
+            avg_dist = distances.mean()
+            avg_dist_correct = safe_mean(distances_correct)
+            ratio_dist_correct = avg_dist_correct / avg_dist if avg_dist != 0 else 0
+
+            avg_resp = responses.mean()
+            avg_resp_correct = safe_mean(responses_correct)
+            ratio_resp_correct = avg_resp_correct / avg_resp if avg_resp != 0 else 0
+
+            avg_distinct = distinctiveness.mean()
+            avg_distinct_correct = safe_mean(distinctiveness_correct)
+            ratio_distinct_correct = avg_distinct_correct / avg_distinct if avg_distinct != 0 else 0
+
+            # Rank stats: all + correct
+            avg_rank_all = match_rank.mean()
+            std_rank_all = match_rank.std()
+            avg_rank_correct = match_rank[correct_mask].mean() if correct_mask.any() else 0
+            std_rank_correct = match_rank[correct_mask].std() if correct_mask.any() else 0
+
+            outside_num_best_matches_all = np.mean(match_rank > NUM_BEST_MATCHES//2)
+            outside_num_best_matches_correct = np.mean(match_rank[correct_mask] > NUM_BEST_MATCHES//2) if correct_mask.any() else 0
+
+
+            # ========================
+            # STORE RESULTS
+            # ========================
+
+        
             results = {
                 "combination": f"{feature_extractor_key}",
                 "speed": speed,
@@ -287,7 +290,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
             spearman_rank_correlation_distance_distinctiveness = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)[0][2]
             results["distance-distinctiveness correlation"] = spearman_rank_correlation_distance_distinctiveness
 
-            all_results.append(results)
+        all_results.append(results)
 
         ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
         for metric, result in results.items():
