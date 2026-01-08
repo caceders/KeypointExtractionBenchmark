@@ -837,3 +837,18 @@ Traceback (most recent call last):
 ValueError: No valid sets with sufficient common universe across properties to compute correlations.
 
 
+{'sift_nOctaveLayers': 5, 'sift_contrastThreshold': 0.003186291534721086, 'sift_edgeThreshold': 8.107107833656926, 'sift_sigma': 1.3981913657227978, 'akaze_descriptor_size': 217, 'akaze_descriptor_channels': 3, 'akaze_threshold': 0.004391506266261468, 'akaze_nOctaves': 1, 'akaze_nOctaveLayers': 2}
+Traceback (most recent call last):
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\optimization.py", line 122, in objective
+    score = simulation(**params)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\optimization.py", line 70, in simulation
+    find_all_features_for_dataset(
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\pipeline\pipeline.py", line 36, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+  File "C:\Users\ander\OneDrive\skole\Elsys\9. semester\Prosjektoppgave\Keypoint-extractor-benchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+TypeError: 'NoneType' object is not iterable
+
+

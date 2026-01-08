@@ -21,171 +21,6 @@ dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatch
 
 
 ## Setup feature extractors.
-# --- Corner / Keypoint detectors ---
-
-# AGAST = cv2.AgastFeatureDetector_create(
-#     threshold=15,          # default 10 → higher to reduce noise at ~1MP
-#     nonmaxSuppression=True,
-#     type=cv2.AGAST_FEATURE_DETECTOR_OAST_9_16
-# )
-
-# FAST = cv2.FastFeatureDetector_create(
-#     threshold=20,          # default 10
-#     nonmaxSuppression=True,
-#     type=cv2.FAST_FEATURE_DETECTOR_TYPE_9_16
-# )
-
-# GFTT = cv2.GFTTDetector_create(
-#     maxCorners=3000,       # scale with ~1MP images
-#     qualityLevel=0.01,
-#     minDistance=7,
-#     blockSize=7,
-#     useHarrisDetector=False,
-#     k=0.04
-# )
-
-# HARRISLAPLACE = cv2.xfeatures2d.HarrisLaplaceFeatureDetector_create(
-#     numOctaves=6,
-#     corn_thresh=0.01,
-#     DOG_thresh=0.01,
-#     maxCorners=3000
-# )
-
-# STARDETECTOR = cv2.xfeatures2d.StarDetector_create(
-#     maxSize=45,
-#     responseThreshold=30,
-#     lineThresholdProjected=10,
-#     lineThresholdBinarized=8,
-#     suppressNonmaxSize=5
-# )
-
-# # --- Scale-space detectors ---
-
-# SIFT = cv2.SIFT_create(
-#     nfeatures=4000,
-#     nOctaveLayers=3,
-#     contrastThreshold=0.04,
-#     edgeThreshold=10,
-#     sigma=1.6
-# )
-
-# SIFT_SIGMA_2 = cv2.SIFT_create(
-#     nfeatures=4000,
-#     nOctaveLayers=3,
-#     contrastThreshold=0.04,
-#     edgeThreshold=10,
-#     sigma=2.0
-# )
-
-# KAZE = cv2.KAZE_create(
-#     extended=False,
-#     upright=False,
-#     threshold=0.001,       # default 0.001; keep, works well at this scale
-#     nOctaves=4,
-#     nOctaveLayers=4,
-#     diffusivity=cv2.KAZE_DIFF_PM_G2
-# )
-
-# AKAZE = cv2.AKAZE_create(
-#     descriptor_type=cv2.AKAZE_DESCRIPTOR_MLDB,
-#     descriptor_size=0,
-#     descriptor_channels=3,
-#     threshold=0.0015,      # slightly higher than default
-#     nOctaves=4,
-#     nOctaveLayers=4,
-#     diffusivity=cv2.KAZE_DIFF_PM_G2
-# )
-
-# mean_area = 1080 * 930
-
-# MSER = cv2.MSER_create(
-#     delta=5,
-#     min_area=60,
-#     max_area=int(0.15 * mean_area),
-#     max_variation=0.25,
-#     min_diversity=0.2
-# )
-
-# # --- Binary detectors / descriptors ---
-
-# BRISK = cv2.BRISK_create(
-#     thresh=40,             # default 30 → fewer noisy points
-#     octaves=4,
-#     patternScale=1.0
-# )
-
-# ORB = cv2.ORB_create(
-#     nfeatures=5000,
-#     scaleFactor=1.2,
-#     nlevels=8,
-#     edgeThreshold=31,
-#     firstLevel=0,
-#     WTA_K=2,
-#     scoreType=cv2.ORB_HARRIS_SCORE,
-#     patchSize=31,
-#     fastThreshold=20
-# )
-
-# MSD = cv2.xfeatures2d.MSDDetector_create(
-#     m_patch_radius=3,
-#     m_search_area_radius=5,
-#     m_nms_radius=5,
-#     m_nms_scale_radius=0,
-#     m_th_saliency=250,
-#     m_kNN=4,
-#     m_scale_factor=1.25,
-#     m_n_scales=5
-# )
-
-# # --- Descriptors only ---
-
-# BRIEF = cv2.xfeatures2d.BriefDescriptorExtractor_create(
-#     bytes=32,
-#     use_orientation=True
-# )
-
-# FREAK = cv2.xfeatures2d.FREAK_create(
-#     orientationNormalized=True,
-#     scaleNormalized=True,
-#     patternScale=22.0,
-#     nOctaves=4
-# )
-
-# DAISY = cv2.xfeatures2d.DAISY_create(
-#     radius=15,
-#     q_radius=3,
-#     q_theta=8,
-#     q_hist=8,
-#     norm=cv2.xfeatures2d.DAISY_NRM_FULL,
-#     interpolation=True,
-#     use_orientation=True
-# )
-
-# LATCH = cv2.xfeatures2d.LATCH_create(
-#     bytes=32,
-#     rotationInvariance=True,
-#     half_ssd_size=3
-# )
-
-# LUCID = cv2.xfeatures2d.LUCID_create(
-#     lucid_kernel=1,
-#     blur_kernel=3
-# )
-
-# # --- Blob detector ---
-
-# params = cv2.SimpleBlobDetector_Params()
-# params.minThreshold = 10
-# params.maxThreshold = 220
-# params.filterByArea = True
-# params.minArea = 80
-# params.maxArea = 5000
-# params.filterByCircularity = False
-# params.filterByInertia = True
-# params.minInertiaRatio = 0.1
-# params.filterByConvexity = False
-
-# SIMPLEBLOB = cv2.SimpleBlobDetector_create(params)
 
 AGAST = cv2.AgastFeatureDetector_create()
 AKAZE = cv2.AKAZE_create()
@@ -196,8 +31,6 @@ KAZE = cv2.KAZE_create()
 MSER = cv2.MSER_create()
 ORB = cv2.ORB_create()
 SIFT = cv2.SIFT_create()
-SIFT_SIGMA_5 = cv2.SIFT_create(sigma = 5)
-SIFT_SIGMA_10 = cv2.SIFT_create(sigma = 10)
 SIMPLEBLOB = cv2.SimpleBlobDetector_create()
 BRIEF = cv2.xfeatures2d.BriefDescriptorExtractor_create()
 DAISY = cv2.xfeatures2d.DAISY_create()
@@ -218,7 +51,6 @@ features2d = {
     "MSER" : MSER,
     "ORB" : ORB,
     "SIFT" : SIFT,
-    "SIFT_SIGMA_2" : SIFT_SIGMA_2,
     "SIMPLEBLOB" : SIMPLEBLOB,
     "BRIEF" : BRIEF,
     "DAISY" : DAISY,
