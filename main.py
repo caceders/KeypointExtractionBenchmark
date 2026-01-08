@@ -209,25 +209,25 @@ MSD = cv2.xfeatures2d.MSDDetector_create()
 STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
-    "AGAST" : AGAST,
-    "AKAZE" : AKAZE,
-    "BRISK" : BRISK,
-    "FAST" : FAST,
-    "GFTT" : GFTT,
-    "KAZE" : KAZE,
-    "MSER" : MSER,
-    "ORB" : ORB,
-    "SIFT" : SIFT,
-    "SIFT_SIGMA_2" : SIFT_SIGMA_2,
-    "SIMPLEBLOB" : SIMPLEBLOB,
-    "BRIEF" : BRIEF,
-    "DAISY" : DAISY,
-    "FREAK" : FREAK,
-    "HARRISLAPLACE" : HARRISLAPLACE,
-    "LATCH" : LATCH,
-    "LUCID" : LUCID,
-    "MSD" : MSD,
-    "STARDETECTOR" : STARDETECTOR 
+    # "AGAST" : AGAST,
+    # "AKAZE" : AKAZE,
+    # "BRISK" : BRISK,
+    # "FAST" : FAST,
+    # "GFTT" : GFTT,
+    # "KAZE" : KAZE,
+    # "MSER" : MSER,
+    # "ORB" : ORB,
+    # "SIFT" : SIFT,
+    "SIFT_SIGMA_5" : SIFT_SIGMA_5
+    # "SIMPLEBLOB" : SIMPLEBLOB,
+    # "BRIEF" : BRIEF,
+    # "DAISY" : DAISY,
+    # "FREAK" : FREAK,
+    # "HARRISLAPLACE" : HARRISLAPLACE,
+    # "LATCH" : LATCH,
+    # "LUCID" : LUCID,
+    # "MSD" : MSD,
+    # "STARDETECTOR" : STARDETECTOR 
 }
 
 test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
@@ -270,7 +270,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence, FEATURE_OVERLAP_THRESHOLD)
 
         if "matching" not in SKIP:
-            matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach)
+            matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach, dataset_image_sequences, dataset_homography_sequence)
         else:
             matching_match_sets: list[MatchSet] = [MatchSet()]
         
