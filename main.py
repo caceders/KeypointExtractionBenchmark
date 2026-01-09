@@ -304,7 +304,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(all_results)
-        df.to_csv("output_bigger_500_10_1000_speed.csv", index = False)
+        df.to_csv("output.csv", index = False)
 
     except Exception as e:
         error_message = traceback.format_exc()
