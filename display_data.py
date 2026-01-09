@@ -6,18 +6,18 @@ import matplotlib.patches as mpatches
 import re
 
 # ---------------------------- CONFIG ----------------------------
-CSV_PATH = "output_size_scaling2.csv"
+CSV_PATH = "output_bigger_500_10_1000.csv"
 
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
 #   "alphabetical_by_descriptor" -> descriptor name, then descriptor number, then detector
 #   "metric"                     -> per-metric sort; ties respect detector-first order
-SORT_MODE = "alphabetical_by_descriptor"   # "alphabetical_by_detector" | "alphabetical_by_descriptor" | "metric"
+SORT_MODE = "alphabetical_by_detector"   # "alphabetical_by_detector" | "alphabetical_by_descriptor" | "metric"
 METRIC_ASCENDING = False                   # used only when SORT_MODE == "metric"
 
 # Descriptor number ordering when present
 NUMBER_DESCENDING = True   # True => 32 above 4; False => 4 above 32
-
+PERCENTAGE = True
 # Color/section grouping:
 #   "auto":       descriptor when SORT_MODE is alphabetical_by_descriptor, else detector
 #   "detector":   always color/section by detector
@@ -27,9 +27,9 @@ SHADE_SECTIONS = True
 
 # ---------------- Blacklists (REQUIRED as sets) ----------------
 # Detector blacklist (case-insensitive match)
-BLACKLIST_DETECTORS   = {"MSER"}         # e.g., {"MSER", "FAST"}
+BLACKLIST_DETECTORS   = {"MSER", "AGAST", "SIFT 3.2"}         # e.g., {"MSER", "FAST"}
 # Descriptor NAME blacklist (case-insensitive; number ignored)
-BLACKLIST_DESCRIPTORS = {"DAISY"}        # e.g., {"DAISY", "SIFT"}
+BLACKLIST_DESCRIPTORS = {"DAISY", "FREAK"}        # e.g., {"DAISY", "SIFT"}
 # Trailing NUMBER blacklist (numeric match against the parsed number)
 BLACKLIST_NUMBERS     = set({64,32, 0.030625})            # e.g., {64, 32.0, 0.06125}
 
@@ -110,6 +110,9 @@ else:
             except Exception:
                 continue
             num_mask = num_mask | (df["descriptor_num"].notna() & (np.abs(df["descriptor_num"] - bval) <= eps))
+
+
+
 
 # Combine masks and drop
 drop_mask = det_mask | desc_mask | num_mask
@@ -246,21 +249,35 @@ for col in numeric_cols:
             ax.text(x_right * 1.01, mid, grp, va="center", ha="left",
                     fontsize=11, fontweight="bold", color=color_map[grp])
 
-    ax.set_title(f"{col} by combination — grouped & colored by {legend_title}\nSort: {sort_label}",
-                 fontsize=12, fontweight="bold")
-    ax.set_ylabel("combination")
-    ax.set_xlabel(str(col))
+    # ---------------------- Header/X-label formatting (capitalization & units) ----------------------
+    # If your column name has a unit like "matching distance [px]",
+    #   - Title: show without the unit, capitalize first letter -> "Matching distance"
+    #   - X-label (text under): show with the unit, capitalize first letter -> "Matching distance [px]"
+    import re as _re
+    _m = _re.match(r"^(.*?)(\s*\[[^\]]*\])\s*$", str(col))  # capture name + optional [unit]
+    if _m:
+        _name = _m.group(1).strip()
+        _unit = _m.group(2).strip()
+    else:
+        _name = str(col).strip()
+        _unit = ""
 
+    # Capitalize first letter
+    _name_cap = (_name[:1].upper() + _name[1:]) if _name else _name
+
+    # Apply to title (no unit) and xlabel (with unit if present)
+    ax.set_title(f"{_name_cap} by combination — grouped & colored by {legend_title}",
+                 fontsize=12, fontweight="bold")
+    ax.set_xlabel(f"{_name_cap}{(' ' + _unit) if _unit else ''}")
+    # ------------------------------------------------------------------------------------------------
+
+    ax.set_ylabel("combination")
     ax.set_yticks(y_pos)
     ax.set_yticklabels(y_labels, fontfamily=FONT_FAMILY_YTICKS)
 
     ax.grid(True, axis="x", linestyle=":", alpha=0.5)
 
-    # Legend: only visible groups
-    visible_groups = sorted(set(group_vals), key=str.lower)
-    legend_handles = [mpatches.Patch(color=color_map[g], label=g) for g in visible_groups]
-    ax.legend(handles=legend_handles, title=legend_title, loc="upper left", bbox_to_anchor=(1.02, 1.0))
-
+    # Legend removed earlier
     plt.tight_layout()
 
 plt.show()
