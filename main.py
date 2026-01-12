@@ -216,7 +216,7 @@ features2d = {
     # "GFTT" : GFTT,
     # "KAZE" : KAZE,
     # "MSER" : MSER,
-    # "ORB" : ORB,
+    "ORB" : ORB,
     # "SIFT" : SIFT,
     "SIFT_SIGMA_5" : SIFT_SIGMA_5
     # "SIMPLEBLOB" : SIMPLEBLOB,
@@ -240,7 +240,7 @@ for detector_key in features2d.keys():
             distance_type = cv2.NORM_L2
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
-SKIP = ["speedtest"]
+SKIP = ["speedtest", "verification", "retrieval"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)

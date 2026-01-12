@@ -144,135 +144,137 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
             matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
             matching_match_set.add_match(matches)
 
-            ## For debug ################################
-            def transformed_keypoint_size(kp, H):
-                """Compute the transformed keypoint center and new size using global NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION."""
-                x, y = kp.pt
-                r = kp.size / 2
+            if seq == 81:
 
-                # Sample points around the keypoint
-                angles = np.linspace(0, 2*np.pi, NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, endpoint=False)
-                pts = np.array([[x + r * np.cos(a), y + r * np.sin(a)] for a in angles], dtype=np.float32)
+                ## For debug ################################
+                def transformed_keypoint_size(kp, H):
+                    """Compute the transformed keypoint center and new size using global NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION."""
+                    x, y = kp.pt
+                    r = kp.size / 2
 
-                # Homogeneous coordinates
-                pts_h = np.hstack([pts, np.ones((NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, 1), dtype=np.float32)])
-                center_h = np.array([x, y, 1.0], dtype=np.float32)
+                    # Sample points around the keypoint
+                    angles = np.linspace(0, 2*np.pi, NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, endpoint=False)
+                    pts = np.array([[x + r * np.cos(a), y + r * np.sin(a)] for a in angles], dtype=np.float32)
 
-                # Apply homography
-                pts_t_h = pts_h @ H.T
-                center_t_h = H @ center_h
-                pts_t = pts_t_h[:, :2] / pts_t_h[:, 2:3]
-                center_t = center_t_h[:2] / center_t_h[2]
+                    # Homogeneous coordinates
+                    pts_h = np.hstack([pts, np.ones((NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, 1), dtype=np.float32)])
+                    center_h = np.array([x, y, 1.0], dtype=np.float32)
 
-                new_r = np.mean(np.linalg.norm(pts_t - center_t, axis=1))
-                return 2 * new_r, tuple(center_t.astype(int))
+                    # Apply homography
+                    pts_t_h = pts_h @ H.T
+                    center_t_h = H @ center_h
+                    pts_t = pts_t_h[:, :2] / pts_t_h[:, 2:3]
+                    center_t = center_t_h[:2] / center_t_h[2]
 
-            # -------------------
-            # Images and homography
-            img_ref = dataset_image_sequences[seq][0]
-            img_rel = dataset_image_sequences[seq][rel_idx + 1]
-            H = dataset_homography_sequence[seq][rel_idx]
+                    new_r = np.mean(np.linalg.norm(pts_t - center_t, axis=1))
+                    return 2 * new_r, tuple(center_t.astype(int))
 
-            h1, w1 = img_ref.shape[:2]
-            h2, w2 = img_rel.shape[:2]
+                # -------------------
+                # Images and homography
+                img_ref = dataset_image_sequences[seq][0]
+                img_rel = dataset_image_sequences[seq][rel_idx + 1]
+                H = dataset_homography_sequence[seq][rel_idx]
 
-            # Sort matches
-            sorted_matches = sorted(matches, key=lambda m: m.match_properties["distance"])
+                h1, w1 = img_ref.shape[:2]
+                h2, w2 = img_rel.shape[:2]
 
-            # Window names
-            main_window = "Matches Viewer"
-            overlay_window = "Highlighted Match Overlay"
-            cv2.namedWindow(main_window)
-            cv2.namedWindow(overlay_window)
+                # Sort matches
+                sorted_matches = sorted(matches, key=lambda m: m.match_properties["distance"])
 
-            # Current match index
-            current_idx = 0  # 0 = first match
+                # Window names
+                main_window = "Matches Viewer"
+                overlay_window = "Highlighted Match Overlay"
+                cv2.namedWindow(main_window)
+                cv2.namedWindow(overlay_window)
 
-            def redraw_main(idx):
-                """Draw main viewer with matches up to current index."""
-                out = np.zeros((max(h1, h2), w1 + w2, 3), dtype=img_ref.dtype)
-                out[:h1, :w1] = img_ref
-                out[:h2, w1:w1 + w2] = img_rel
+                # Current match index
+                current_idx = 0  # 0 = first match
 
-                n = idx + 1
-                visible = sorted_matches[:n]
+                def redraw_main(idx):
+                    """Draw main viewer with matches up to current index."""
+                    out = np.zeros((max(h1, h2), w1 + w2, 3), dtype=img_ref.dtype)
+                    out[:h1, :w1] = img_ref
+                    out[:h2, w1:w1 + w2] = img_rel
 
-                for i, match in enumerate(visible):
+                    n = idx + 1
+                    visible = sorted_matches[:n]
+
+                    for i, match in enumerate(visible):
+                        kp1 = match.reference_feature.keypoint
+                        kp2 = match.related_feature.keypoint
+
+                        p1 = tuple(map(int, kp1.pt))
+                        p2 = (int(kp2.pt[0] + w1), int(kp2.pt[1]))
+
+                        r1 = max(2, int(kp1.size / 2))
+                        r2 = max(2, int(kp2.size / 2))
+
+                        if i == n - 1:
+                            color = (0, 255, 255)  # highlighted
+                            thickness = 2
+                        else:
+                            color = (0, 255, 0) if match.is_correct else (0, 0, 255)
+                            thickness = 1
+
+                        cv2.circle(out, p1, r1, color, thickness)
+                        cv2.circle(out, p2, r2, color, thickness)
+                        cv2.line(out, p1, p2, color, thickness)
+
+                    cv2.imshow(main_window, out)
+
+                def redraw_overlay(idx):
+                    """Draw overlay image with only the highlighted match transformed."""
+                    match = sorted_matches[idx]
                     kp1 = match.reference_feature.keypoint
                     kp2 = match.related_feature.keypoint
 
-                    p1 = tuple(map(int, kp1.pt))
-                    p2 = (int(kp2.pt[0] + w1), int(kp2.pt[1]))
+                    overlay = img_ref.copy()  # overlay only on reference image
 
+                    # Draw reference keypoint
                     r1 = max(2, int(kp1.size / 2))
-                    r2 = max(2, int(kp2.size / 2))
+                    cv2.circle(overlay, tuple(map(int, kp1.pt)), r1, (0, 255, 0), 2)
 
-                    if i == n - 1:
-                        color = (0, 255, 255)  # highlighted
-                        thickness = 2
-                    else:
-                        color = (0, 255, 0) if match.is_correct else (0, 0, 255)
-                        thickness = 1
+                    # Draw transformed related keypoint
+                    new_size, new_center = transformed_keypoint_size(kp2, H)
+                    cv2.circle(overlay, new_center, max(2, int(new_size / 2)), (255, 0, 0), 2)
 
-                    cv2.circle(out, p1, r1, color, thickness)
-                    cv2.circle(out, p2, r2, color, thickness)
-                    cv2.line(out, p1, p2, color, thickness)
+                    cv2.imshow(overlay_window, overlay)
 
-                cv2.imshow(main_window, out)
+                def update(idx):
+                    """Update both windows for current index."""
+                    redraw_main(idx)
+                    redraw_overlay(idx)
+                    cv2.setTrackbarPos("Matches", main_window, idx)
 
-            def redraw_overlay(idx):
-                """Draw overlay image with only the highlighted match transformed."""
-                match = sorted_matches[idx]
-                kp1 = match.reference_feature.keypoint
-                kp2 = match.related_feature.keypoint
+                # Trackbar callback
+                def on_trackbar(val):
+                    global current_idx
+                    current_idx = val
+                    update(current_idx)
 
-                overlay = img_ref.copy()  # overlay only on reference image
+                # Create trackbar
+                cv2.createTrackbar("Matches", main_window, current_idx, len(sorted_matches)-1, on_trackbar)
 
-                # Draw reference keypoint
-                r1 = max(2, int(kp1.size / 2))
-                cv2.circle(overlay, tuple(map(int, kp1.pt)), r1, (0, 255, 0), 2)
-
-                # Draw transformed related keypoint
-                new_size, new_center = transformed_keypoint_size(kp2, H)
-                cv2.circle(overlay, new_center, max(2, int(new_size / 2)), (255, 0, 0), 2)
-
-                cv2.imshow(overlay_window, overlay)
-
-            def update(idx):
-                """Update both windows for current index."""
-                redraw_main(idx)
-                redraw_overlay(idx)
-                cv2.setTrackbarPos("Matches", main_window, idx)
-
-            # Trackbar callback
-            def on_trackbar(val):
-                global current_idx
-                current_idx = val
+                # Initial draw
                 update(current_idx)
 
-            # Create trackbar
-            cv2.createTrackbar("Matches", main_window, current_idx, len(sorted_matches)-1, on_trackbar)
+                # -------------------
+                # Main loop
+                while True:
+                    key = cv2.waitKey(30) & 0xFF
 
-            # Initial draw
-            update(current_idx)
+                    if key == 27:  # ESC
+                        break
+                    elif key == 81 or key == ord('a'):  # LEFT arrow or 'a'
+                        current_idx = max(0, current_idx - 1)
+                        update(current_idx)
+                    elif key == 83 or key == ord('d'):  # RIGHT arrow or 'd'
+                        current_idx = min(len(sorted_matches) - 1, current_idx + 1)
+                        update(current_idx)
 
-            # -------------------
-            # Main loop
-            while True:
-                key = cv2.waitKey(30) & 0xFF
+                cv2.destroyAllWindows()
 
-                if key == 27:  # ESC
-                    break
-                elif key == 81 or key == ord('a'):  # LEFT arrow or 'a'
-                    current_idx = max(0, current_idx - 1)
-                    update(current_idx)
-                elif key == 83 or key == ord('d'):  # RIGHT arrow or 'd'
-                    current_idx = min(len(sorted_matches) - 1, current_idx + 1)
-                    update(current_idx)
-
-            cv2.destroyAllWindows()
-
-            #############################################
+                #############################################
 
     return matching_match_sets
 
