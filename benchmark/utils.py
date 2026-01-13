@@ -6,27 +6,61 @@ import matplotlib.pyplot as plt
 import math
 import random
 
-def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
+
+import os
+import cv2
+import numpy as np
+from typing import Tuple
+
+def _make_circle_img(size: int = 400, radius: int = 20) -> np.ndarray:
     """
-    Load the HPSequence dataset:
-    by passing the path to the sequence.
+    White background with a filled black circle in the center.
+    BGR uint8, shape (size, size, 3).
+    """
+    img = np.full((size, size, 3), 255, dtype=np.uint8)
+    center = (size // 2, size // 2)
+    cv2.circle(img, center, radius, color=(0, 0, 0), thickness=-1, lineType=cv2.LINE_AA)
+    return img
 
-    Parameters
-    ----------
-    path_to_HPSequences: str
-        The path to the extracted HPsequences dataset.
+def _make_single_corner_img(size: int = 400, square_size: int = 200, top_left: tuple[int,int] = (100, 100)) -> np.ndarray:
+    """
+    White background with a 200x200 square whose intensity ramps from dark at the
+    top-left corner to bright at the bottom-right corner. This produces a single
+    dominant high-contrast corner at the square's top-left vertex.
+    """
+    img = np.full((size, size, 3), 255, dtype=np.uint8)
 
-    Returns
-    -------
-    Tuple[list[list[np.ndarray]], list[list[np.ndarray]]
-        A 2d list of the image sequences with the respective images and a
-        2d list of the homographical transformation matrixes between the
-        reference image and the related images.
+    y0, x0 = top_left
+    y1, x1 = y0 + square_size, x0 + square_size
+
+    # Create a diagonal gradient in [0, 255] inside the square:
+    # 0 at (y0, x0) -> 255 at (y1-1, x1-1)
+    gx = np.linspace(1.0, 1.0, square_size, dtype=np.float32)
+    gy = gx
+    XX, YY = np.meshgrid(gx, gy)
+    grad = ((XX + YY) / 2.0) * 255.0  # 0 at top-left, 255 at bottom-right
+    square_gray = grad.astype(np.uint8)
+
+    # Place gradient square into the white background (3 channels)
+    img[y0:y1, x0:x1] = cv2.merge([square_gray, square_gray, square_gray])
+
+    return img
+
+def load_HPSequences(path_to_HPSequences: str, prepend_synthetic: bool = True, shape: str  = "circle" 
+                    ) -> Tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
+    """
+    Load the HPSequence dataset (PPM images and homographies),
+    optionally prepending a synthetic sequence for detector testing.
+
+    Returns:
+        image_sequences: 2D list of sequences -> images
+        homography_sequences: 2D list of sequences -> homography matrices
+                              (reference image to each subsequent image).
     """
     image_sequences: list[list[np.ndarray]] = []
     homography_sequences: list[list[np.ndarray]] = []
 
-    # Itterate over all subfolders.
+    # Iterate over all subfolders.
     for name in os.listdir(path_to_HPSequences):
         subfolder = os.path.join(path_to_HPSequences, name)
         if not os.path.isdir(subfolder):
@@ -55,7 +89,24 @@ def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], 
         image_sequences.append(images)
         homography_sequences.append(homographies)
 
+    if prepend_synthetic:
+        sizes = [5,10,20,40,60,100]
+        synthetic_images = []
+        if shape == "circle":
+            for i in range(6):
+                synthetic_images.append(_make_circle_img(size=400, radius=sizes[i]))
+        elif shape == "square":
+            for i in range(6):
+                synthetic_images.append(_make_single_corner_img(size=400, square_size=sizes[i], top_left=(100, 100)))
+
+        # Reference is the first image; homography maps reference -> second image.
+        H_identity = np.eye(3, dtype=float)
+
+        image_sequences.insert(0, synthetic_images)
+        homography_sequences.insert(0, [H_identity,H_identity,H_identity,H_identity,H_identity])
+
     return image_sequences, homography_sequences
+
 
 
 def calculate_overlap_one_circle_to_many(circle_diameter: float, other_circles_diameters : np.ndarray, distances):
