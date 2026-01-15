@@ -33,6 +33,8 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
         for image_index, image in enumerate(image_sequence):
 
             keypoints = feature_extractor.detect_keypoints(image)
+            for keypoint in keypoints:
+                keypoint.size = keypoint.size * keypoint_size_scaling
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
             
             # prebinding locals for performance increase
@@ -48,8 +50,8 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
                 scores = np.array([f.keypoint.response for f in features])
                 idx = np.argpartition(scores, -max_features)[-max_features:]
                 features = [features[i] for i in idx]
-            for feature in features:
-                feature.keypoint.size = feature.keypoint.size * keypoint_size_scaling
+            # for feature in features:
+            #     feature.keypoint.size = feature.keypoint.size * keypoint_size_scaling
             image_feature_set[sequence_index][image_index] = features
 
 
