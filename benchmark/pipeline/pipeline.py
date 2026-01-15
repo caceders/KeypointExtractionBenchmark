@@ -41,8 +41,14 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
 
             # For debug ################################
             
-            #out_image = cv2.drawKeypoints(image, [max(list(keypoints), key=lambda kp: kp.response)], None, color=None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-            out_image = cv2.drawKeypoints(image, keypoints, None, color=None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            best_keypoint = max(list(keypoints), key=lambda kp: kp.response)
+            biggest_keypoint = max(list(keypoints), key=lambda kp: kp.size)
+            print(best_keypoint.size)
+            print(best_keypoint.response)
+            print(biggest_keypoint.size)
+            print(biggest_keypoint.response)
+            out_image = cv2.drawKeypoints(image, [max(list(keypoints), key=lambda kp: kp.size), max(list(keypoints), key=lambda kp: kp.response)], None, color=None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            #out_image = cv2.drawKeypoints(image, keypoints, None, color=None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
             cv2.imshow("Keypoints", out_image)
             cv2.waitKey(0)   # 200 ms = 0.2 s
             cv2.destroyAllWindows()
@@ -149,7 +155,7 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
             matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
             matching_match_set.add_match(matches)
 
-            if seq == 0:
+            if seq == 1:
 
                 ## For debug ################################
                 def transformed_keypoint_size(kp, H):

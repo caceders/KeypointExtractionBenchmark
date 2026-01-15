@@ -981,3 +981,212 @@ Traceback (most recent call last):
 TypeError: 'NoneType' object is not iterable
 
 
+FAST+FAST
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+FAST+FAST
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+FAST+FAST
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+BRISK+BRISK
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+                            ^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
+
+
+BRISK+ORB
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+                            ^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
+
+
+BRISK+SIFT_SIGMA_5
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+                            ^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
+
+
+ORB+BRISK
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+                            ^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
+
+
+ORB+ORB
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+                            ^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
+
+
+ORB+SIFT_SIGMA_5
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+                            ^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
+
+
+SIFT_SIGMA_5+BRISK
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+                            ^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
+
+
+SIFT_SIGMA_5+ORB
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+                            ^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
+
+
+SIFT_SIGMA_5+SIFT_SIGMA_5
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+                            ^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
+
+
+AKAZE+AKAZE
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 273, in <module>
+    matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach, dataset_image_sequences, dataset_homography_sequence)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 155, in calculate_matching_evaluation
+    matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\matching\matching.py", line 294, in greedy_maximum_bipartite_matching_descriptor_distance
+    xor = np.bitwise_xor(reference_feature_descriptions[:, None, :], related_feature_descriptions[None, :, :])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: ufunc 'bitwise_xor' not supported for the input types, and the inputs could not be safely coerced to any supported types according to the casting rule ''safe''
+
+

@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 from typing import Tuple
 
-def _make_circle_img(size: int = 400, radius: int = 20) -> np.ndarray:
+def _make_circle_img(size: int = 800, radius: int = 20) -> np.ndarray:
     """
     White background with a filled black circle in the center.
     BGR uint8, shape (size, size, 3).
@@ -22,7 +22,7 @@ def _make_circle_img(size: int = 400, radius: int = 20) -> np.ndarray:
     cv2.circle(img, center, radius, color=(0, 0, 0), thickness=-1, lineType=cv2.LINE_AA)
     return img
 
-def _make_single_corner_img(size: int = 400, square_size: int = 200, top_left: tuple[int,int] = (100, 100)) -> np.ndarray:
+def _make_single_corner_img(size: int = 800, square_size: int = 200, top_left: tuple[int,int] = (400, 400)) -> np.ndarray:
     """
     White background with a 200x200 square whose intensity ramps from dark at the
     top-left corner to bright at the bottom-right corner. This produces a single
@@ -35,7 +35,7 @@ def _make_single_corner_img(size: int = 400, square_size: int = 200, top_left: t
 
     # Create a diagonal gradient in [0, 255] inside the square:
     # 0 at (y0, x0) -> 255 at (y1-1, x1-1)
-    gx = np.linspace(1.0, 1.0, square_size, dtype=np.float32)
+    gx = np.linspace(0.0, 0.0, square_size, dtype=np.float32)
     gy = gx
     XX, YY = np.meshgrid(gx, gy)
     grad = ((XX + YY) / 2.0) * 255.0  # 0 at top-left, 255 at bottom-right
@@ -90,14 +90,16 @@ def load_HPSequences(path_to_HPSequences: str, prepend_synthetic: bool = True, s
         homography_sequences.append(homographies)
 
     if prepend_synthetic:
-        sizes = [5,10,20,40,60,100]
+        
         synthetic_images = []
         if shape == "circle":
+            sizes = [5*3,10*3,15*3,20*3,25*3,30*3]
             for i in range(6):
-                synthetic_images.append(_make_circle_img(size=400, radius=sizes[i]))
+                synthetic_images.append(_make_circle_img(size=800, radius=sizes[i]))
         elif shape == "square":
+            sizes = [20,40,80,120,200,300]
             for i in range(6):
-                synthetic_images.append(_make_single_corner_img(size=400, square_size=sizes[i], top_left=(100, 100)))
+                synthetic_images.append(_make_single_corner_img(size=800, square_size=sizes[i], top_left=(400, 400)))
 
         # Reference is the first image; homography maps reference -> second image.
         H_identity = np.eye(3, dtype=float)
