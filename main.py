@@ -210,15 +210,16 @@ STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
     # "AGAST" : AGAST,
-    "AKAZE" : AKAZE,
-    "BRISK" : BRISK,
-    #"FAST" : FAST,
+    #"AKAZE" : AKAZE,
+    #"BRISK" : BRISK,
+    "FAST" : FAST,
     # "GFTT" : GFTT,
     #"KAZE" : KAZE,
     # "MSER" : MSER,
-    "ORB" : ORB,
+    #
+    # "ORB" : ORB,
     "SIFT" : SIFT,
-    "SIFT_SIGMA_5" : SIFT_SIGMA_5
+    #"SIFT_SIGMA_5" : SIFT_SIGMA_5
     # "SIMPLEBLOB" : SIMPLEBLOB,
     #"BRIEF" : BRIEF,
     # "DAISY" : DAISY,

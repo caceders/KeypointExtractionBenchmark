@@ -1190,3 +1190,180 @@ Traceback (most recent call last):
 TypeError: ufunc 'bitwise_xor' not supported for the input types, and the inputs could not be safely coerced to any supported types according to the casting rule ''safe''
 
 
+ORB+GFTT
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 108, in <module>
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 36, in find_all_features_for_dataset
+    keypoints = feature_extractor.detect_keypoints(image)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+FAST+FAST
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+FAST+FAST
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 269, in <module>
+    find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES)
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 40, in find_all_features_for_dataset
+    keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+SIFT+GFTT
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 108, in <module>
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 36, in find_all_features_for_dataset
+    keypoints = feature_extractor.detect_keypoints(image)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+SIFT+ORB
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 108, in <module>
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 36, in find_all_features_for_dataset
+    keypoints = feature_extractor.detect_keypoints(image)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\core\src\alloc.cpp:73: error: (-4:Insufficient memory) Failed to allocate 68454964160 bytes in function 'cv::OutOfMemoryError'
+
+
+
+BRISK+GFTT
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 108, in <module>
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 36, in find_all_features_for_dataset
+    keypoints = feature_extractor.detect_keypoints(image)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+GFTT+GFTT
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 108, in <module>
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 36, in find_all_features_for_dataset
+    keypoints = feature_extractor.detect_keypoints(image)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+BRISK+BRISK
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 108, in <module>
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 38, in find_all_features_for_dataset
+    break
+          
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 52, in describe_keypoint_wrapper
+    return list(keypoints), list(descs)
+                            ^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
+
+
+ORB+GFTT
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 108, in <module>
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 36, in find_all_features_for_dataset
+    keypoints = feature_extractor.detect_keypoints(image)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+SIFT+GFTT
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 108, in <module>
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 36, in find_all_features_for_dataset
+    keypoints = feature_extractor.detect_keypoints(image)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\features2d\src\feature2d.cpp:174: error: (-213:The function/feature is not implemented)  in function 'cv::Feature2D::detectAndCompute'
+
+
+
+SIFT+ORB
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 108, in <module>
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\pipeline\pipeline.py", line 36, in find_all_features_for_dataset
+    keypoints = feature_extractor.detect_keypoints(image)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 68, in describe_keypoints
+    return self._describe_keypoints(image, keypoints)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\feature_extractor\feature_extractor.py", line 51, in describe_keypoint_wrapper
+    keypoints, descs = opencv_describe_keypoints(image, keypoints)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: OpenCV(4.12.0) D:\a\opencv-python\opencv-python\opencv\modules\core\src\alloc.cpp:73: error: (-4:Insufficient memory) Failed to allocate 68454964160 bytes in function 'cv::OutOfMemoryError'
+
+
+
