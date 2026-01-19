@@ -155,7 +155,7 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
             matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
             matching_match_set.add_match(matches)
 
-            if seq == 90:
+            if seq == 89:
 
                 ## For debug ################################
                 def transformed_keypoint_size(kp, H):
