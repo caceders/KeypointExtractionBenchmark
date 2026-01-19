@@ -30,7 +30,7 @@ KAZE = cv2.KAZE_create()
 MSER = cv2.MSER_create()
 ORB = cv2.ORB_create()
 SIFT = cv2.SIFT_create()
-SIFT_SIGMA_3_2 = cv2.SIFT_create(sigma = 3.2)
+SIFT_SIGMA_4_8 = cv2.SIFT_create(sigma = 4.8)
 SIFT_SIGMA_5 = cv2.SIFT_create(sigma = 5)
 SIFT_SIGMA_10 = cv2.SIFT_create(sigma = 10)
 SIMPLEBLOB = cv2.SimpleBlobDetector_create()
@@ -44,22 +44,22 @@ MSD = cv2.xfeatures2d.MSDDetector_create()
 STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
-    "AGAST" : AGAST,
+    # "AGAST" : AGAST,
     "AKAZE" : AKAZE,
     "BRISK" : BRISK,
     "FAST" : FAST,
     "GFTT" : GFTT,
-    "KAZE" : KAZE,
-    "MSER" : MSER,
+    # "KAZE" : KAZE,
+    # "MSER" : MSER,
     "ORB" : ORB,
     "SIFT" : SIFT,
-    "SIFT SIG 3.2" : SIFT_SIGMA_3_2,
+    "SIFT SIG 4.8" : SIFT_SIGMA_4_8,
     #"SIFT_SIGMA_5" : SIFT_SIGMA_5,
     #"SIFT_SIGMA_10" : SIFT_SIGMA_10,
     # "SIMPLEBLOB" : SIMPLEBLOB,
     "BRIEF" : BRIEF,
     #"DAISY" : DAISY,
-    "FREAK" : FREAK,
+    #"FREAK" : FREAK,
     # "HARRISLAPLACE" : HARRISLAPLACE,
     # "LATCH" : LATCH,
     # # "LUCID" : LUCID,
@@ -71,9 +71,9 @@ test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
         #descriptor_key = detector_key
-        if detector_key == "SIFT SIG 3.2" and descriptor_key == "SIFT":
-            descriptor_key = "SIFT SIG 3.2"
-        if descriptor_key == "SIFT SIG 3.2" and detector_key != "SIFT SIG 3.2":
+        if detector_key == "SIFT SIG 4.8" and descriptor_key == "SIFT":
+            descriptor_key = "SIFT SIG 4.8"
+        if descriptor_key == "SIFT SIG 4.8" and detector_key != "SIFT SIG 4.8":
             continue
         distance_type = ""
         if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]: 
@@ -82,7 +82,7 @@ for detector_key in features2d.keys():
             distance_type = cv2.NORM_L2
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
-SKIP = ["find_features", "matching", "verification", "retrieval"]
+SKIP = ["speedtest"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -127,11 +127,12 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         else:
             retrieval_match_sets : list [MatchSet] = [MatchSet()]   
 
-        if "matching" or "find_features" in SKIP:
+        if "matching" in SKIP or "find_features" in SKIP:
             results = {
                 "combination": f"{feature_extractor_key}",
                 "speed": speed
             }
+            print("Hæ")
         else:
 
             ## Store results
@@ -304,7 +305,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(all_results)
-        df.to_csv("output.csv", index = False)
+        df.to_csv("output_distance_15.csv", index = False)
 
     except Exception as e:
         error_message = traceback.format_exc()

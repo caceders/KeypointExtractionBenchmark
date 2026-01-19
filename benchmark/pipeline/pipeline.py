@@ -76,17 +76,20 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
 
             # transform sizes
             related_features_size_transformed = np.array([feature.get_size_after_homography_transform(homography) for feature in related_images_features])
-            overlap_matrix = []
+            closeness_matrix = []
             for reference_feature in reference_features:
                 
                 # Check distances
                 distances = np.linalg.norm(related_features_position_transformed - reference_feature.pt, axis=1)
                 
-                overlaps = calculate_overlap_one_circle_to_many(reference_feature.keypoint.size, related_features_size_transformed, distances)
-                overlap_matrix.append(overlaps)
+                if USE_DISTANCE:
+                    closeness_matrix.append(distances)
+                    mask = (distances <= DISTANCE_THRESHOLD)
+                else:
+                    overlaps = calculate_overlap_one_circle_to_many(reference_feature.keypoint.size, related_features_size_transformed, distances)
+                    closeness_matrix.append(overlaps)
+                    mask = (overlaps >= FEATURE_OVERLAP_THRESHOLD)
 
-                # Final mask: ONLY overlap criterion
-                mask = (overlaps >= FEATURE_OVERLAP_THRESHOLD)
 
                 valid_feature_indexes = np.nonzero(mask)[0]
                 if valid_feature_indexes.size == 0:
@@ -95,14 +98,16 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
                 # Store valid features for that check mask
                 for index in valid_feature_indexes:
                     related_feature = related_images_features[index]
-                    distance = distances[index]
                     reference_feature.store_valid_match_for_image(related_image_index, related_feature)
                     related_feature.store_valid_match_for_image(0, reference_feature)
 
             # Run matching
-            overlap_matrix_np = np.array(overlap_matrix)
+            closeness_matrix_np = np.array(closeness_matrix)
 
-            matches = greedy_maximum_bipartite_matching(reference_features, related_images_features, overlap_matrix_np, True, False)
+            if USE_DISTANCE:
+                matches = greedy_maximum_bipartite_matching(reference_features, related_images_features, closeness_matrix_np, False, False)
+            else:
+                matches = greedy_maximum_bipartite_matching(reference_features, related_images_features, closeness_matrix_np, True, False)
 
             number_of_possible_correct_matches = sum(1 for match in matches
                                                         if (valid_matches:=match.reference_feature.get_valid_matches_for_image(related_image_index)) is not None and 

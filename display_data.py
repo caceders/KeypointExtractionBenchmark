@@ -6,7 +6,7 @@ import matplotlib.patches as mpatches
 import re
 
 # ---------------------------- CONFIG ----------------------------
-CSV_PATH = "output_size_scaling_predesc.csv"
+CSV_PATH = "output_size_scaling_combinations_more.csv"
 
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
