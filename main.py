@@ -46,8 +46,8 @@ features2d = {
     #"AGAST" : AGAST,
     #"AKAZE" : AKAZE,
     "BRISK" : BRISK,
-    #"FAST" : FAST,
-    #"GFTT" : GFTT,
+    "FAST" : FAST,
+    "GFTT" : GFTT,
     #"KAZE" : KAZE,
     # "MSER" : MSER,
     "ORB" : ORB,
@@ -69,7 +69,7 @@ test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
         distance_type = ""
-        detector_key = descriptor_key
+        descriptor_key = "SIFT"
         if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]: 
             distance_type = cv2.NORM_HAMMING
         else: 
@@ -91,7 +91,8 @@ all_results = []
 
 warnings.filterwarnings("once", category=UserWarning)
 image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
-keypoint_size_scalings = [0.06125, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16]
+keypoint_size_scalings = [8, 16, 32]
+#keypoint_size_scalings = [0.030625, 0.06125, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32]
 # keypoint_size_scalings = [0.030625, 32, 64]
 #keypoint_size_scalings = [1]
 for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Calculating for all sizes"):
@@ -288,7 +289,7 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
             for metric, result in results.items():
                 print(metric, result)
             df = pd.DataFrame(all_results)
-            df.to_csv("output_size_scaling_predesc.csv", index = False)
+            df.to_csv("output_size_scaling_combinations_more_2.csv", index = False)
 
         except Exception as e:
             error_message = traceback.format_exc()

@@ -51,7 +51,7 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
                 idx = np.argpartition(scores, -max_features)[-max_features:]
                 features = [features[i] for i in idx]
             # for feature in features:
-            #     feature.keypoint.size = feature.keypoint.size * keypoint_size_scaling
+            #     feature.keypoint.size = feature.keypoint.size / keypoint_size_scaling
             image_feature_set[sequence_index][image_index] = features
 
 
