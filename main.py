@@ -246,27 +246,27 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
                 "size normalized std": norm_std_size,
                 "size min": min_size,
                 "size max": max_size,
-                "size unique count": unique_sizes_count,
+                #"size unique count": unique_sizes_count,
                 "size correct: avg": avg_size_correct,
                 "size correct/all ratio": ratio_size_correct,
 
                 "total num keypoints": total_num_features,
                 "correct matches per sequence: avg": avg_correct_per_sequence,
-                "correct matches per sequence: std": std_correct_per_sequence,
+                #"correct matches per sequence: std": std_correct_per_sequence,
 
                 "distance correct/all ratio": ratio_dist_correct,
 
                 "response correct/all ratio": ratio_resp_correct,
 
-                "distinctiveness all: avg": avg_distinct,
-                "distinctiveness correct: avg": avg_distinct_correct,
+                #"distinctiveness all: avg": avg_distinct,
+                #"distinctiveness correct: avg": avg_distinct_correct,
                 "distinctiveness correct/all ratio": ratio_distinct_correct,
 
                 # Rank metrics
                 "match rank: avg": avg_rank_all,
-                "match rank: std": std_rank_all,
+                #"match rank: std": std_rank_all,
                 "match rank correct: avg": avg_rank_correct,
-                "match rank correct: std": std_rank_correct,
+                #"match rank correct: std": std_rank_correct,
                 f"ratio rank >{NUM_BEST_MATCHES//2} / all": outside_num_best_matches_all,
                 f"ratio rank >{NUM_BEST_MATCHES//2} correct / rank >{NUM_BEST_MATCHES//2}": outside_num_best_matches_correct,
             }

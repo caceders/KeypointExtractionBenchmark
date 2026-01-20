@@ -2,7 +2,7 @@
 import pandas as pd
 
 # Replace with your CSV file path
-file_path = 'output_bigger_500_10_1000.csv'
+file_path = 'output_distance.csv'
 
 # Load the CSV
 df = pd.read_csv(file_path)

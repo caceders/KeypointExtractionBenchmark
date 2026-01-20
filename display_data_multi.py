@@ -6,7 +6,7 @@ import matplotlib.patches as mpatches
 import re
 
 # ====================== CONFIG ======================
-CSV_PATH = "output_sigma_2.csv"  # <<-- your file
+CSV_PATH = "output_distance_10.csv"  # <<-- your file
 
 # --- Toggle between views ---
 # False => Task view: Verification / Matching / Retrieval
