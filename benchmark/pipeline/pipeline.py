@@ -87,7 +87,8 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
                 
                 if USE_DISTANCE:
                     closeness_matrix.append(distances)
-                    mask = (distances <= DISTANCE_THRESHOLD)
+                    #mask = (distances <= DISTANCE_THRESHOLD)
+                    mask = (distances <= FEATURE_OVERLAP_THRESHOLD)
                 else:
                     overlaps = calculate_overlap_one_circle_to_many(reference_feature.keypoint.size, related_features_size_transformed, distances)
                     closeness_matrix.append(overlaps)
