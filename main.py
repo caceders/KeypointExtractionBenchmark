@@ -30,6 +30,7 @@ KAZE = cv2.KAZE_create()
 MSER = cv2.MSER_create()
 ORB = cv2.ORB_create()
 SIFT = cv2.SIFT_create()
+SIFT_SIGMA_4_8 = cv2.SIFT_create(sigma = 4.8)
 SIFT_SIGMA_5 = cv2.SIFT_create(sigma = 5)
 SIFT_SIGMA_10 = cv2.SIFT_create(sigma = 10)
 SIMPLEBLOB = cv2.SimpleBlobDetector_create()
@@ -43,21 +44,22 @@ MSD = cv2.xfeatures2d.MSDDetector_create()
 STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
-    #"AGAST" : AGAST,
+    # "AGAST" : AGAST,
     #"AKAZE" : AKAZE,
     "BRISK" : BRISK,
     "FAST" : FAST,
     "GFTT" : GFTT,
-    #"KAZE" : KAZE,
+    # "KAZE" : KAZE,
     # "MSER" : MSER,
     "ORB" : ORB,
     "SIFT" : SIFT,
+    #"SIFT SIG 4.8" : SIFT_SIGMA_4_8,
     #"SIFT_SIGMA_5" : SIFT_SIGMA_5,
     #"SIFT_SIGMA_10" : SIFT_SIGMA_10,
     # "SIMPLEBLOB" : SIMPLEBLOB,
     #"BRIEF" : BRIEF,
-    # "DAISY" : DAISY,
-    # "FREAK" : FREAK,
+    #"DAISY" : DAISY,
+    #"FREAK" : FREAK,
     # "HARRISLAPLACE" : HARRISLAPLACE,
     # "LATCH" : LATCH,
     # # "LUCID" : LUCID,
@@ -68,8 +70,12 @@ features2d = {
 test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature extraction method: feature extractor wrapper}
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
+        #descriptor_key = detector_key
+        if detector_key == "SIFT SIG 4.8" and descriptor_key == "SIFT":
+            descriptor_key = "SIFT SIG 4.8"
+        if descriptor_key == "SIFT SIG 4.8" and detector_key != "SIFT SIG 4.8":
+            continue
         distance_type = ""
-        descriptor_key = "SIFT"
         if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]: 
             distance_type = cv2.NORM_HAMMING
         else: 
@@ -235,27 +241,27 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
                 "size normalized std": norm_std_size,
                 "size min": min_size,
                 "size max": max_size,
-                "size unique count": unique_sizes_count,
+                #"size unique count": unique_sizes_count,
                 "size correct: avg": avg_size_correct,
                 "size correct/all ratio": ratio_size_correct,
 
                 "total num keypoints": total_num_features,
                 "correct matches per sequence: avg": avg_correct_per_sequence,
-                "correct matches per sequence: std": std_correct_per_sequence,
+                #"correct matches per sequence: std": std_correct_per_sequence,
 
                 "distance correct/all ratio": ratio_dist_correct,
 
                 "response correct/all ratio": ratio_resp_correct,
 
-                "distinctiveness all: avg": avg_distinct,
-                "distinctiveness correct: avg": avg_distinct_correct,
+                #"distinctiveness all: avg": avg_distinct,
+                #"distinctiveness correct: avg": avg_distinct_correct,
                 "distinctiveness correct/all ratio": ratio_distinct_correct,
 
                 # Rank metrics
                 "match rank: avg": avg_rank_all,
-                "match rank: std": std_rank_all,
+                #"match rank: std": std_rank_all,
                 "match rank correct: avg": avg_rank_correct,
-                "match rank correct: std": std_rank_correct,
+                #"match rank correct: std": std_rank_correct,
                 f"ratio rank >{NUM_BEST_MATCHES//2} / all": outside_num_best_matches_all,
                 f"ratio rank >{NUM_BEST_MATCHES//2} correct / rank >{NUM_BEST_MATCHES//2}": outside_num_best_matches_correct,
             }
@@ -265,23 +271,28 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
                 mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets])
                 results[f"Matching {match_rank_property.name} mAP"] =  mAP
 
-            # Results from verification
-            total_verification_set = MatchSet()
-            for match_set in verification_match_sets:
-                for match in match_set:
-                    total_verification_set.add_match(match)
+            if "verification" not in SKIP:
+                # Results from verification
+                total_verification_set = MatchSet()
+                for match_set in verification_match_sets:
+                    for match in match_set:
+                        total_verification_set.add_match(match)
                     
-            for match_ranking_property in match_properties:
-                AP = total_verification_set.get_average_precision_score(match_ranking_property)
-                results[f"Verification {match_ranking_property.name} AP"] = AP
+                for match_ranking_property in match_properties:
+                    AP = total_verification_set.get_average_precision_score(match_ranking_property)
+                    results[f"Verification {match_ranking_property.name} AP"] = AP
 
             # Results from retrieval
-            for match_ranking_property in match_properties:
-                mAP = np.average([match_set.get_average_precision_score(match_ranking_property, True) for match_set in retrieval_match_sets])
-                results[f"Retrieval {match_ranking_property.name} mAP"] = mAP
+            if "retrieval" not in SKIP:
+                for match_ranking_property in match_properties:
+                    mAP = np.average([match_set.get_average_precision_score(match_ranking_property, True) for match_set in retrieval_match_sets])
+                    results[f"Retrieval {match_ranking_property.name} mAP"] = mAP
 
-            spearman_rank_correlation_distance_distinctiveness = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)[0][2]
+            spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
+            spearman_rank_correlation_distance_distinctiveness = spearman_rank_correlations[0][2]
+            spearman_rank_correlation_distance_average_response = spearman_rank_correlations[0][1]
             results["distance-distinctiveness correlation"] = spearman_rank_correlation_distance_distinctiveness
+            results["distance-average response correlation"] = spearman_rank_correlation_distance_average_response
 
             all_results.append(results)
 
