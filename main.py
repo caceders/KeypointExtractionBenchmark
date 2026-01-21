@@ -45,7 +45,7 @@ STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
     # "AGAST" : AGAST,
-    "AKAZE" : AKAZE,
+    #"AKAZE" : AKAZE,
     "BRISK" : BRISK,
     "FAST" : FAST,
     "GFTT" : GFTT,
@@ -53,11 +53,11 @@ features2d = {
     # "MSER" : MSER,
     "ORB" : ORB,
     "SIFT" : SIFT,
-    "SIFT SIG 4.8" : SIFT_SIGMA_4_8,
+    #"SIFT SIG 4.8" : SIFT_SIGMA_4_8,
     #"SIFT_SIGMA_5" : SIFT_SIGMA_5,
     #"SIFT_SIGMA_10" : SIFT_SIGMA_10,
     # "SIMPLEBLOB" : SIMPLEBLOB,
-    "BRIEF" : BRIEF,
+    #"BRIEF" : BRIEF,
     #"DAISY" : DAISY,
     #"FREAK" : FREAK,
     # "HARRISLAPLACE" : HARRISLAPLACE,
@@ -229,7 +229,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
             # ========================
 
             results = {
-                "combination": f"{feature_extractor_key}",
+                "combination": f"{feature_extractor_key} 30",
                 "speed": speed,
                 "repeatability mean": np.mean(set_repeatabilities),
                 "repeatability std": np.std(set_repeatabilities),
@@ -305,7 +305,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(all_results)
-        df.to_csv("output_distance_15.csv", index = False)
+        df.to_csv("output_distance_500_30.csv", index = False)
 
     except Exception as e:
         error_message = traceback.format_exc()
