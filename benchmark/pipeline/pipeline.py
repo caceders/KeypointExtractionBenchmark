@@ -50,13 +50,11 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
                 scores = np.array([f.keypoint.response for f in features])
                 idx = np.argpartition(scores, -max_features)[-max_features:]
                 features = [features[i] for i in idx]
-            # for feature in features:
-            #     feature.keypoint.size = feature.keypoint.size / keypoint_size_scaling
             image_feature_set[sequence_index][image_index] = features
 
 
 #@beartype
-def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homography_sequence: list[list[np.ndarray]], FEATURE_OVERLAP_THRESHOLD: float):
+def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homography_sequence: list[list[np.ndarray]]):
     
     set_numbers_of_possible_correct_matches= []
     set_repeatabilities = []
@@ -87,8 +85,7 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
                 
                 if USE_DISTANCE:
                     closeness_matrix.append(distances)
-                    #mask = (distances <= DISTANCE_THRESHOLD)
-                    mask = (distances <= FEATURE_OVERLAP_THRESHOLD)
+                    mask = (distances <= DISTANCE_THRESHOLD)
                 else:
                     overlaps = calculate_overlap_one_circle_to_many(reference_feature.keypoint.size, related_features_size_transformed, distances)
                     closeness_matrix.append(overlaps)

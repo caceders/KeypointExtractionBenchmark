@@ -6,7 +6,7 @@ import matplotlib.patches as mpatches
 import re
 
 # ---------------------------- CONFIG ----------------------------
-CSV_PATH = "output_distance_500.csv"
+CSV_PATH = "output_size_scaling_distance_større.csv"
 
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
