@@ -6,7 +6,7 @@ import matplotlib.patches as mpatches
 import re
 
 # ---------------------------- CONFIG ----------------------------
-CSV_PATH = "output_size_scaling_distance_større.csv"
+CSV_PATH = "output_size_scaling_distance_10_1.csv"
 
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
@@ -29,7 +29,7 @@ SHADE_SECTIONS = True
 # Detector blacklist (case-insensitive match)
 BLACKLIST_DETECTORS   = {"MSER", "AGAST", "SIFT 3.2"}         # e.g., {"MSER", "FAST"}
 # Descriptor NAME blacklist (case-insensitive; number ignored)
-BLACKLIST_DESCRIPTORS = {"DAISY", "FREAK"}        # e.g., {"DAISY", "SIFT"}
+BLACKLIST_DESCRIPTORS = {"DAISY"}        # e.g., {"DAISY", "SIFT"}
 # Trailing NUMBER blacklist (numeric match against the parsed number)
 BLACKLIST_NUMBERS     = set({64,32, 0.030625})            # e.g., {64, 32.0, 0.06125}
 

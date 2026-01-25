@@ -45,7 +45,7 @@ STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
     # "AGAST" : AGAST,
-    #"AKAZE" : AKAZE,
+    "AKAZE" : AKAZE,
     "BRISK" : BRISK,
     #"FAST" : FAST,
     "GFTT" : GFTT,
@@ -53,13 +53,13 @@ features2d = {
     # "MSER" : MSER,
     "ORB" : ORB,
     "SIFT" : SIFT,
-    #"SIFT SIG 4.8" : SIFT_SIGMA_4_8,
+    "SIFT SIG 4.8" : SIFT_SIGMA_4_8,
     #"SIFT_SIGMA_5" : SIFT_SIGMA_5,
     #"SIFT_SIGMA_10" : SIFT_SIGMA_10,
     # "SIMPLEBLOB" : SIMPLEBLOB,
-    "BRIEF" : BRIEF,
+    #"BRIEF" : BRIEF,
     #"DAISY" : DAISY,
-    #"FREAK" : FREAK,
+    "FREAK" : FREAK,
     # "HARRISLAPLACE" : HARRISLAPLACE,
     # "LATCH" : LATCH,
     # # "LUCID" : LUCID,
@@ -69,11 +69,10 @@ features2d = {
 
 
 ONLY_DETECTOR = ["GFTT", "ORB"]                     
-ONLY_DESCRIPTOR = ["BRIEF"]                     
-BLACKLIST = [("ORB", "ORB")]                       
-# BLACKLIST = [("ORB", "SIFT"), ("SIFT", "SIFT"), ("GFTT", "SIFT"), ("BRISK","SIFT"), ("ORB", "ORB")]
+ONLY_DESCRIPTOR = ["FREAK"]                     
+BLACKLIST = []                       
 SELF_ONLY_AS_DETECTOR = ["SIFT SIG 4.8", "BRISK"]                    
-SELF_ONLY_AS_DESCRIPTOR = ["SIFT SIG 4.8", "ORB"]             
+SELF_ONLY_AS_DESCRIPTOR = ["SIFT SIG 4.8", "AKAZE"]             
 
 test_combinations: dict[str, FeatureExtractor] = {}
 
@@ -104,7 +103,7 @@ for detector_key in features2d.keys():
 
 
 
-SKIP = ["speedtest"]
+SKIP = ["speedtest", "verification", "retrieval"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -119,11 +118,12 @@ all_results = []
 
 warnings.filterwarnings("once", category=UserWarning)
 image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
-#keypoint_size_scalings = [0.125, 0.25, 0.5, 1, 2, 3, 4, 6, 8, 12]
-keypoint_size_scalings = [4, 8]
+#keypoint_size_scalings = [0.125, 0.25, 0.5, 1]
+#keypoint_size_scalings = [2, 3, 4, 6]
+keypoint_size_scalings = [8, 12, 16]
 #keypoint_size_scalings = [0.06125, 0.125, 0.25, 0.5, 1, 2, 4, 8]
 #keypoint_size_scalings = [0.030625, 32, 64]
-#keypoint_size_scalings = [12]
+
 for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Calculating for all sizes"):
     for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="Calculating for all combinations"):
         print(f"Calculating for {feature_extractor_key}")   
@@ -323,7 +323,7 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
             for metric, result in results.items():
                 print(metric, result)
             df = pd.DataFrame(all_results)
-            df.to_csv("output_size_scaling_distance_større_48.csv", index = False)
+            df.to_csv("output_size_scaling_distance_10_12", index = False)
 
         except Exception as e:
             error_message = traceback.format_exc()
