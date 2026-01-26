@@ -25,7 +25,11 @@ AGAST = cv2.AgastFeatureDetector_create()
 AKAZE = cv2.AKAZE_create()
 BRISK = cv2.BRISK_create()
 FAST = cv2.FastFeatureDetector_create()
-GFTT = cv2.GFTTDetector_create()
+FAST2 = cv2.FastFeatureDetector_create(nonmaxSuppression = False)
+GFTT = cv2.GFTTDetector_create(minDistance = 1)
+GFTT2 = cv2.GFTTDetector_create(minDistance = 0)
+GFTT3 = cv2.GFTTDetector_create(minDistance = 10)
+GFTT4 = cv2.GFTTDetector_create(minDistance = 4)
 KAZE = cv2.KAZE_create()
 MSER = cv2.MSER_create()
 ORB = cv2.ORB_create()
@@ -45,10 +49,14 @@ STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 features2d = {
     # "AGAST" : AGAST,
-    #"AKAZE" : AKAZE,
+    "AKAZE" : AKAZE,
     "BRISK" : BRISK,
     "FAST" : FAST,
+    #"FAST2" : FAST2,
     "GFTT" : GFTT,
+    #"GFTT2" : GFTT2,
+    #"GFTT3" : GFTT3,
+    #"GFTT4" : GFTT4,
     # "KAZE" : KAZE,
     # "MSER" : MSER,
     "ORB" : ORB,
@@ -71,6 +79,8 @@ test_combinations: dict[str, FeatureExtractor] = {} # {Printable name of feature
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
         #descriptor_key = detector_key
+        # if detector_key == "SIFT":
+        #     continue
         if detector_key == "SIFT SIG 4.8" and descriptor_key == "SIFT":
             descriptor_key = "SIFT SIG 4.8"
         if descriptor_key == "SIFT SIG 4.8" and detector_key != "SIFT SIG 4.8":
@@ -82,7 +92,7 @@ for detector_key in features2d.keys():
             distance_type = cv2.NORM_L2
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
-SKIP = ["speedtest"]
+SKIP = ["speedtest", "verification", "retrieval"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -229,7 +239,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
             # ========================
 
             results = {
-                "combination": f"{feature_extractor_key} 30",
+                "combination": f"{feature_extractor_key}",
                 "speed": speed,
                 "repeatability mean": np.mean(set_repeatabilities),
                 "repeatability std": np.std(set_repeatabilities),
@@ -305,7 +315,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(all_results)
-        df.to_csv("output_distance_500_30.csv", index = False)
+        df.to_csv("output_color_mystery.csv", index = False)
 
     except Exception as e:
         error_message = traceback.format_exc()

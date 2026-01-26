@@ -41,7 +41,8 @@ def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], 
 
             # Store .ppm files,
             if filename.lower().endswith(".ppm"):
-                image = cv2.imread(filepath, cv2.IMREAD_COLOR)
+                #image = cv2.imread(filepath, cv2.IMREAD_COLOR)
+                image = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
                 if image is None:
                     raise ValueError(f"Failed to load image: {filepath}")
                 images.append(image)

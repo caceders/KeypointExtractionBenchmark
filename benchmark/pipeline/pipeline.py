@@ -33,6 +33,13 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
         for image_index, image in enumerate(image_sequence):
 
             keypoints = feature_extractor.detect_keypoints(image)
+            if max_features*2 < len(keypoints):
+                # Pick the top max_features elements
+                scores = np.array([keypoint.response for keypoint in keypoints])
+                idx = np.argpartition(scores, -max_features*2)[-max_features*2:]
+                keypoints = [keypoints[i] for i in idx]
+            
+
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
             
             # prebinding locals for performance increase
