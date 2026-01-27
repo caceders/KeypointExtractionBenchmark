@@ -25,11 +25,7 @@ AGAST = cv2.AgastFeatureDetector_create()
 AKAZE = cv2.AKAZE_create()
 BRISK = cv2.BRISK_create()
 FAST = cv2.FastFeatureDetector_create()
-FAST2 = cv2.FastFeatureDetector_create(nonmaxSuppression = False)
-GFTT = cv2.GFTTDetector_create(minDistance = 1)
-GFTT2 = cv2.GFTTDetector_create(minDistance = 0)
-GFTT3 = cv2.GFTTDetector_create(minDistance = 10)
-GFTT4 = cv2.GFTTDetector_create(minDistance = 4)
+GFTT = cv2.GFTTDetector_create()
 KAZE = cv2.KAZE_create()
 MSER = cv2.MSER_create()
 ORB = cv2.ORB_create()
@@ -46,21 +42,34 @@ LATCH = cv2.xfeatures2d.LATCH.create()
 LUCID = cv2.xfeatures2d.LUCID.create()
 MSD = cv2.xfeatures2d.MSDDetector_create()
 STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
+OPTIMUM_PARAMETER["FAST_threshold"] = 30.0
+OPTIMUM_PARAMETER["FAST_type"] = 2
+OPTIMUM_PARAMETER["SIFT_contrastThreshold"] = 0.09908007366014142
+OPTIMUM_PARAMETER["SIFT_edgeThreshold"] = 14.200265331919116
+OPTIMUM_PARAMETER["SIFT_nOctaveLayers"] = 18.0
+OPTIMUM_PARAMETER["SIFT_sigma"] = 2.296906124135162
+OPTIMUM_PARAMETER["scale"] = 1.4861155555257746
+FAST2 = cv2.FastFeatureDetector_create(threshold = 30, type = 2)
+GFTT2 = cv2.GFTTDetector_create(minDistance = 0)
+
+SIFT_FAST2 = cv2.SIFT_create(contrastThreshold = 0.09908007366014142, edgeThreshold = 14.200265331919116, nOctaveLayers = 18.0, sigma = 2.296906124135162,  )
+SIFT_GFTT2 = cv2.SIFT_create()
+
 
 features2d = {
     # "AGAST" : AGAST,
-    "AKAZE" : AKAZE,
-    "BRISK" : BRISK,
+    #"AKAZE" : AKAZE,
+    #"BRISK" : BRISK,
     "FAST" : FAST,
     #"FAST2" : FAST2,
     "GFTT" : GFTT,
     #"GFTT2" : GFTT2,
-    #"GFTT3" : GFTT3,
-    #"GFTT4" : GFTT4,
     # "KAZE" : KAZE,
     # "MSER" : MSER,
-    "ORB" : ORB,
+    #"ORB" : ORB,
     "SIFT" : SIFT,
+    "SIFT_FAST2" : SIFT_FAST2,
+    "SIFT_GFTT2" : SIFT_GFTT2,
     #"SIFT SIG 4.8" : SIFT_SIGMA_4_8,
     #"SIFT_SIGMA_5" : SIFT_SIGMA_5,
     #"SIFT_SIGMA_10" : SIFT_SIGMA_10,
