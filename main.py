@@ -120,7 +120,7 @@ for detector_key in features2d.keys():
 
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
-SKIP = ["speedtest"]
+SKIP = ["speedtest", "verification", "retrieval"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -265,7 +265,7 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
         # ========================
 
         results = {
-            "combination": f"{feature_extractor_key}" if (keypoint_size_scalings.size() == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
+            "combination": f"{feature_extractor_key}" if (len(keypoint_size_scalings) == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
             "speed": speed,
             "repeatability mean": np.mean(set_repeatabilities),
             "repeatability std": np.std(set_repeatabilities),
