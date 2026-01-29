@@ -6,11 +6,12 @@ import matplotlib.patches as mpatches
 import re
 
 # ---------------------------- CONFIG ----------------------------
-CSV_PATH = "output_color_mystery.csv"
+CSV_PATH = "output_optimal_parameters.csv"
 
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
-#   "alphabetical_by_descriptor" -> descriptor name, then descriptor number, then detector
+#   "alphabetical_by_descriptor" -> descriptor name, then descriptor numb
+# er, then detector
 #   "metric"                     -> per-metric sort; ties respect detector-first order
 SORT_MODE = "alphabetical_by_detector"   # "alphabetical_by_detector" | "alphabetical_by_descriptor" | "metric"
 METRIC_ASCENDING = False                   # used only when SORT_MODE == "metric"
@@ -29,7 +30,7 @@ SHADE_SECTIONS = True
 # Detector blacklist (case-insensitive match)
 BLACKLIST_DETECTORS   = {"MSER", "AGAST", "SIFT 3.2"}         # e.g., {"MSER", "FAST"}
 # Descriptor NAME blacklist (case-insensitive; number ignored)
-BLACKLIST_DESCRIPTORS = {"DAISY", "FREAK"}        # e.g., {"DAISY", "SIFT"}
+BLACKLIST_DESCRIPTORS = {"DAISY"}        # e.g., {"DAISY", "SIFT"}
 # Trailing NUMBER blacklist (numeric match against the parsed number)
 BLACKLIST_NUMBERS     = set({64,32, 0.030625})            # e.g., {64, 32.0, 0.06125}
 

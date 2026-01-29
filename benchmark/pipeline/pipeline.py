@@ -27,19 +27,18 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
 
 
 #@beartype
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int):  
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int):  
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
 
             keypoints = feature_extractor.detect_keypoints(image)
             if max_features*2 < len(keypoints):
-                # Pick the top max_features elements
                 scores = np.array([keypoint.response for keypoint in keypoints])
                 idx = np.argpartition(scores, -max_features*2)[-max_features*2:]
                 keypoints = [keypoints[i] for i in idx]
-            
-
+            for keypoint in keypoints:
+                keypoint.size = keypoint.size * keypoint_size_scaling
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
             
             # prebinding locals for performance increase
@@ -55,12 +54,11 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
                 scores = np.array([f.keypoint.response for f in features])
                 idx = np.argpartition(scores, -max_features)[-max_features:]
                 features = [features[i] for i in idx]
-            
             image_feature_set[sequence_index][image_index] = features
 
 
 #@beartype
-def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homography_sequence: list[list[np.ndarray]], FEATURE_OVERLAP_THRESHOLD: float):
+def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homography_sequence: list[list[np.ndarray]]):
     
     set_numbers_of_possible_correct_matches= []
     set_repeatabilities = []
