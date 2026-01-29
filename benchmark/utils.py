@@ -12,45 +12,11 @@ import cv2
 import numpy as np
 from typing import Tuple
 
-def _make_circle_img(size: int = 800, radius: int = 20) -> np.ndarray:
-    """
-    White background with a filled black circle in the center.
-    BGR uint8, shape (size, size, 3).
-    """
-    img = np.full((size, size, 3), 255, dtype=np.uint8)
-    center = (size // 2, size // 2)
-    cv2.circle(img, center, radius, color=(0, 0, 0), thickness=-1, lineType=cv2.LINE_AA)
-    return img
 
-def _make_single_corner_img(size: int = 800, square_size: int = 200, top_left: tuple[int,int] = (400, 400)) -> np.ndarray:
-    """
-    White background with a 200x200 square whose intensity ramps from dark at the
-    top-left corner to bright at the bottom-right corner. This produces a single
-    dominant high-contrast corner at the square's top-left vertex.
-    """
-    img = np.full((size, size, 3), 255, dtype=np.uint8)
 
-    y0, x0 = top_left
-    y1, x1 = y0 + square_size, x0 + square_size
-
-    # Create a diagonal gradient in [0, 255] inside the square:
-    # 0 at (y0, x0) -> 255 at (y1-1, x1-1)
-    gx = np.linspace(0.0, 0.0, square_size, dtype=np.float32)
-    gy = gx
-    XX, YY = np.meshgrid(gx, gy)
-    grad = ((XX + YY) / 2.0) * 255.0  # 0 at top-left, 255 at bottom-right
-    square_gray = grad.astype(np.uint8)
-
-    # Place gradient square into the white background (3 channels)
-    img[y0:y1, x0:x1] = cv2.merge([square_gray, square_gray, square_gray])
-
-    return img
-
-def load_HPSequences(path_to_HPSequences: str, prepend_synthetic: bool = True, shape: str  = "circle" 
-                    ) -> Tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
+def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
     """
     Load the HPSequence dataset (PPM images and homographies),
-    optionally prepending a synthetic sequence for detector testing.
 
     Returns:
         image_sequences: 2D list of sequences -> images
@@ -75,7 +41,7 @@ def load_HPSequences(path_to_HPSequences: str, prepend_synthetic: bool = True, s
 
             # Store .ppm files,
             if filename.lower().endswith(".ppm"):
-                image = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
+                image = cv2.imread(filepath, cv2.IMREAD_COLOR)
                 if image is None:
                     raise ValueError(f"Failed to load image: {filepath}")
                 images.append(image)
@@ -88,24 +54,6 @@ def load_HPSequences(path_to_HPSequences: str, prepend_synthetic: bool = True, s
 
         image_sequences.append(images)
         homography_sequences.append(homographies)
-
-    if prepend_synthetic:
-        
-        synthetic_images = []
-        if shape == "circle":
-            sizes = [5*3,10*3,15*3,20*3,25*3,30*3]
-            for i in range(6):
-                synthetic_images.append(_make_circle_img(size=800, radius=sizes[i]))
-        elif shape == "square":
-            sizes = [20,40,80,120,200,300]
-            for i in range(6):
-                synthetic_images.append(_make_single_corner_img(size=800, square_size=sizes[i], top_left=(400, 400)))
-
-        # Reference is the first image; homography maps reference -> second image.
-        H_identity = np.eye(3, dtype=float)
-
-        image_sequences.insert(0, synthetic_images)
-        homography_sequences.insert(0, [H_identity,H_identity,H_identity,H_identity,H_identity])
 
     return image_sequences, homography_sequences
 

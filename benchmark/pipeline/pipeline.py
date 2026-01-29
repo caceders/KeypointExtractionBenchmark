@@ -155,7 +155,7 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
 
 
 #@beartype
-def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]]) -> list[MatchSet]:
+def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool) -> list[MatchSet]:
     matching_match_sets: list[MatchSet] = []
     for seq, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
         matching_match_set = MatchSet()
@@ -166,7 +166,7 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
             matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
             matching_match_set.add_match(matches)
 
-            if seq == 89:
+            if visualize and seq == 89:
 
                 ## For debug ################################
                 def transformed_keypoint_size(kp, H):
