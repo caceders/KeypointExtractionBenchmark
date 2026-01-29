@@ -31,8 +31,6 @@ MSER = cv2.MSER_create()
 ORB = cv2.ORB_create()
 SIFT = cv2.SIFT_create()
 SIFT_SIGMA_4_8 = cv2.SIFT_create(sigma = 4.8)
-SIFT_SIGMA_5 = cv2.SIFT_create(sigma = 5)
-SIFT_SIGMA_10 = cv2.SIFT_create(sigma = 10)
 SIMPLEBLOB = cv2.SimpleBlobDetector_create()
 BRIEF = cv2.xfeatures2d.BriefDescriptorExtractor_create()
 DAISY = cv2.xfeatures2d.DAISY_create()
@@ -42,27 +40,12 @@ LATCH = cv2.xfeatures2d.LATCH.create()
 LUCID = cv2.xfeatures2d.LUCID.create()
 MSD = cv2.xfeatures2d.MSDDetector_create()
 STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
-OPTIMUM_PARAMETER["FAST_threshold"] = 30.0
-OPTIMUM_PARAMETER["FAST_type"] = 2
-OPTIMUM_PARAMETER["SIFT_contrastThreshold"] = 0.09908007366014142
-OPTIMUM_PARAMETER["SIFT_edgeThreshold"] = 14.200265331919116
-OPTIMUM_PARAMETER["SIFT_nOctaveLayers"] = 18.0
-OPTIMUM_PARAMETER["SIFT_sigma"] = 2.296906124135162
-OPTIMUM_PARAMETER["scale"] = 1.4861155555257746
-FAST2 = cv2.FastFeatureDetector_create(threshold = 30, type = 2)
-GFTT2 = cv2.GFTTDetector_create(minDistance = 0)
-
-SIFT_FAST2 = cv2.SIFT_create(contrastThreshold = 0.09908007366014142, edgeThreshold = 14.200265331919116, nOctaveLayers = 18.0, sigma = 2.296906124135162,  )
-SIFT_GFTT2 = cv2.SIFT_create()
-
 
 
 FAST2 = cv2.FastFeatureDetector_create(threshold = 15)
 FAST2_SCALE = 1.5
-
 GFTT2 = cv2.GFTTDetector_create(blockSize = 6, minDistance = 0, qualityLevel = 0.01)
 GFTT2_SCALE = 2
-
 SIFT_FAST2 = cv2.SIFT_create(sigma = 2.25)
 SIFT_GFTT2 = cv2.SIFT_create()
 
