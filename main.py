@@ -15,12 +15,8 @@ import warnings
 from config import *
 
 ## Load dataset.    
-dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release") 
+dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release", False, "square") 
 
-####################################### SETUP BENCHMARK HERE #############################################################
-
-
-## Setup feature extractors.
 AGAST = cv2.AgastFeatureDetector_create()
 AKAZE = cv2.AKAZE_create()
 BRISK = cv2.BRISK_create()
@@ -73,7 +69,7 @@ features2d = {
     #"FREAK" : FREAK,
     # "HARRISLAPLACE" : HARRISLAPLACE,
     # "LATCH" : LATCH,
-    # # "LUCID" : LUCID,
+    # "LUCID" : LUCID,
     # "MSD" : MSD,
     # "STARDETECTOR" : STARDETECTOR 
 }
