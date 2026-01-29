@@ -6,11 +6,12 @@ import matplotlib.patches as mpatches
 import re
 
 # ---------------------------- CONFIG ----------------------------
-CSV_PATH = "output_size_scaling_distance_10_1.csv"
+CSV_PATH = "output_optimal_parameters.csv"
 
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
-#   "alphabetical_by_descriptor" -> descriptor name, then descriptor number, then detector
+#   "alphabetical_by_descriptor" -> descriptor name, then descriptor numb
+# er, then detector
 #   "metric"                     -> per-metric sort; ties respect detector-first order
 SORT_MODE = "alphabetical_by_detector"   # "alphabetical_by_detector" | "alphabetical_by_descriptor" | "metric"
 METRIC_ASCENDING = False                   # used only when SORT_MODE == "metric"

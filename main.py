@@ -43,23 +43,38 @@ LUCID = cv2.xfeatures2d.LUCID.create()
 MSD = cv2.xfeatures2d.MSDDetector_create()
 STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
+
+FAST2 = cv2.FastFeatureDetector_create(threshold = 15)
+FAST2_SCALE = 1.5
+
+GFTT2 = cv2.GFTTDetector_create(blockSize = 6, minDistance = 0, qualityLevel = 0.01)
+GFTT2_SCALE = 2
+
+SIFT_FAST2 = cv2.SIFT_create(sigma = 2.25)
+SIFT_GFTT2 = cv2.SIFT_create()
+
+
 features2d = {
     # "AGAST" : AGAST,
-    "AKAZE" : AKAZE,
-    "BRISK" : BRISK,
+    #"AKAZE" : AKAZE,
+    #"BRISK" : BRISK,
     #"FAST" : FAST,
-    "GFTT" : GFTT,
+    #"FAST2" : FAST2,
+    #"GFTT" : GFTT,
+    "GFTT2" : GFTT2,
     # "KAZE" : KAZE,
     # "MSER" : MSER,
-    "ORB" : ORB,
-    "SIFT" : SIFT,
-    "SIFT SIG 4.8" : SIFT_SIGMA_4_8,
+    #"ORB" : ORB,
+    #"SIFT" : SIFT,
+    #"SIFT_FAST2" : SIFT_FAST2,
+    "SIFT_GFTT2" : SIFT_GFTT2,
+    #"SIFT SIG 4.8" : SIFT_SIGMA_4_8,
     #"SIFT_SIGMA_5" : SIFT_SIGMA_5,
     #"SIFT_SIGMA_10" : SIFT_SIGMA_10,
     # "SIMPLEBLOB" : SIMPLEBLOB,
     #"BRIEF" : BRIEF,
     #"DAISY" : DAISY,
-    "FREAK" : FREAK,
+    #"FREAK" : FREAK,
     # "HARRISLAPLACE" : HARRISLAPLACE,
     # "LATCH" : LATCH,
     # # "LUCID" : LUCID,
@@ -69,41 +84,74 @@ features2d = {
 
 
 ONLY_DETECTOR = ["GFTT", "ORB"]                     
-ONLY_DESCRIPTOR = ["FREAK"]                     
+ONLY_DESCRIPTOR = ["FREAK", "SIFT", "SIFT_FAST2", "SIFT_GFTT2"]                     
 BLACKLIST = []                       
 SELF_ONLY_AS_DETECTOR = ["SIFT SIG 4.8", "BRISK"]                    
 SELF_ONLY_AS_DESCRIPTOR = ["SIFT SIG 4.8", "AKAZE"]             
+
+
+# Define explicit allowed descriptor per detector
+ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
+    "FAST": "SIFT",
+    "FAST2": "SIFT_FAST2",
+    "GFTT": "SIFT",
+    "GFTT2": "SIFT_GFTT2",
+    # Add more enforced pairs here if needed:
+    # "AGAST": "SIFT_AGAST",
+    # "KAZE": "SIFT_KAZE",
+}
 
 test_combinations: dict[str, FeatureExtractor] = {}
 
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
 
+        # Respect blacklist
         if (detector_key, descriptor_key) in BLACKLIST:
             continue
 
+        # Respect detector/descriptor exclusivity lists
         if detector_key in ONLY_DESCRIPTOR:
             continue
         if descriptor_key in ONLY_DETECTOR:
             continue
 
-        # Self-only when used as DETECTOR
+        # Respect self-only rules
         if detector_key in SELF_ONLY_AS_DETECTOR and descriptor_key != detector_key:
             continue
-        # Self-only when used as DESCRIPTOR
         if descriptor_key in SELF_ONLY_AS_DESCRIPTOR and detector_key != descriptor_key:
             continue
 
+        # Enforce specific pairings where defined
+        if detector_key in ALLOWED_DESCRIPTOR_FOR_DETECTOR:
+            if descriptor_key != ALLOWED_DESCRIPTOR_FOR_DETECTOR[detector_key]:
+                continue
+
+        # If you also want to enforce from the descriptor side (optional):
+        # Build reverse map once
+        # (Uncomment if you want symmetric enforcement)
+        # ALLOWED_DETECTOR_FOR_DESCRIPTOR = {v: k for k, v in ALLOWED_DESCRIPTOR_FOR_DETECTOR.items()}
+        # if descriptor_key in ALLOWED_DETECTOR_FOR_DESCRIPTOR:
+        #     if detector_key != ALLOWED_DETECTOR_FOR_DESCRIPTOR[descriptor_key]:
+        #         continue
+
+        # Choose distance type
         if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]:
             distance_type = cv2.NORM_HAMMING
         else:
             distance_type = cv2.NORM_L2
 
-        test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
+        test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(
+            features2d[detector_key].detect,
+            features2d[descriptor_key].compute,
+            distance_type
+        )
 
 
 
-SKIP = ["speedtest", "verification", "retrieval"]
+
+#SKIP = ["speedtest", "verification", "retrieval"]
+SKIP = []
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -120,9 +168,10 @@ warnings.filterwarnings("once", category=UserWarning)
 image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
 #keypoint_size_scalings = [0.125, 0.25, 0.5, 1]
 #keypoint_size_scalings = [2, 3, 4, 6]
-keypoint_size_scalings = [8, 12, 16]
+#keypoint_size_scalings = [8, 12, 16]
 #keypoint_size_scalings = [0.06125, 0.125, 0.25, 0.5, 1, 2, 4, 8]
-#keypoint_size_scalings = [0.030625, 32, 64]
+keypoint_size_scalings = [1]
+
 
 for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Calculating for all sizes"):
     for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="Calculating for all combinations"):
@@ -134,7 +183,12 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
             speed = 0
             if "speedtest" not in SKIP:
                 speed = speed_test(feature_extractor, dataset_image_sequences)
-
+            
+            if (feature_extractor_key == "FAST2+SIFT_FAST2"):
+                keypoint_size_scaling = FAST2_SCALE
+            elif (feature_extractor_key == "GFTT2+SIFT_GFTT2"):
+                keypoint_size_scaling = GFTT2_SCALE
+            
             find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling)
             set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
 
@@ -323,7 +377,7 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
             for metric, result in results.items():
                 print(metric, result)
             df = pd.DataFrame(all_results)
-            df.to_csv("output_size_scaling_distance_10_12", index = False)
+            df.to_csv("output_gftt_reoptimized.csv", index = False)
 
         except Exception as e:
             error_message = traceback.format_exc()
