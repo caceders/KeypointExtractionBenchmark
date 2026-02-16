@@ -63,10 +63,10 @@ def apply_motion_blur(image, ksize, angle_deg):
 
 
 def apply_image_noise(image_sequences, homography_sequences,
-                      rot_range=(-10, 10),
-                      scale_range=(0.95, 1.05),
-                      gauss_sigma_range=(0, 0),
-                      motion_length_range=(0, 0)):
+                      rot_range=(-20, 20),
+                      scale_range=(0.9, 1.1),
+                      gauss_sigma_range=(0, 1.2),
+                      motion_length_range=(0, 15)):
     """
     Applies random scale, rotation, gaussian blur, and motion blur
     to all related images in each sequence, updating homographies accordingly.
@@ -109,8 +109,11 @@ def apply_image_noise(image_sequences, homography_sequences,
             new_images.append(transformed)
 
             # --- Update homography ---
-            new_H = T @ H
-            new_homs.append(new_H)
+            # H_old is in the convention:  related → reference
+            # T is applied to the related image
+            # New mapping: related_transformed → reference
+            H_new = H @ np.linalg.inv(T)
+            new_homs.append(H_new)
 
         new_image_sequences.append(new_images)
         new_homography_sequences.append(new_homs)
