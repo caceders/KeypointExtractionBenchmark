@@ -6,6 +6,7 @@ from benchmark.image_feature_set import ImageFeatureSet
 from benchmark.pipeline import *
 from benchmark.matching import MatchSet, MatchRankingProperty, greedy_maximum_bipartite_matching_descriptor_distance
 from benchmark.utils import load_HPSequences, compare_rankings_and_visualize_across_sets
+from benchmark.noise import apply_image_noise
 from tqdm import tqdm
 import cv2
 import numpy as np
@@ -15,7 +16,8 @@ import warnings
 from config import *
 
 ## Load dataset.    
-dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release") 
+dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
+dataset_image_sequences, dataset_homography_sequence = apply_image_noise(dataset_image_sequences, dataset_homography_sequence)
 
 AGAST = cv2.AgastFeatureDetector_create()
 AKAZE = cv2.AKAZE_create()
@@ -72,7 +74,6 @@ features2d = {
     # "STARDETECTOR" : STARDETECTOR 
 }
 
-
 ONLY_DETECTOR = ["GFTT"]                     
 ONLY_DESCRIPTOR = ["FREAK", "SIFT", "SIFT_FAST2", "SIFT_GFTT2"]                     
 BLACKLIST = []                       
@@ -91,28 +92,22 @@ test_combinations: dict[str, FeatureExtractor] = {}
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
 
-        # Respect blacklist
         if (detector_key, descriptor_key) in BLACKLIST:
             continue
-
-        # Respect detector/descriptor exclusivity lists
         if detector_key in ONLY_DESCRIPTOR:
             continue
         if descriptor_key in ONLY_DETECTOR:
             continue
 
-        # Respect self-only rules
         if detector_key in SELF_ONLY_AS_DETECTOR and descriptor_key != detector_key:
             continue
         if descriptor_key in SELF_ONLY_AS_DESCRIPTOR and detector_key != descriptor_key:
             continue
 
-        # Enforce specific pairings where defined
         if detector_key in ALLOWED_DESCRIPTOR_FOR_DETECTOR:
             if descriptor_key != ALLOWED_DESCRIPTOR_FOR_DETECTOR[detector_key]:
                 continue
 
-        # Choose distance type
         if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]:
             distance_type = cv2.NORM_HAMMING
         else:
@@ -307,27 +302,48 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
             f"ratio rank >{NUM_BEST_MATCHES//2} correct / rank >{NUM_BEST_MATCHES//2}": outside_num_best_matches_correct,
         }
 
-        # Results from matching
         for match_rank_property in match_properties:
-            mAP = np.average([match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets])
-            results[f"Matching {match_rank_property.name} mAP"] =  mAP
+            APs = [match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets]
+            APs_illumination = APs[:NUM_ILLUMINATION_SEQUENCES]
+            APs_viewpoint = APs[NUM_ILLUMINATION_SEQUENCES:]
+            mAP_illumination = np.average(APs_illumination)
+            mAP_viewpoint = np.average(APs_viewpoint)
+
+            results[f"Matching {match_rank_property.name} mAP illumination"] =  mAP_illumination
+            results[f"Matching {match_rank_property.name} mAP viewpoint"] =  mAP_viewpoint
 
         if "verification" not in SKIP:
-            # Results from verification
-            total_verification_set = MatchSet()
-            for match_set in verification_match_sets:
-                for match in match_set:
-                    total_verification_set.add_match(match)
-                
-            for match_ranking_property in match_properties:
-                AP = total_verification_set.get_average_precision_score(match_ranking_property)
-                results[f"Verification {match_ranking_property.name} AP"] = AP
+            verification_match_sets_illumination = verification_match_sets[:NUM_ILLUMINATION_SEQUENCES]
+            verification_match_sets_viewpoint = verification_match_sets[NUM_ILLUMINATION_SEQUENCES:]
 
-        # Results from retrieval
+            total_verification_set_illumination = MatchSet()
+            total_verification_set_viewpoint = MatchSet()
+            
+            for match_set in verification_match_sets_illumination:
+                for match in match_set:
+                    total_verification_set_illumination.add_match(match)
+
+            for match_set in verification_match_sets_viewpoint:
+                for match in match_set:
+                    total_verification_set_viewpoint.add_match(match)
+            
+
+            for match_ranking_property in match_properties:
+                AP_illumination = total_verification_set_illumination.get_average_precision_score(match_ranking_property)
+                AP_viewpoint = total_verification_set_viewpoint.get_average_precision_score(match_ranking_property)
+                results[f"Verification {match_ranking_property.name} AP illumination"] = AP_illumination
+                results[f"Verification {match_ranking_property.name} AP viewpoint"] = AP_viewpoint
+
         if "retrieval" not in SKIP:
             for match_ranking_property in match_properties:
-                mAP = np.average([match_set.get_average_precision_score(match_ranking_property, True) for match_set in retrieval_match_sets])
-                results[f"Retrieval {match_ranking_property.name} mAP"] = mAP
+                APs = [match_set.get_average_precision_score(match_rank_property, True) for match_set in retrieval_match_sets]
+                APs_illumination = APs[:NUM_ILLUMINATION_SEQUENCES]
+                APs_viewpoint = APs[NUM_ILLUMINATION_SEQUENCES:]
+                mAP_illumination = np.average(APs_illumination)
+                mAP_viewpoint = np.average(APs_viewpoint)
+
+                results[f"Retrieval {match_rank_property.name} mAP illumination"] =  mAP_illumination
+                results[f"Retrieval {match_rank_property.name} mAP viewpoint"] =  mAP_viewpoint
 
         spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
         spearman_rank_correlation_distance_distinctiveness = spearman_rank_correlations[0][2]

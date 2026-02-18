@@ -5,11 +5,6 @@ import os
 import matplotlib.pyplot as plt
 import math
 import random
-
-
-import os
-import cv2
-import numpy as np
 from typing import Tuple
 
 
