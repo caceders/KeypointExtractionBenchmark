@@ -39,7 +39,8 @@ class ShiTomasiSift():
                  descriptor_window_size : int = 16,
                  descriptor_subwindow_size : int = 4,
                  descriptor_gaussian_weight_std : float = 16/2, ## 1/2 window size
-                 descriptor_bin_count : int = 8
+                 descriptor_bin_count : int = 8,
+                 drop_keypoints_on_border : bool = False
                  ) -> None:
         
         self.derivation_operator = derivation_operator
@@ -73,12 +74,16 @@ class ShiTomasiSift():
         self.descriptor_subwindow_size = descriptor_subwindow_size
         self.descriptor_gaussian_weight_std = descriptor_gaussian_weight_std
         self.descriptor_bin_count = descriptor_bin_count
+        self.drop_keypoints_on_border = drop_keypoints_on_border
 
     def detect(self, img : NDArray,
                Ix : NDArray | None = None,
                Iy : NDArray | None = None
                ) -> list[cv2.KeyPoint]:
-        
+
+        if len(img.shape) > 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
         if Ix is None or Iy is None:
             Ix, Iy = self._calculate_Ix_and_Iy(img)
         response = self._calculate_response(Ix, Iy)
@@ -104,7 +109,11 @@ class ShiTomasiSift():
                 Iy : NDArray | None = None
                 ) -> Tuple[list[cv2.KeyPoint], list[NDArray]]:
         
-        keypoints = self._drop_keypoints_on_border(keypoints, img)
+        if len(img.shape) > 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+        if self.drop_keypoints_on_border:
+            keypoints = self._drop_keypoints_on_border(keypoints, img)
         
         if Ix is None or Iy is None:
             Ix, Iy = self._calculate_Ix_and_Iy(img)
@@ -116,17 +125,19 @@ class ShiTomasiSift():
         for keypoint in keypoints:
             orientation_calculation_area_magnitude = extract_area(magnitude,
                                                                   (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                                  self.orientation_calculation_window_size)
+                                                                  self.orientation_calculation_window_size,
+                                                                  "edge")
             orientation_calculation_area_angle = extract_area(pixel_angles,
                                                               (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                              self.orientation_calculation_window_size)
+                                                              self.orientation_calculation_window_size,
+                                                              "edge")
             
             orientation_calculation_weighted_magnitude = weight_area_with_gaussian_window(orientation_calculation_area_magnitude, self.orientation_calculation_gaussian_weight_std)
             orientation_bins, orientaiton_histogram = self._calculate_histogram(orientation_calculation_area_angle,
                                                                                 orientation_calculation_weighted_magnitude,
                                                                                 self.orientation_calculation_bin_count,
-                                                                                -np.pi,
-                                                                                np.pi)
+                                                                                0,
+                                                                                2 * np.pi)
             kp_angles = self._get_angles_from_histogram(orientaiton_histogram, orientation_bins)
 
             description_area_magnitude = extract_area(magnitude,
@@ -144,12 +155,9 @@ class ShiTomasiSift():
                 # Rotate angles
                 rotated_description_area_angles = description_area_angle + kp_angle
 
-                ## Wrap around [-np.pi, pi] -> [0, 2 * np.pi] ->[-np.pi, pi]
-                rotated_description_area_angles += + np.pi
                 rotated_description_area_angles %= 2 * np.pi
-                rotated_description_area_angles -= np.pi
                 
-                rotated_coordinates = self._rotate_coordinates_around_center(description_weighted_magnitude, kp_angle)
+                rotated_coordinates = self._rotate_coordinates_around_center(description_weighted_magnitude, + kp_angle)
                 num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
 
                 subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
@@ -164,8 +172,8 @@ class ShiTomasiSift():
                         _, values = self._calculate_histogram(rotated_description_area_angles,
                                                               total_weigts,
                                                               self.descriptor_bin_count,
-                                                              -np.pi,
-                                                              np.pi,
+                                                              0,
+                                                              2*np.pi,
                                                               True)
                         
                         descriptor[y_index, x_index] = values
@@ -249,8 +257,8 @@ class ShiTomasiSift():
         Ix = np.array(convolve2d(I, -operator_x, mode = "valid"))
         Iy = np.array(convolve2d(I, -operator_y, mode = "valid"))
 
-        Ix = np.pad(Ix, 1)
-        Iy = np.pad(Iy, 1)
+        Ix = np.pad(Ix, 1, mode = "edge")
+        Iy = np.pad(Iy, 1, mode = "edge")
 
         return (Ix, Iy)
 
@@ -341,7 +349,8 @@ class ShiTomasiSift():
 
     def _calculate_magnitude_and_angle(self, Ix : NDArray, Iy : NDArray) -> Tuple[NDArray, NDArray]:
         magnitude = np.sqrt(Ix*Ix + Iy*Iy)
-        angle = np.arctan2(Iy, Ix)
+        angle = np.arctan2(Iy, Ix) + np.pi # Change from [-pi, pi] -> [0, 2*pi)
+        angle[angle == 2*np.pi] = 0
 
         return (magnitude, angle)
 
@@ -397,34 +406,36 @@ class ShiTomasiSift():
         Returns a list of angles, one for each keypoint
         '''
 
+        bin_size = np.abs(bins[1] - bins[0])
+
         max_value = np.max(values)
         max_index = np.argmax(values)
 
         angles = []
-        
-        # This could be improved by collecting the if and else more elegantly
 
+        
         if self.create_new_keypoint_for_large_angle_histogram_values:
-            for index, _ in enumerate(bins):
-                if values[index] > max_value * self.large_angle_histogram_value_threshold:
-                    # SIFT paper use parabola fitting, approximated by normal interpolation
-                    last_index = index + 1
-                    if last_index >= len(bins):
-                        last_index = 0 # Wrap around
-                    
-                    angle = ((values[index-1] * bins[index-1] +  values[index] * bins[index] +  values[last_index] * bins[last_index]) /
-                             (values[index-1] +  values[index] +  values[last_index]))
-                    
-                    angles.append(angle)
+            bin_indexes_to_compute = np.where(values > (max_value * self.large_angle_histogram_value_threshold))[0]
         else:
-            last_index = max_index + 1
-            if last_index >= len(bins):
-                last_index = 0 # Wrap around
+            bin_indexes_to_compute = np.array([max_index])
             
-            angle = ((values[max_index-1] * bins[max_index-1] +  values[max_index] * bins[max_index] +  values[last_index] * bins[last_index]) /
-                        (values[max_index-1] +  values[max_index] +  values[last_index]))
-            
-            angles.append(angle)
+
+        for index in bin_indexes_to_compute:
+                # SIFT paper use parabola fitting, approximated by normal interpolation
+                last_index = index + 1
+                if last_index >= len(bins):
+                    last_index = 0 # Wrap around
+
+                prev_bin_value = bins[index] - bin_size
+                bin_value = bins[index]
+                next_bin_value = bins[index] + bin_size
+
+                angle = ((values[index-1] * prev_bin_value + values[index] * bin_value + values[last_index] * next_bin_value)/
+                         (values[index-1] + values[index] + values[last_index]))
+
+                angle %= (2 * np.pi)
+                
+                angles.append(angle)
         
         return angles
 
@@ -509,7 +520,7 @@ def weight_area_with_gaussian_window(area: NDArray, gaussian_std: float) -> NDAr
         return weighted_area
 
 
-def extract_area(matrix: NDArray, center: Tuple[int, int], size : int) -> NDArray:
+def extract_area(matrix: NDArray, center: Tuple[int, int], size : int, border_handling : str = "zero") -> NDArray:
     '''
     Returns a subarea in the matrix around the center (x, y) with window size (size, size). Elements in the window outside the
     border of the matrix is set to 0
@@ -555,6 +566,27 @@ def extract_area(matrix: NDArray, center: Tuple[int, int], size : int) -> NDArra
         matrix_y_end = matrix_y_size
         subarea_y_end = size - (y_end - matrix_y_size)
 
+    subarea = np.zeros((size, size), dtype=matrix.dtype)
+
+    if border_handling == "edge":
+        # x low
+        subarea[subarea_y_start : subarea_y_end, 0:subarea_x_start] = matrix[matrix_y_start : matrix_y_end,matrix_x_start:matrix_x_start+1]
+        # y low
+        subarea[0:subarea_y_start,subarea_x_start : subarea_x_end] = matrix[matrix_y_start:matrix_y_start+1,matrix_x_start : matrix_x_end]
+        # x high
+        subarea[subarea_y_start : subarea_y_end, subarea_x_end:size] = matrix[matrix_y_start : matrix_y_end,matrix_x_end-1:matrix_x_end]
+        # y high
+        subarea[subarea_y_end:size,subarea_x_start : subarea_x_end] = matrix[matrix_y_end-1:matrix_y_end, matrix_x_start : matrix_x_end]
+
+        # corner x low y low
+        subarea[0:subarea_y_start, 0:subarea_x_start] = matrix[matrix_y_start, matrix_x_start]
+        # corner x high y low
+        subarea[0:subarea_y_start, subarea_x_end:size] = matrix[matrix_y_start, matrix_x_end - 1]
+        # corner x low y high
+        subarea[subarea_y_end:size, 0:subarea_x_start] = matrix[matrix_y_end - 1, matrix_x_start]
+        # corner x high y high
+        subarea[subarea_y_end:size, subarea_x_end:size] = matrix[matrix_y_end - 1, matrix_x_end - 1]
+
     subarea[subarea_y_start : subarea_y_end, subarea_x_start : subarea_x_end] = matrix[matrix_y_start : matrix_y_end, matrix_x_start : matrix_x_end]
 
     return subarea
@@ -566,7 +598,8 @@ def plot_image(ax : Axes,
                size : int = None,
                plot_title: str = None,
                show_values : bool = False,
-               value_color : str = "r"
+               value_color : str = "r",
+               border_handling : str = "zero"
                ) -> None:
     '''
     Plots an image or a subregion of an image
@@ -578,7 +611,7 @@ def plot_image(ax : Axes,
     if center is None:
         area = image
     else:
-        area = extract_area(image, center, size)
+        area = extract_area(image, center, size, border_handling)
 
     vmin = np.min(image)
     vmax = np.max(image)
@@ -607,7 +640,11 @@ def plot_magnitude_and_angle(ax : Axes,
                                    angle : NDArray,
                                    center: Tuple[int, int] = None,
                                    size: int = None,
-                                   plot_title: str = None
+                                   plot_title: str = None,
+                                   show_values: bool = False,
+                                   value_color: str = "r",
+                                   arrow_color: str = "blue",
+                                   border_handling : str = "zero"
                                    ) -> None:
     '''
     Plots an image of with arrows as angle and respective magnitudes. Orientation goes from [-PI, PI] with respect to the x axis
@@ -619,10 +656,10 @@ def plot_magnitude_and_angle(ax : Axes,
         magnitude_area = magnitude
         angle_area = angle
     else:
-        magnitude_area = extract_area(magnitude, center, size)
-        angle_area = extract_area(angle, center, size)
+        magnitude_area = extract_area(magnitude, center, size, border_handling)
+        angle_area = extract_area(angle, center, size, border_handling)
     
-    plot_image(ax, image, center, size, plot_title)
+    plot_image(ax, image, center, size, plot_title, show_values = show_values, value_color=value_color, border_handling = border_handling)
 
     for y_index in range(magnitude_area.shape[0]):
         for x_index in range(magnitude_area.shape[1]):
@@ -630,7 +667,7 @@ def plot_magnitude_and_angle(ax : Axes,
             dy = np.sin(angle_area[y_index, x_index]) * magnitude_area[y_index, x_index] / np.max(magnitude_area)
 
 
-            ax.annotate("", xytext=(x_index, y_index), xy=(x_index + dx, y_index + dy), arrowprops=dict(arrowstyle="->", color = "r"))
+            ax.annotate("", xytext=(x_index, y_index), xy=(x_index + dx, y_index + dy), arrowprops=dict(arrowstyle="->", color = arrow_color))
 
 
 def plot_area_and_arrow_with_angle(ax : Axes,
@@ -638,11 +675,15 @@ def plot_area_and_arrow_with_angle(ax : Axes,
                                    angle : float,
                                    center: Tuple[int, int] = None,
                                    size: int = None,
-                                   plot_title: str = None
+                                   plot_title: str = None,
+                                   show_values: bool = False,
+                                   value_color: str = "r",
+                                   arrow_color: str = "blue",
+                                   border_handling : str = "zero"
                                    ) -> None:
     if ax is None:
         ax = plt.figure().gca()
-    plot_image(ax, image, center, size, plot_title)
+    plot_image(ax, image, center, size, plot_title, show_values, value_color, border_handling)
     image_size = size
     if image_size is None:
         image_size = image.shape[0]
@@ -652,7 +693,7 @@ def plot_area_and_arrow_with_angle(ax : Axes,
     x_start = y_start = (image_size//2)
     dx = np.cos(angle) * arrow_size
     dy = np.sin(angle) * arrow_size
-    ax.annotate("", xytext=(x_start, y_start), xy=(x_start + dx, y_start + dy), arrowprops=dict(arrowstyle="->", color = "r"))
+    ax.annotate("", xytext=(x_start, y_start), xy=(x_start + dx, y_start + dy), arrowprops=dict(arrowstyle="->", color = arrow_color))
 
 
 def plot_histogram(ax : Axes, hist : NDArray, bins: NDArray, plot_title: str = None):
