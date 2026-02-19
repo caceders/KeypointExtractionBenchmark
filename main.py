@@ -14,6 +14,7 @@ import pandas as pd
 import traceback
 import warnings
 from config import *
+from shi_tomasi_sift import ShiTomasiSift
 
 ## Load dataset.    
 dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
@@ -47,6 +48,7 @@ GFTT2_SCALE = 2
 SIFT_FAST2 = cv2.SIFT_create(sigma = 2.25)
 SIFT_GFTT2 = cv2.SIFT_create()
 
+SHI_TOMASI_SIFT = ShiTomasiSift()
 
 features2d = {
     # "AGAST" : AGAST,
@@ -72,6 +74,7 @@ features2d = {
     # "LUCID" : LUCID,
     # "MSD" : MSD,
     # "STARDETECTOR" : STARDETECTOR 
+    "SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT
 }
 
 ONLY_DETECTOR = ["GFTT"]                     
