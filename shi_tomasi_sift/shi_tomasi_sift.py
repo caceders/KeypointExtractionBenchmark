@@ -40,7 +40,8 @@ class ShiTomasiSift():
                  descriptor_subwindow_size : int = 4,
                  descriptor_gaussian_weight_std : float = 16/2, ## 1/2 window size
                  descriptor_bin_count : int = 8,
-                 drop_keypoints_on_border : bool = False
+                 drop_keypoints_on_border : bool = False,
+                 use_orientation: bool = True
                  ) -> None:
         
         self.derivation_operator = derivation_operator
@@ -75,6 +76,7 @@ class ShiTomasiSift():
         self.descriptor_gaussian_weight_std = descriptor_gaussian_weight_std
         self.descriptor_bin_count = descriptor_bin_count
         self.drop_keypoints_on_border = drop_keypoints_on_border
+        self.use_orientation = use_orientation
 
     def detect(self, img : NDArray,
                Ix : NDArray | None = None,
@@ -153,11 +155,14 @@ class ShiTomasiSift():
             for kp_angle in kp_angles:
 
                 # Rotate angles
+                if not self.use_orientation:
+                    kp_angle = 0
+
                 rotated_description_area_angles = description_area_angle + kp_angle
 
                 rotated_description_area_angles %= 2 * np.pi
                 
-                rotated_coordinates = self._rotate_coordinates_around_center(description_weighted_magnitude, + kp_angle)
+                rotated_coordinates = self._rotate_coordinates_around_center(description_weighted_magnitude, kp_angle)
                 num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
 
                 subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
@@ -194,6 +199,9 @@ class ShiTomasiSift():
 
                 new_keypoints.append(new_keypoint)
                 descriptors.append(descriptor)
+
+                if not self.use_orientation:
+                    break
         
         return (new_keypoints, descriptors)
                 
