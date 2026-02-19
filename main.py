@@ -43,25 +43,25 @@ STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
 
 FAST2 = cv2.FastFeatureDetector_create(threshold = 15)
 FAST2_SCALE = 1.5
-GFTT2 = cv2.GFTTDetector_create(blockSize = 6, minDistance = 0, qualityLevel = 0.01)
+GFTT2 = cv2.GFTTDetector_create(blockSize = 6)
 GFTT2_SCALE = 2
 SIFT_FAST2 = cv2.SIFT_create(sigma = 2.25)
-SIFT_GFTT2 = cv2.SIFT_create()
+#SIFT_GFTT2 = cv2.SIFT_create()
 
 SHI_TOMASI_SIFT = ShiTomasiSift()
 
 features2d = {
-    # "AGAST" : AGAST,
+    #"AGAST" : AGAST,
     #"AKAZE" : AKAZE,
     #"BRISK" : BRISK,
     #"FAST" : FAST,
     #"FAST2" : FAST2,
     #"GFTT" : GFTT,
-    #"GFTT2" : GFTT2,
+    "GFTT2" : GFTT2,
     # "KAZE" : KAZE,
     # "MSER" : MSER,
-    "ORB" : ORB,
-    #"SIFT" : SIFT,
+    #"ORB" : ORB,
+    "SIFT" : SIFT,
     #"SIFT_FAST2" : SIFT_FAST2,
     #"SIFT_GFTT2" : SIFT_GFTT2,
     #"SIFT SIG 4.8" : SIFT_SIGMA_4_8,
@@ -77,18 +77,18 @@ features2d = {
     "SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT
 }
 
-ONLY_DETECTOR = ["GFTT"]                     
-ONLY_DESCRIPTOR = ["FREAK", "SIFT", "SIFT_FAST2", "SIFT_GFTT2"]                     
-BLACKLIST = []                       
-SELF_ONLY_AS_DETECTOR = ["SIFT SIG 4.8", "BRISK"]                    
+ONLY_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
+ONLY_DESCRIPTOR = ["FREAK", "SIFT_FAST2", "SIFT"]                     
+BLACKLIST = [("ORB", "SIFT_FAST2")]                       
+SELF_ONLY_AS_DETECTOR = ["SIFT SIG 4.8", "BRISK", "SIFT"]                    
 SELF_ONLY_AS_DESCRIPTOR = ["SIFT SIG 4.8", "AKAZE"]             
 
 # Define explicit allowed descriptor per detector
 ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
     # "FAST": "SIFT",
-    # "FAST2": "SIFT_FAST2",
+    "FAST2": "SIFT_FAST2",
     # "GFTT": "SIFT",
-    # "GFTT2": "SIFT_GFTT2",
+    "GFTT2": "SIFT",
 }
 
 test_combinations: dict[str, FeatureExtractor] = {}
@@ -119,6 +119,7 @@ for detector_key in features2d.keys():
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
 SKIP = ["speedtest", "verification", "retrieval"]
+# SKIP = ["speedtest"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -146,16 +147,16 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
         if "speedtest" not in SKIP:
             speed = speed_test(feature_extractor, dataset_image_sequences)
         
-        # if (feature_extractor_key == "FAST2+SIFT_FAST2"):
-        #     keypoint_size_scaling = FAST2_SCALE
-        # elif (feature_extractor_key == "GFTT2+SIFT_GFTT2"):
-        #     keypoint_size_scaling = GFTT2_SCALE
+        if (feature_extractor_key == "FAST2+SIFT_FAST2"):
+            keypoint_size_scaling = FAST2_SCALE
+        elif (feature_extractor_key == "GFTT2+SIFT_GFTT2"):
+            keypoint_size_scaling = GFTT2_SCALE
         
         find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling)
         set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
 
         if "matching" not in SKIP:
-            matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach, dataset_image_sequences, dataset_homography_sequence, VISUALIZE)
+            matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach, dataset_image_sequences, dataset_homography_sequence, VISUALIZE, SEQUENCE_TO_VISUALIZE)
         else:
             matching_match_sets: list[MatchSet] = [MatchSet()]
         
@@ -305,15 +306,15 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
             f"ratio rank >{NUM_BEST_MATCHES//2} correct / rank >{NUM_BEST_MATCHES//2}": outside_num_best_matches_correct,
         }
 
-        for match_rank_property in match_properties:
-            APs = [match_set.get_average_precision_score(match_rank_property) for match_set in matching_match_sets]
+        for match_ranking_property in match_properties:
+            APs = [match_set.get_average_precision_score(match_ranking_property) for match_set in matching_match_sets]
             APs_illumination = APs[:NUM_ILLUMINATION_SEQUENCES]
             APs_viewpoint = APs[NUM_ILLUMINATION_SEQUENCES:]
             mAP_illumination = np.average(APs_illumination)
             mAP_viewpoint = np.average(APs_viewpoint)
 
-            results[f"Matching {match_rank_property.name} mAP illumination"] =  mAP_illumination
-            results[f"Matching {match_rank_property.name} mAP viewpoint"] =  mAP_viewpoint
+            results[f"Matching {match_ranking_property.name} mAP illumination"] =  mAP_illumination
+            results[f"Matching {match_ranking_property.name} mAP viewpoint"] =  mAP_viewpoint
 
         if "verification" not in SKIP:
             verification_match_sets_illumination = verification_match_sets[:NUM_ILLUMINATION_SEQUENCES]
@@ -329,7 +330,6 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
             for match_set in verification_match_sets_viewpoint:
                 for match in match_set:
                     total_verification_set_viewpoint.add_match(match)
-            
 
             for match_ranking_property in match_properties:
                 AP_illumination = total_verification_set_illumination.get_average_precision_score(match_ranking_property)
@@ -339,14 +339,14 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
 
         if "retrieval" not in SKIP:
             for match_ranking_property in match_properties:
-                APs = [match_set.get_average_precision_score(match_rank_property, True) for match_set in retrieval_match_sets]
+                APs = [match_set.get_average_precision_score(match_ranking_property, True) for match_set in retrieval_match_sets]
                 APs_illumination = APs[:NUM_ILLUMINATION_SEQUENCES]
                 APs_viewpoint = APs[NUM_ILLUMINATION_SEQUENCES:]
                 mAP_illumination = np.average(APs_illumination)
                 mAP_viewpoint = np.average(APs_viewpoint)
 
-                results[f"Retrieval {match_rank_property.name} mAP illumination"] =  mAP_illumination
-                results[f"Retrieval {match_rank_property.name} mAP viewpoint"] =  mAP_viewpoint
+                results[f"Retrieval {match_ranking_property.name} mAP illumination"] =  mAP_illumination
+                results[f"Retrieval {match_ranking_property.name} mAP viewpoint"] =  mAP_viewpoint
 
         spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
         spearman_rank_correlation_distance_distinctiveness = spearman_rank_correlations[0][2]

@@ -63,10 +63,14 @@ def apply_motion_blur(image, ksize, angle_deg):
 
 
 def apply_image_noise(image_sequences, homography_sequences,
-                      rot_range=(-20, 20),
-                      scale_range=(0.9, 1.1),
-                      gauss_sigma_range=(0, 1.2),
-                      motion_length_range=(0, 15)):
+                        rot_range=(0, 0),
+                        #rot_range=(-20, 20),
+                        scale_range=(1, 1),
+                        # scale_range=(0.8, 1.2),
+                        gauss_sigma_range=(0, 0),
+                        # gauss_sigma_range=(0, 1.2),
+                        motion_length_range=(0, 0)):
+                        # motion_length_range=(0, 15)):
     """
     Applies random scale, rotation, gaussian blur, and motion blur
     to all related images in each sequence, updating homographies accordingly.

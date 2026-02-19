@@ -32,18 +32,23 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
-
+            
+            
             keypoints = feature_extractor.detect_keypoints(image)
-            if max_features*2 < len(keypoints):
-                scores = np.array([keypoint.response for keypoint in keypoints])
-                idx = np.argpartition(scores, -max_features*2)[-max_features*2:]
-                keypoints = [keypoints[i] for i in idx]
+            # if max_features*2 < len(keypoints):
+            #     scores = np.array([keypoint.response for keypoint in keypoints])
+            #     idx = np.argpartition(scores, -max_features*2)[-max_features*2:]
+            #     keypoints = [keypoints[i] for i in idx]
             for keypoint in keypoints:
                 keypoint.size = keypoint.size * keypoint_size_scaling
+                #keypoint.angle = 1
 
+            detected_keypoints = len(keypoints)
             if (len(keypoints) == 0):
                 continue
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+            if (len(keypoints) != detected_keypoints):
+                print("AAAAAAAAAAAAAAAAAAAAAAAAA")
             
 
             # For debug ################################
@@ -155,7 +160,7 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
 
 
 #@beartype
-def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool) -> list[MatchSet]:
+def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seq_to_visualize: int) -> list[MatchSet]:
     matching_match_sets: list[MatchSet] = []
     for seq, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
         matching_match_set = MatchSet()
@@ -166,7 +171,7 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
             matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
             matching_match_set.add_match(matches)
 
-            if visualize and seq == 0:
+            if visualize and seq == seq_to_visualize:
 
                 ## For debug ################################
                 def transformed_keypoint_size(kp, H):
