@@ -121,5 +121,5 @@ def apply_image_noise(image_sequences, homography_sequences,
 
         new_image_sequences.append(new_images)
         new_homography_sequences.append(new_homs)
-
-    return new_image_sequences, new_homography_sequences
+    image_sequences = new_image_sequences
+    homography_sequences = new_homography_sequences

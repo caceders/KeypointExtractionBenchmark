@@ -33,22 +33,19 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
             
-            
+
             keypoints = feature_extractor.detect_keypoints(image)
-            # if max_features*2 < len(keypoints):
-            #     scores = np.array([keypoint.response for keypoint in keypoints])
-            #     idx = np.argpartition(scores, -max_features*2)[-max_features*2:]
-            #     keypoints = [keypoints[i] for i in idx]
+            if max_features*1.5 < len(keypoints):
+                scores = np.array([keypoint.response for keypoint in keypoints])
+                idx = np.argpartition(scores, -max_features*1.5)[-max_features*1.5:]
+                keypoints = [keypoints[i] for i in idx]
             for keypoint in keypoints:
                 keypoint.size = keypoint.size * keypoint_size_scaling
-                #keypoint.angle = 1
+                #keypoint.angle = 0
 
-            detected_keypoints = len(keypoints)
             if (len(keypoints) == 0):
                 continue
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
-            if (len(keypoints) != detected_keypoints):
-                print("AAAAAAAAAAAAAAAAAAAAAAAAA")
             
 
             # For debug ################################
