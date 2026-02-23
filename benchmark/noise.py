@@ -2,6 +2,63 @@ import numpy as np
 import cv2
 import random
 
+def apply_image_noise(image_sequences, homography_sequences,
+                        rot_range=(0, 0),
+                        scale_range=(1, 1),
+                        gauss_sigma_range=(0, 0),
+                        motion_length_range=(0, 0)):
+    """
+    Applies random scale, rotation, gaussian blur, and motion blur
+    to all related images in each sequence, updating homographies accordingly.
+    """
+
+    new_image_sequences = []
+    new_homography_sequences = []
+
+    for seq_images, seq_homs in zip(image_sequences, homography_sequences):
+        ref_img = seq_images[0]
+
+        new_images = [ref_img.copy()]
+        new_homs = []
+
+        for img, H in zip(seq_images[1:], seq_homs):
+
+            h, w = img.shape[:2]
+            cx, cy = w / 2, h / 2
+
+            # --- Random parameters ---
+            angle = random.uniform(*rot_range)
+            scale = random.uniform(*scale_range)
+            sigma = random.uniform(*gauss_sigma_range)
+            motion_len = int(random.uniform(*motion_length_range))
+            motion_angle = random.uniform(0, 180)
+
+            # --- Construct T = rotation · scale ---
+            S = random_scale_matrix(scale, cx, cy)
+            R = random_rotation_matrix(angle, cx, cy)
+            T = R @ S
+
+            # --- Apply geometric transform ---
+            transformed = cv2.warpPerspective(img, T, (w, h))
+
+            # --- Apply blur ---
+            transformed = apply_gaussian_blur(transformed, sigma)
+            transformed = apply_motion_blur(transformed, motion_len, motion_angle)
+
+            new_images.append(transformed)
+
+            # --- Update homography ---
+            # H_old is in the convention:  related → reference
+            # T is applied to the related image
+            # New mapping: related_transformed → reference
+            H_new = H @ np.linalg.inv(T)
+            new_homs.append(H_new)
+
+        new_image_sequences.append(new_images)
+        new_homography_sequences.append(new_homs)
+
+    return new_image_sequences, new_homography_sequences
+
 def random_rotation_matrix(angle_deg, cx, cy):
     """Return 3x3 homography for rotation around image center."""
     angle = np.deg2rad(angle_deg)
@@ -62,64 +119,3 @@ def apply_motion_blur(image, ksize, angle_deg):
     return cv2.filter2D(image, -1, kernel)
 
 
-def apply_image_noise(image_sequences, homography_sequences,
-                        rot_range=(0, 0),
-                        #rot_range=(-20, 20),
-                        scale_range=(1, 1),
-                        # scale_range=(0.8, 1.2),
-                        gauss_sigma_range=(0, 0),
-                        # gauss_sigma_range=(0, 1.2),
-                        motion_length_range=(0, 0)):
-                        # motion_length_range=(0, 15)):
-    """
-    Applies random scale, rotation, gaussian blur, and motion blur
-    to all related images in each sequence, updating homographies accordingly.
-    """
-
-    new_image_sequences = []
-    new_homography_sequences = []
-
-    for seq_images, seq_homs in zip(image_sequences, homography_sequences):
-        ref_img = seq_images[0]
-        h_ref, w_ref = ref_img.shape[:2]
-
-        new_images = [ref_img.copy()]
-        new_homs = []
-
-        for img, H in zip(seq_images[1:], seq_homs):
-
-            h, w = img.shape[:2]
-            cx, cy = w / 2, h / 2
-
-            # --- Random parameters ---
-            angle = random.uniform(*rot_range)
-            scale = random.uniform(*scale_range)
-            sigma = random.uniform(*gauss_sigma_range)
-            motion_len = int(random.uniform(*motion_length_range))
-            motion_angle = random.uniform(0, 180)
-
-            # --- Construct T = rotation · scale ---
-            S = random_scale_matrix(scale, cx, cy)
-            R = random_rotation_matrix(angle, cx, cy)
-            T = R @ S
-
-            # --- Apply geometric transform ---
-            transformed = cv2.warpPerspective(img, T, (w, h))
-
-            # --- Apply blur ---
-            transformed = apply_gaussian_blur(transformed, sigma)
-            transformed = apply_motion_blur(transformed, motion_len, motion_angle)
-
-            new_images.append(transformed)
-
-            # --- Update homography ---
-            # H_old is in the convention:  related → reference
-            # T is applied to the related image
-            # New mapping: related_transformed → reference
-            H_new = H @ np.linalg.inv(T)
-            new_homs.append(H_new)
-
-        new_image_sequences.append(new_images)
-        new_homography_sequences.append(new_homs)
-    image_sequences = new_image_sequences
-    homography_sequences = new_homography_sequences
