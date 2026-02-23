@@ -111,9 +111,8 @@ class ShiTomasiSift():
                 Iy : NDArray | None = None
                 ) -> Tuple[list[cv2.KeyPoint], list[NDArray]]:
         
-        # Not working if input is color, Changed image import to grayscale instead
-        # if len(img.shape) > 2:
-        #     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        if len(img.shape) > 2:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         if self.drop_keypoints_on_border:
             keypoints = self._drop_keypoints_on_border(keypoints, img)
