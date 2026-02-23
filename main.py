@@ -18,7 +18,7 @@ from shi_tomasi_sift import ShiTomasiSift
 
 ## Load dataset.    
 dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
-dataset_image_sequences, dataset_homography_sequence = apply_image_noise(dataset_image_sequences, dataset_homography_sequence)
+apply_image_noise(dataset_image_sequences, dataset_homography_sequence)
 
 AGAST = cv2.AgastFeatureDetector_create()
 AKAZE = cv2.AKAZE_create()
@@ -26,27 +26,17 @@ BRISK = cv2.BRISK_create()
 FAST = cv2.FastFeatureDetector_create()
 GFTT = cv2.GFTTDetector_create()
 KAZE = cv2.KAZE_create()
-MSER = cv2.MSER_create()
 ORB = cv2.ORB_create()
 SIFT = cv2.SIFT_create()
 SIFT_SIGMA_4_8 = cv2.SIFT_create(sigma = 4.8)
-SIMPLEBLOB = cv2.SimpleBlobDetector_create()
 BRIEF = cv2.xfeatures2d.BriefDescriptorExtractor_create()
-DAISY = cv2.xfeatures2d.DAISY_create()
 FREAK = cv2.xfeatures2d.FREAK_create()
-HARRISLAPLACE = cv2.xfeatures2d.HarrisLaplaceFeatureDetector_create()
-LATCH = cv2.xfeatures2d.LATCH.create()
-LUCID = cv2.xfeatures2d.LUCID.create()
-MSD = cv2.xfeatures2d.MSDDetector_create()
-STARDETECTOR = cv2.xfeatures2d.StarDetector_create()
-
 
 FAST2 = cv2.FastFeatureDetector_create(threshold = 15)
 FAST2_SCALE = 1.5
 GFTT2 = cv2.GFTTDetector_create(blockSize = 6)
 GFTT2_SCALE = 2
 SIFT_FAST2 = cv2.SIFT_create(sigma = 2.25)
-#SIFT_GFTT2 = cv2.SIFT_create()
 
 SHI_TOMASI_SIFT = ShiTomasiSift()
 
@@ -57,28 +47,19 @@ features2d = {
     #"FAST" : FAST,
     #"FAST2" : FAST2,
     #"GFTT" : GFTT,
-    "GFTT2" : GFTT2,
+    #"GFTT2" : GFTT2,
     # "KAZE" : KAZE,
-    # "MSER" : MSER,
     #"ORB" : ORB,
     "SIFT" : SIFT,
     #"SIFT_FAST2" : SIFT_FAST2,
-    #"SIFT_GFTT2" : SIFT_GFTT2,
     #"SIFT SIG 4.8" : SIFT_SIGMA_4_8,
-    # "SIMPLEBLOB" : SIMPLEBLOB,
     #"BRIEF" : BRIEF,
-    #"DAISY" : DAISY,
     #"FREAK" : FREAK,
-    # "HARRISLAPLACE" : HARRISLAPLACE,
-    # "LATCH" : LATCH,
-    # "LUCID" : LUCID,
-    # "MSD" : MSD,
-    # "STARDETECTOR" : STARDETECTOR 
-    "SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT
+    #"SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT
 }
 
 ONLY_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
-ONLY_DESCRIPTOR = ["FREAK", "SIFT_FAST2", "SIFT"]                     
+ONLY_DESCRIPTOR = ["FREAK", "SIFT_FAST2"]                     
 BLACKLIST = [("ORB", "SIFT_FAST2")]                       
 SELF_ONLY_AS_DETECTOR = ["SIFT SIG 4.8", "BRISK", "SIFT"]                    
 SELF_ONLY_AS_DESCRIPTOR = ["SIFT SIG 4.8", "AKAZE"]             
@@ -118,8 +99,8 @@ for detector_key in features2d.keys():
 
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
-SKIP = ["speedtest", "verification", "retrieval"]
-# SKIP = ["speedtest"]
+#SKIP = ["speedtest", "verification", "retrieval"]
+SKIP = ["speedtest"]
 
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
@@ -360,7 +341,7 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(all_results)
-        df.to_csv("output.csv", index = False)
+        df.to_csv("output_shift_big.csv", index = False)
 
         # except Exception as e:
         #     error_message = traceback.format_exc()
