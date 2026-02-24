@@ -28,7 +28,7 @@ GFTT = cv2.GFTTDetector_create()
 KAZE = cv2.KAZE_create()
 ORB = cv2.ORB_create()
 SIFT = cv2.SIFT_create()
-SIFT_SIGMA_4_8 = cv2.SIFT_create(sigma = 4.8)
+SIFT_OPTIMAL = cv2.SIFT_create(sigma = 4)
 BRIEF = cv2.xfeatures2d.BriefDescriptorExtractor_create()
 FREAK = cv2.xfeatures2d.FREAK_create()
 
@@ -47,12 +47,12 @@ features2d = {
     #"FAST" : FAST,
     #"FAST2" : FAST2,
     #"GFTT" : GFTT,
-    #"GFTT2" : GFTT2,
-    # "KAZE" : KAZE,
-    "ORB" : ORB,
-    #"SIFT" : SIFT,
+    "GFTT2" : GFTT2,
+    #"KAZE" : KAZE,
+    #"ORB" : ORB,
+    "SIFT" : SIFT,
     #"SIFT_FAST2" : SIFT_FAST2,
-    #"SIFT SIG 4.8" : SIFT_SIGMA_4_8,
+    #"SIFT_OPTIMAL" : SIFT_OPTIMAL,
     #"BRIEF" : BRIEF,
     #"FREAK" : FREAK,
     #"SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT
@@ -61,8 +61,8 @@ features2d = {
 ONLY_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
 ONLY_DESCRIPTOR = ["FREAK", "SIFT_FAST2"]                     
 BLACKLIST = [("ORB", "SIFT_FAST2")]                       
-SELF_ONLY_AS_DETECTOR = ["SIFT SIG 4.8", "BRISK", "SIFT"]                    
-SELF_ONLY_AS_DESCRIPTOR = ["SIFT SIG 4.8", "AKAZE"]             
+SELF_ONLY_AS_DETECTOR = ["SIFT SIG 4.8", "SIFT_OPTIMAL", "BRISK", "SIFT", "ORB", "AKAZE"]                    
+SELF_ONLY_AS_DESCRIPTOR = ["SIFT SIG 4.8", "SIFT_OPTIMAL", "AKAZE", "ORB", "BRISK"]             
 
 # Define explicit allowed descriptor per detector
 ALLOWED_DESCRIPTOR_FOR_DETECTOR = {

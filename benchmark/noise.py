@@ -27,7 +27,8 @@ def apply_image_noise(image_sequences, homography_sequences,
             cx, cy = w / 2, h / 2
 
             # --- Random parameters ---
-            angle = random.uniform(*rot_range)
+            #angle = random.uniform(*rot_range)
+            angle = rot_range[0]
             scale = random.uniform(*scale_range)
             sigma = random.uniform(*gauss_sigma_range)
             motion_len = int(random.uniform(*motion_length_range))

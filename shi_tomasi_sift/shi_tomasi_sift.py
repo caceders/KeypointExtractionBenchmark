@@ -38,10 +38,10 @@ class ShiTomasiSift():
                  large_angle_histogram_value_threshold : float = 0.8,
                  descriptor_window_size : int = 16,
                  descriptor_subwindow_size : int = 4,
-                 descriptor_gaussian_weight_std : float = 16/2, ## 1/2 window size
+                 descriptor_gaussian_weight_std : float = 16/4, ## 1/2 window size
                  descriptor_bin_count : int = 8,
-                 drop_keypoints_on_border : bool = False,
-                 use_orientation: bool = True
+                 drop_keypoints_on_border : bool = True,
+                 use_orientation: bool = False
                  ) -> None:
         
         self.derivation_operator = derivation_operator

@@ -50,11 +50,11 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
                 continue
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
 
-            if num_keypoints > max_features and len(keypoints) < max_features:
+            if num_keypoints > min_required_keypoints and len(keypoints) < max_features:
                 print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 
-            if (num_keypoints < max_features):
-                print("seq ", sequence_index, " ", image_index, " ", max_features-num_keypoints)
+            # if (num_keypoints < max_features):
+            #     print("seq ", sequence_index, " ", image_index, " ", max_features-num_keypoints)
             
 
             # For debug ################################

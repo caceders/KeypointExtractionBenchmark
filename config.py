@@ -1,6 +1,6 @@
 SKIP = ["speedtest", "verification", "retrieval"]
 #SKIP = ["speedtest"]
-FILE_NAME = "output.csv"
+FILE_NAME = "shift_comparison.csv"
 # Rotation, scale, gaussian blur, motion blur
 #NOISE_RANGES =[(-0,0), (1,1), (0,0), (0,0)]
 NOISE_RANGES = [(0,0)]
@@ -8,8 +8,8 @@ FORCE_CONSTANT_ANGLE = False
 KEYPOINT_SIZE_SCALINGS = [1]
 
 MAX_FEATURES = 500
-VISUALIZE = False
-SEQUENCE_TO_VISUALIZE = 5
+VISUALIZE = True
+SEQUENCE_TO_VISUALIZE = 89
 
 USE_DISTANCE = True
 DISTANCE_THRESHOLD = 10
