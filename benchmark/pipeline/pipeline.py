@@ -28,24 +28,33 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
 
 
 #@beartype
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int):  
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool):  
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
             
 
             keypoints = feature_extractor.detect_keypoints(image)
-            if max_features*1.5 < len(keypoints):
+            num_keypoints = len(keypoints)
+            min_required_keypoints = round(max_features*1.3)
+            if min_required_keypoints < len(keypoints):
                 scores = np.array([keypoint.response for keypoint in keypoints])
-                idx = np.argpartition(scores, -max_features*1.5)[-max_features*1.5:]
+                idx = np.argpartition(scores, -min_required_keypoints)[-min_required_keypoints:]
                 keypoints = [keypoints[i] for i in idx]
             for keypoint in keypoints:
                 keypoint.size = keypoint.size * keypoint_size_scaling
-                #keypoint.angle = 0
+                if (FORCE_CONSTANT_ANGLE):
+                    keypoint.angle = 0
 
             if (len(keypoints) == 0):
                 continue
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+
+            if num_keypoints > max_features and len(keypoints) < max_features:
+                print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+
+            if (num_keypoints < max_features):
+                print("seq ", sequence_index, " ", image_index, " ", max_features-num_keypoints)
             
 
             # For debug ################################
@@ -145,8 +154,7 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
             number_of_reference_features = len(reference_features)
 
             repeatability = (
-                number_of_possible_correct_matches / number_of_reference_features
-                if number_of_reference_features > 0 else 0.0
+                number_of_possible_correct_matches / number_of_reference_features if number_of_reference_features > 0 else 0.0
             )
             repeatabilities.append(repeatability)
 

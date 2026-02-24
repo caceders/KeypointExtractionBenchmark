@@ -18,7 +18,7 @@ from shi_tomasi_sift import ShiTomasiSift
 
 ## Load dataset.    
 dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
-apply_image_noise(dataset_image_sequences, dataset_homography_sequence)
+dataset_image_sequences, dataset_homography_sequence = apply_image_noise(dataset_image_sequences, dataset_homography_sequence, *NOISE_RANGES)
 
 AGAST = cv2.AgastFeatureDetector_create()
 AKAZE = cv2.AKAZE_create()
@@ -49,8 +49,8 @@ features2d = {
     #"GFTT" : GFTT,
     #"GFTT2" : GFTT2,
     # "KAZE" : KAZE,
-    #"ORB" : ORB,
-    "SIFT" : SIFT,
+    "ORB" : ORB,
+    #"SIFT" : SIFT,
     #"SIFT_FAST2" : SIFT_FAST2,
     #"SIFT SIG 4.8" : SIFT_SIGMA_4_8,
     #"BRIEF" : BRIEF,
@@ -99,9 +99,6 @@ for detector_key in features2d.keys():
 
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
-#SKIP = ["speedtest", "verification", "retrieval"]
-SKIP = ["speedtest"]
-
 ## Setup matching approach
 distance_match_rank_property = MatchRankingProperty("distance", False)
 average_response_match_rank_property = MatchRankingProperty("average_response", True)
@@ -115,25 +112,25 @@ all_results = []
 
 warnings.filterwarnings("once", category=UserWarning)
 image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
-keypoint_size_scalings = [1]
 
-for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Calculating for all sizes"):
+
+for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Calculating for all sizes"):
     for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="Calculating for all combinations"):
         print(f"Calculating for {feature_extractor_key}")   
         
         #try:
         feature_extractor: FeatureExtractor = test_combinations[feature_extractor_key]
 
-        speed = 0
-        if "speedtest" not in SKIP:
-            speed = speed_test(feature_extractor, dataset_image_sequences)
-        
         if (feature_extractor_key == "FAST2+SIFT_FAST2"):
             keypoint_size_scaling = FAST2_SCALE
         elif (feature_extractor_key == "GFTT2+SIFT_GFTT2"):
             keypoint_size_scaling = GFTT2_SCALE
+
+        speed = 0
+        if "speedtest" not in SKIP:
+            speed = speed_test(feature_extractor, dataset_image_sequences)
         
-        find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling)
+        find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE)
         set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
 
         if "matching" not in SKIP:
@@ -175,7 +172,7 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
         # Totals
         total_correct_matches = is_correct.sum()
         ratio_correct = total_correct_matches / num_matches
-        ratio_possible_found = total_correct_matches / total_possible_correct_matches
+        ratio_possible_found = total_correct_matches / total_possible_correct_matches 
 
         # --- Rank-based stats ---
         max_rank = NUM_BEST_MATCHES
@@ -245,16 +242,20 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
         # ========================
 
         results = {
-            "combination": f"{feature_extractor_key}" if (len(keypoint_size_scalings) == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
+            "combination": f"{feature_extractor_key}" if (len(KEYPOINT_SIZE_SCALINGS) == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
             "speed": speed,
             "repeatability mean": np.mean(set_repeatabilities),
             "repeatability std": np.std(set_repeatabilities),
-
+            
+            "total num keypoints": total_num_features,
             "total num matches": num_matches,
+            "num dropped keypoints" : NUM_SEQUENCES * 6 * MAX_FEATURES - total_num_features,
+            "num dropped matches" : NUM_SEQUENCES * 5 * MAX_FEATURES - num_matches,
             "number possible correct matches": total_possible_correct_matches,
             "total correct matches": total_correct_matches,
             "ratio correct/total matches": ratio_correct,
             "ratio correct/possible correct matches": ratio_possible_found,
+            "correct matches per sequence: avg": avg_correct_per_sequence,
 
             # Size metrics
             "size mean": avg_size,
@@ -266,8 +267,8 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
             "size correct: avg": avg_size_correct,
             "size correct/all ratio": ratio_size_correct,
 
-            "total num keypoints": total_num_features,
-            "correct matches per sequence: avg": avg_correct_per_sequence,
+            
+            
             #"correct matches per sequence: std": std_correct_per_sequence,
 
             "distance correct/all ratio": ratio_dist_correct,
@@ -341,7 +342,7 @@ for keypoint_size_scaling in tqdm(keypoint_size_scalings, leave=False, desc="Cal
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(all_results)
-        df.to_csv("output_shift_big.csv", index = False)
+        df.to_csv(FILE_NAME, index = False)
 
         # except Exception as e:
         #     error_message = traceback.format_exc()
