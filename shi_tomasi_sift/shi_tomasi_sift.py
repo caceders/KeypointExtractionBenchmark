@@ -158,7 +158,7 @@ class ShiTomasiSift():
                 if not self.use_orientation:
                     kp_angle = 0
 
-                rotated_description_area_angles = description_area_angle + kp_angle
+                rotated_description_area_angles = description_area_angle - kp_angle
 
                 rotated_description_area_angles %= 2 * np.pi
                 
