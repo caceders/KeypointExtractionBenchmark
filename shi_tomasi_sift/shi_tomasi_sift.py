@@ -37,8 +37,8 @@ class ShiTomasiSift():
                  orientation_calculation_bin_count : int = 36,
                  create_new_keypoint_for_large_angle_histogram_values : bool = True,
                  large_angle_histogram_value_threshold : float = 0.8,
-                 descriptor_window_size : int = 32,
-                 descriptor_subwindow_size : int = 8,
+                 descriptor_window_size : int = 16,
+                 descriptor_subwindow_size : int = 4,
                  descriptor_gaussian_weight_std : float = 8, ## 16/2 = 1/2 window size
                  descriptor_bin_count : int = 8,
                  drop_keypoints_on_border : bool = False,
@@ -587,20 +587,63 @@ class ShiTomasiSift():
         return distances
 
 
-    def _calculate_positional_weights_with_respect_to_subwindows(self, rotated_coordinates, subwindow_center_positions) -> NDArray:
-        weights = np.zeros((subwindow_center_positions.shape[0], subwindow_center_positions.shape[1], rotated_coordinates.shape[0], rotated_coordinates.shape[1]))
-        for y_index in range(len(subwindow_center_positions)):
-            for x_index in range(len(subwindow_center_positions[y_index])):
-                # Move into own function to be able to debug
-                pixel_distances_to_subwindow_center = np.abs(rotated_coordinates - subwindow_center_positions[y_index, x_index])
-                positional_weights = 1 - (pixel_distances_to_subwindow_center / self.descriptor_subwindow_size)
-                positional_weights_y = positional_weights[..., 0]
-                positional_weights_y[positional_weights_y < 0] = 0
-                positional_weights_x = positional_weights[..., 1]
-                positional_weights_x[positional_weights_x < 0] = 0
+    # def _calculate_positional_weights_with_respect_to_subwindows(self, rotated_coordinates, subwindow_center_positions) -> NDArray:
+    #     weights = np.zeros((subwindow_center_positions.shape[0], subwindow_center_positions.shape[1], rotated_coordinates.shape[0], rotated_coordinates.shape[1]))
+    #     for y_index in range(len(subwindow_center_positions)):
+    #         for x_index in range(len(subwindow_center_positions[y_index])):
+    #             # Move into own function to be able to debug
+    #             pixel_distances_to_subwindow_center = np.abs(rotated_coordinates - subwindow_center_positions[y_index, x_index])
+    #             positional_weights = 1 - (pixel_distances_to_subwindow_center / self.descriptor_subwindow_size)
+    #             positional_weights_y = positional_weights[..., 0]
+    #             positional_weights_y[positional_weights_y < 0] = 0
+    #             positional_weights_x = positional_weights[..., 1]
+    #             positional_weights_x[positional_weights_x < 0] = 0
 
-                weights[y_index, x_index] = positional_weights_x * positional_weights_y
+    #             weights[y_index, x_index] = positional_weights_x * positional_weights_y
+    #     return weights
+
+    
+    def _calculate_positional_weights_with_respect_to_subwindows(
+        self,
+        rotated_coordinates: NDArray,                 # (H, W, 2) with order (x, y) packed in the last dimension in your code
+        subwindow_center_positions: NDArray           # (K, K, 2)
+    ) -> NDArray:
+        """
+        Vectorized version:
+        Returns weights with shape (K, K, H, W), identical to the original function,
+        but computed via broadcasting (no Python loops).
+        """
+        H, W, _ = rotated_coordinates.shape
+        K = subwindow_center_positions.shape[0]
+        assert subwindow_center_positions.shape[1] == K, "Expected square (K, K, 2) centers"
+
+        # Ensure float32 (saves memory and is plenty precise here)
+        coords = rotated_coordinates.astype(np.float32, copy=False)  # (H, W, 2)
+        centers = subwindow_center_positions.astype(np.float32, copy=False)  # (K, K, 2)
+
+        # Flatten centers to (K*K, 2)
+        centers_flat = centers.reshape(-1, 2)  # (M, 2) where M = K*K
+
+        # Broadcast pixel coords against centers:
+        #   coords[..., None, :] has shape (H, W, 1, 2)
+        #   centers_flat[None, None, ...] has shape (1, 1, M, 2)
+        # Result dists: (H, W, M, 2)
+        d = np.abs(coords[..., None, :] - centers_flat[None, None, :, :])
+
+        # Convert distances to per-axis weights and clip below 0
+        inv_size = 1.0 / float(self.descriptor_subwindow_size)
+        w = 1.0 - d * inv_size                             # (H, W, M, 2)
+        np.maximum(w, 0.0, out=w)                          # clip negatives to 0 in-place
+
+        # Combine x and y contributions (axis=-1 is the (2,) axis)
+        # NOTE: Your original code multiplies the two axes, regardless of naming.
+        wxy = w[..., 0] * w[..., 1]                        # (H, W, M)
+
+        # Reshape to (H, W, K, K) then transpose to (K, K, H, W) to match your original output
+        weights = wxy.reshape(H, W, K, K).transpose(2, 3, 0, 1)  # (K, K, H, W)
+
         return weights
+
 
 
     # endregion

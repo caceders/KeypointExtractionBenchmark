@@ -1,13 +1,13 @@
 SKIP = ["speedtest", "verification", "retrieval"]
 #SKIP = ["speedtest"]
-FILE_NAME = "shift_invariant_8_32_8.csv"
+FILE_NAME = "shift_invariant_8chattern.csv"
 # Rotation, scale, gaussian blur, motion blur
 #NOISE_RANGES =[(-0,0), (1,1), (0,0), (0,0)]
 NOISE_RANGES = [(0,0)]
 FORCE_CONSTANT_ANGLE = False
 KEYPOINT_SIZE_SCALINGS = [1]
 
-MAX_FEATURES = 250
+MAX_FEATURES = 500
 VISUALIZE = False
 SEQUENCE_TO_VISUALIZE = 89
 
