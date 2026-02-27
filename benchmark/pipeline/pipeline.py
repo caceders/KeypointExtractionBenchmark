@@ -36,7 +36,7 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
 
             keypoints = feature_extractor.detect_keypoints(image)
             num_keypoints = len(keypoints)
-            min_required_keypoints = round(max_features*1.3)
+            min_required_keypoints = round(max_features*1.1)
             if min_required_keypoints < len(keypoints):
                 scores = np.array([keypoint.response for keypoint in keypoints])
                 idx = np.argpartition(scores, -min_required_keypoints)[-min_required_keypoints:]

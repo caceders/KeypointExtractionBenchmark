@@ -47,15 +47,15 @@ features2d = {
     #"FAST" : FAST,
     #"FAST2" : FAST2,
     #"GFTT" : GFTT,
-    "GFTT2" : GFTT2,
+    #"GFTT2" : GFTT2,
     #"KAZE" : KAZE,
     #"ORB" : ORB,
-    "SIFT" : SIFT,
+    #"SIFT" : SIFT,
     #"SIFT_FAST2" : SIFT_FAST2,
     #"SIFT_OPTIMAL" : SIFT_OPTIMAL,
     #"BRIEF" : BRIEF,
     #"FREAK" : FREAK,
-    #"SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT
+    "SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT
 }
 
 ONLY_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
