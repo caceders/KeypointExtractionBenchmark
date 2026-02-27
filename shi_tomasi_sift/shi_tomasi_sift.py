@@ -262,12 +262,12 @@ class ShiTomasiSift():
         
         
         
-        Ix = cv2.filter2D(I, cv2.CV_32F, operator_x, borderType=cv2.BORDER_REPLICATE)
-        Iy = cv2.filter2D(I, cv2.CV_32F, operator_y, borderType=cv2.BORDER_REPLICATE)
+        Ix = cv2.filter2D(I, cv2.CV_32F, -operator_x, borderType=cv2.BORDER_REPLICATE)
+        Iy = cv2.filter2D(I, cv2.CV_32F, -operator_y, borderType=cv2.BORDER_REPLICATE)
 
-
-        Ix = np.pad(Ix, 1, mode = "edge")
-        Iy = np.pad(Iy, 1, mode = "edge")
+        # Padding is not needed with cv2.filtered2D
+        # Ix = np.pad(Ix, 1, mode = "edge")
+        # Iy = np.pad(Iy, 1, mode = "edge")
 
         return (Ix, Iy)
 
