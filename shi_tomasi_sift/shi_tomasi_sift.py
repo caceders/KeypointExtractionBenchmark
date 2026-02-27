@@ -411,6 +411,8 @@ class ShiTomasiSift():
     #     return bin_centers, histogram
     
     
+
+
     def _calculate_histogram(
         self,
         array: NDArray,
@@ -423,65 +425,71 @@ class ShiTomasiSift():
     ) -> Tuple[NDArray, NDArray]:
         """
         Returns (bin_centers, histogram).
-        If `interpolated=True`, linearly interpolate each sample's weight between the two nearest bin centers.
+
+        - Bin-centered interpolation: positions are measured relative to bin centers:
+            pos = (x - start)/width - 0.5
+        Each sample contributes to floor(pos) and floor(pos)+1.
+
         """
-        # Fast views instead of copies where possible
+        # Normalize inputs
         x = np.ravel(array)
         w = np.ravel(weights)
 
-        # Precompute bins
+        # Quick validations (optional but helpful)
+        if x.shape != w.shape:
+            raise ValueError(f"array and weights must have same size, got {x.shape} vs {w.shape}")
+        if num_bins <= 0:
+            raise ValueError("num_bins must be a positive integer")
+        if not np.isfinite(start) or not np.isfinite(stop) or stop <= start:
+            raise ValueError("start/stop must be finite with stop > start")
+
         width = (stop - start) / num_bins
         inv_width = 1.0 / width
-        bins = np.arange(num_bins)
-        bin_centers = start + (bins + 0.5) * width
+        bin_centers = start + (np.arange(num_bins) + 0.5) * width
 
         if cyclic:
-            # Map into [start, stop)
-            x = ((x - start) % (stop - start)) + start
+            # Map values to [start, stop)
+            rng = (stop - start)
+            x = ((x - start) % rng) + start
         else:
-            # Optional: discard values outside [start, stop)
-            # np.histogram(range=...) would also ignore them, but filtering early can save work in interpolated case
+            # Keep only values in [start, stop)
             inside = (x >= start) & (x < stop)
             x = x[inside]
             w = w[inside]
 
         if not interpolated:
-            # Let NumPy handle the weighted histogram (fast C implementation)
             hist, _ = np.histogram(x, bins=num_bins, range=(start, stop), weights=w)
             return bin_centers, hist
 
-        # ---- Interpolated between adjacent bin centers ----
-        # Work in "bin units" measured from centers: position pos = 0 corresponds to the center of bin 0 if x=start+0.5*width.
-        # pos = (x - start)/width - 0.5
+        # ---- Bin-centered interpolation ----
+        # pos in [-0.5, num_bins - 0.5)
         pos = (x - start) * inv_width - 0.5
         low = np.floor(pos).astype(np.int64)
-        frac = pos - low  # in [0,1) for values between two centers
+        frac = pos - low                # in [0, 1)
+        high = low + 1
 
         if cyclic:
+            # Pure circular interpolation: wrap both neighbors
             low_mod = low % num_bins
-            high_mod = (low + 1) % num_bins
+            high_mod = high % num_bins
 
-            # Distribute weights: (1-frac) to low center, frac to high center
-            hist = np.bincount(low_mod, weights=w * (1.0 - frac), minlength=num_bins)
-            hist += np.bincount(high_mod, weights=w * frac, minlength=num_bins)
+            # Distribute weights
+            hist = np.bincount(low_mod,  weights=w * (1.0 - frac), minlength=num_bins)
+            hist += np.bincount(high_mod, weights=w * frac,         minlength=num_bins)
 
         else:
-            # Non-cyclic: drop contributions that would fall outside [0, num_bins-1]
-            high = low + 1
-
-            # Low contributions valid if low in [0, num_bins-1]
-            mask_low = (low >= 0) & (low < num_bins)
-            # High contributions valid if high in [0, num_bins-1]
-            mask_high = (high >= 0) & (high < num_bins)
-
+            # Non-cyclic: drop out-of-range contributions
             hist = np.zeros(num_bins, dtype=np.float64)
 
+            mask_low = (low >= 0) & (low < num_bins)
             if np.any(mask_low):
                 hist += np.bincount(
                     low[mask_low],
                     weights=w[mask_low] * (1.0 - frac[mask_low]),
                     minlength=num_bins
                 )
+
+            mask_high = (high >= 0) & (high < num_bins)
             if np.any(mask_high):
                 hist += np.bincount(
                     high[mask_high],
@@ -490,6 +498,8 @@ class ShiTomasiSift():
                 )
 
         return bin_centers, hist
+
+
 
 
 

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import re
 
-CSV_PATH = "shift_invariant_8_window_sizes.csv"
+CSV_PATH = "shift_rewrites.csv"
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
 #   "alphabetical_by_descriptor" -> descriptor name, then descriptor number, then detector
