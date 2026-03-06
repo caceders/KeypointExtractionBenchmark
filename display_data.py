@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import re
 
-CSV_PATH = "shift_rewrites.csv"
+CSV_PATH = "shift_comparison.csv"
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
 #   "alphabetical_by_descriptor" -> descriptor name, then descriptor number, then detector
@@ -48,7 +48,8 @@ parts = df["combination"].str.split("+", n=1, expand=True)
 df["detector"] = parts[0].fillna("").str.strip()
 df["descriptor_full"] = parts[1].fillna("").str.strip()
 
-desc_extract = df["descriptor_full"].str.extract(r"^(.*?)(?:\s+([+-]?\d+(?:\.\d+)?))?$")
+
+desc_extract = df["descriptor_full"].str.extract( r"^(.*?)([+-]?\d+(?:\.\d+)?)?$")
 df["descriptor_name"] = desc_extract[0].fillna("").str.strip()
 df["descriptor_num"] = pd.to_numeric(desc_extract[1], errors="coerce")
 

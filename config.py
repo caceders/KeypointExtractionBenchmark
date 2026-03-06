@@ -1,9 +1,9 @@
 SKIP = ["speedtest", "verification", "retrieval"]
 #SKIP = ["speedtest"]
-FILE_NAME = "shift_invariant_8chattern_fixed.csv"
+FILE_NAME = "shift_invariant_downsampling_16_8,0.5,4.csv"
 # Rotation, scale, gaussian blur, motion blur
 #NOISE_RANGES =[(-0,0), (1,1), (0,0), (0,0)]
-NOISE_RANGES = [(0,0)]
+NOISE_RANGES = []
 FORCE_CONSTANT_ANGLE = False
 KEYPOINT_SIZE_SCALINGS = [1]
 

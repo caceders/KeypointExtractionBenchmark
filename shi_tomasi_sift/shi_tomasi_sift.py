@@ -29,7 +29,7 @@ class ShiTomasiSift():
                  response_type : str = "normal",
                  use_previous_max_when_calculating_threshold : bool = False,
                  first_max_value_when_previous_max_is_used : int = 80000,
-                 quality_level : float = 0.01,
+                 quality_level : float = 0.001,
                  max_corners : int = 1000,
                  perform_non_maxima_supression : bool = True,
                  use_descriptor_window_buffer_as_orientation_calculation_window_size : bool = True,
@@ -41,9 +41,14 @@ class ShiTomasiSift():
                  descriptor_window_size : int = 16,
                  use_orientation_buffer: bool = True,
                  descriptor_subwindow_size : int = 4,
-                 descriptor_gaussian_weight_std : float = 8, ## 16/2 = 1/2 window size
+                 descriptor_gaussian_weight_std : float = 8, ## 16/2 = 1/2 window size # -1 for equal weighting
                  descriptor_bin_count : int = 8,
                  drop_keypoints_on_border : bool = False,
+                 use_orientation: bool = False,
+                 should_downsample: bool = False,
+                 scaling_factor: float = 1.2,
+                 blur_sigma: float = 0.5, #-1 for no blur
+                 downsample_iterations: int = 1,
                  recalculate_orientation_for_keypoints: bool = False
                  ) -> None:
         
@@ -94,6 +99,11 @@ class ShiTomasiSift():
         self.drop_keypoints_on_border = drop_keypoints_on_border
         self.recalculate_orientation_for_keypoints = recalculate_orientation_for_keypoints
 
+        self.should_downsample = should_downsample
+        self.scale_factor = scaling_factor
+        self.blur_sigma = blur_sigma
+        self.downsample_iterations = downsample_iterations
+
         # Build grid of original coordinates (x, y)
         xs, ys = np.meshgrid(np.arange(descriptor_window_size), np.arange(descriptor_window_size))
         self.xs = xs.astype(np.float32)
@@ -112,6 +122,10 @@ class ShiTomasiSift():
 
         if len(img.shape) > 2:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        if self.should_downsample:
+            for i in range(self.downsample_iterations):
+                img = downsample(img, self.scale_factor, self.blur_sigma)
 
         #if Ix is None or Iy is None: Er vel ingen grunn til at man forventer å ha disse?
         # Jo fordi vi beregner Ix og Iy utenfor detect funksjonen i detect_and_compute, og passer
@@ -143,6 +157,10 @@ class ShiTomasiSift():
         
         if len(img.shape) > 2:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        if self.should_downsample:
+            for i in range(self.downsample_iterations):
+                img = downsample(img, self.scale_factor, self.blur_sigma)
 
         if self.drop_keypoints_on_border:
             keypoints = self._drop_keypoints_on_border(keypoints, img)
@@ -186,7 +204,12 @@ class ShiTomasiSift():
                                                   (int(keypoint.pt[0]), int(keypoint.pt[1])),
                                                   self.descriptor_window_buffer_size)
             
-            description_weighted_magnitude = weight_area_with_gaussian_window(description_area_magnitude, self.descriptor_gaussian_weight_std)
+
+            if (self.descriptor_gaussian_weight_std == -1):
+                description_weighted_magnitude = description_area_magnitude
+            else:
+                description_weighted_magnitude = weight_area_with_gaussian_window(description_area_magnitude, self.descriptor_gaussian_weight_std)
+            
 
             for kp_angle in kp_angles:
 
@@ -218,12 +241,8 @@ class ShiTomasiSift():
                 descriptor = descriptor / np.linalg.norm(descriptor)
                 descriptor[descriptor > 0.2] = 0.2
                 descriptor = descriptor / np.linalg.norm(descriptor)
-
-                new_keypoint = cv2.KeyPoint(keypoint.pt[0],
-                                            keypoint.pt[1],
-                                            keypoint.size,
-                                            kp_angle,
-                                            keypoint.response)
+                
+                new_keypoint = self._create_new_keypoint(keypoint, kp_angle)
 
                 new_keypoints.append(new_keypoint)
                 descriptors.append(descriptor)
@@ -285,7 +304,7 @@ class ShiTomasiSift():
                 [0, 0, 0],
                 [3, 10, 3]])
         
-        else: # self.derivation_operator == "prewitt"
+        elif  self.derivation_operator == "prewitt":
             operator_x = np.array(
                 [[-1, 0, 1],
                 [-1, 0, 1],
@@ -297,15 +316,23 @@ class ShiTomasiSift():
                 [0, 0, 0],
                 [1, 1, 1]])
             
-        
+        elif  self.derivation_operator == "simple":
+            operator_x = np.array(
+                [[0, 0, 0],
+                [-1, 0, 1],
+                [0, 0, 0]]
+                )
+            
+            operator_y = np.array(
+                [[0, -1, 0],
+                [0, 0, 0],
+                [0, 1, 0]])
+            
         
         
         Ix = cv2.filter2D(I, cv2.CV_32F, -operator_x, borderType=cv2.BORDER_REPLICATE)
         Iy = cv2.filter2D(I, cv2.CV_32F, -operator_y, borderType=cv2.BORDER_REPLICATE)
 
-        # Padding is not needed with cv2.filtered2D
-        # Ix = np.pad(Ix, 1, mode = "edge")
-        # Iy = np.pad(Iy, 1, mode = "edge")
 
         return (Ix, Iy)
 
@@ -403,54 +430,6 @@ class ShiTomasiSift():
         return (magnitude, angle)
 
 
-    # def _calculate_histogram(self,
-    #                          array : NDArray,
-    #                          weights : NDArray,
-    #                          num_bins : int,
-    #                          start : float,
-    #                          stop : float,
-    #                          interpolated : bool = False,
-    #                          cyclic: bool = True
-    #                          ) -> Tuple[NDArray, NDArray]:
-    #     '''
-    #     Returns ([bins], [values]). If interpolate then interpolate values between the two centers of adjacent bins
-    #     '''
-    #     array = array.flatten()
-    #     weights = weights.flatten()
-
-    #     bin_width = (stop - start)/(num_bins)
-    #     bin_centers = np.array([(start + bin_width * (i) + bin_width/2) for i in range(num_bins)])
-
-    #     if cyclic:
-    #         array = ((array - start) % (stop - start)) + start
-
-    #     if interpolated:
-    #         new_array = []
-    #         new_weights = []
-    #         for index, value in enumerate(array):
-    #             value_in_bin_width = (value - start) / bin_width
-    #             low_index = int(np.floor(value_in_bin_width))
-    #             high_index = int(np.ceil(value_in_bin_width))
-    #             if high_index >= len(bin_centers):
-    #                 high_index = 0
-    #             low_weight = 1 - np.abs(value_in_bin_width - low_index)
-    #             high_weight = 1 - low_weight
-    #             new_array.append(bin_centers[low_index])
-    #             new_array.append(bin_centers[high_index])
-    #             new_weights.append(weights[index] * low_weight)
-    #             new_weights.append(weights[index] * high_weight)
-
-    #         array = np.array(new_array)
-    #         weights = np.array(new_weights)
-
-
-    #     histogram, _ = np.histogram(array, num_bins, (start, stop), weights = weights)
-        
-    #     return bin_centers, histogram
-    
-    
-
-
     def _calculate_histogram(
         self,
         array: NDArray,
@@ -461,84 +440,59 @@ class ShiTomasiSift():
         interpolated: bool = False,
         cyclic: bool = True
     ) -> Tuple[NDArray, NDArray]:
-        """
-        Returns (bin_centers, histogram).
 
-        - Bin-centered interpolation: positions are measured relative to bin centers:
-            pos = (x - start)/width - 0.5
-        Each sample contributes to floor(pos) and floor(pos)+1.
-
-        """
-        # Normalize inputs
+        # Flatten views
         x = np.ravel(array)
         w = np.ravel(weights)
 
-        # Quick validations (optional but helpful)
-        if x.shape != w.shape:
-            raise ValueError(f"array and weights must have same size, got {x.shape} vs {w.shape}")
-        if num_bins <= 0:
-            raise ValueError("num_bins must be a positive integer")
-        if not np.isfinite(start) or not np.isfinite(stop) or stop <= start:
-            raise ValueError("start/stop must be finite with stop > start")
-
         width = (stop - start) / num_bins
-        inv_width = 1.0 / width
         bin_centers = start + (np.arange(num_bins) + 0.5) * width
 
         if cyclic:
-            # Map values to [start, stop)
+            # Map to [start, stop)
             rng = (stop - start)
             x = ((x - start) % rng) + start
         else:
-            # Keep only values in [start, stop)
-            inside = (x >= start) & (x < stop)
-            x = x[inside]
-            w = w[inside]
+            # Drop out-of-range
+            mask = (x >= start) & (x < stop)
+            x = x[mask]
+            w = w[mask]
 
         if not interpolated:
             hist, _ = np.histogram(x, bins=num_bins, range=(start, stop), weights=w)
             return bin_centers, hist
 
-        # ---- Bin-centered interpolation ----
-        # pos in [-0.5, num_bins - 0.5)
-        pos = (x - start) * inv_width - 0.5
-        low = np.floor(pos).astype(np.int64)
-        frac = pos - low                # in [0, 1)
-        high = low + 1
+        # ---------- Edge-based interpolation (original behavior) ----------
+        v = (x - start) / width                  # identical to original
+        low  = np.floor(v).astype(np.int64)
+        high = np.ceil(v).astype(np.int64)
 
-        if cyclic:
-            # Pure circular interpolation: wrap both neighbors
-            low_mod = low % num_bins
-            high_mod = high % num_bins
+        # original behavior: only HIGH wraps, LOW does NOT
+        high = np.where(high >= num_bins, 0, high)
 
-            # Distribute weights
-            hist = np.bincount(low_mod,  weights=w * (1.0 - frac), minlength=num_bins)
-            hist += np.bincount(high_mod, weights=w * frac,         minlength=num_bins)
+        # weights exactly as before
+        low_weight  = 1.0 - np.abs(v - low)
+        high_weight = 1.0 - low_weight
 
-        else:
-            # Non-cyclic: drop out-of-range contributions
-            hist = np.zeros(num_bins, dtype=np.float64)
+        # LOW contributions (only those in valid range)
+        hist = np.zeros(num_bins, dtype=np.float64)
 
-            mask_low = (low >= 0) & (low < num_bins)
-            if np.any(mask_low):
-                hist += np.bincount(
-                    low[mask_low],
-                    weights=w[mask_low] * (1.0 - frac[mask_low]),
-                    minlength=num_bins
-                )
+        mask_low = (low >= 0) & (low < num_bins)
+        if np.any(mask_low):
+            hist += np.bincount(
+                low[mask_low],
+                weights=w[mask_low] * low_weight[mask_low],
+                minlength=num_bins
+            )
 
-            mask_high = (high >= 0) & (high < num_bins)
-            if np.any(mask_high):
-                hist += np.bincount(
-                    high[mask_high],
-                    weights=w[mask_high] * frac[mask_high],
-                    minlength=num_bins
-                )
+        # HIGH contributions (always valid 0..num_bins-1 after wrapping)
+        hist += np.bincount(
+            high,
+            weights=w * high_weight,
+            minlength=num_bins
+        )
 
         return bin_centers, hist
-
-
-
 
 
     def _get_angles_from_histogram(self, values : NDArray, bins : NDArray) -> list[float]:
@@ -623,8 +577,6 @@ class ShiTomasiSift():
                                 for i in range(num_subwindows_along_axis)]
                                 for j in range(num_subwindows_along_axis)])
 
-        
-
         return distances
     
     
@@ -668,6 +620,16 @@ class ShiTomasiSift():
         weights = wxy.reshape(H, W, K, K).transpose(2, 3, 0, 1)  # (K, K, H, W)
 
         return weights
+    
+    def _create_new_keypoint(self, keypoint: cv2.KeyPoint, kp_angle) -> cv2.KeyPoint:
+
+        new_keypoint = cv2.KeyPoint(keypoint.pt[0] * self.scale_factor ** self.downsample_iterations,
+                                    keypoint.pt[1] * self.scale_factor ** self.downsample_iterations,
+                                    keypoint.size,
+                                    kp_angle,
+                                    keypoint.response)
+        
+        return new_keypoint
 
     
     def _calculate_circular_weights(self) -> NDArray:
@@ -780,6 +742,15 @@ def extract_area(matrix: NDArray, center: Tuple[int, int], size : int, border_ha
     subarea[subarea_y_start : subarea_y_end, subarea_x_start : subarea_x_end] = matrix[matrix_y_start : matrix_y_end, matrix_x_start : matrix_x_end]
 
     return subarea
+
+def downsample(img: NDArray, scale_factor: float, sigma: float) -> NDArray:
+    if sigma != -1:
+        img = cv2.GaussianBlur(img, (0,0), sigma, borderType=cv2.BORDER_REFLECT_101)
+    downsampled_img = cv2.resize(img, None, fx= 1/scale_factor, fy= 1/scale_factor)
+
+
+    return downsampled_img
+
 
 
 def plot_image(ax : Axes,
@@ -950,3 +921,65 @@ def plot_subwindow_positions(ax : Axes,
     # endregion
 
     # endregion
+    
+    #CA versions before the machines took over
+
+        # def _calculate_positional_weights_with_respect_to_subwindows(self, rotated_coordinates, subwindow_center_positions) -> NDArray:
+    #     weights = np.zeros((subwindow_center_positions.shape[0], subwindow_center_positions.shape[1], rotated_coordinates.shape[0], rotated_coordinates.shape[1]))
+    #     for y_index in range(len(subwindow_center_positions)):
+    #         for x_index in range(len(subwindow_center_positions[y_index])):
+    #             # Move into own function to be able to debug
+    #             pixel_distances_to_subwindow_center = np.abs(rotated_coordinates - subwindow_center_positions[y_index, x_index])
+    #             positional_weights = 1 - (pixel_distances_to_subwindow_center / self.descriptor_subwindow_size)
+    #             positional_weights_y = positional_weights[..., 0]
+    #             positional_weights_y[positional_weights_y < 0] = 0
+    #             positional_weights_x = positional_weights[..., 1]
+    #             positional_weights_x[positional_weights_x < 0] = 0
+
+    #             weights[y_index, x_index] = positional_weights_x * positional_weights_y
+    #     return weights
+
+    # def _calculate_histogram(self,
+    #                          array : NDArray,
+    #                          weights : NDArray,
+    #                          num_bins : int,
+    #                          start : float,
+    #                          stop : float,
+    #                          interpolated : bool = False,
+    #                          cyclic: bool = True
+    #                          ) -> Tuple[NDArray, NDArray]:
+    #     '''
+    #     Returns ([bins], [values]). If interpolate then interpolate values between the two centers of adjacent bins
+    #     '''
+    #     array = array.flatten()
+    #     weights = weights.flatten()
+
+    #     bin_width = (stop - start)/(num_bins)
+    #     bin_centers = np.array([(start + bin_width * (i) + bin_width/2) for i in range(num_bins)])
+
+    #     if cyclic:
+    #         array = ((array - start) % (stop - start)) + start
+
+    #     if interpolated:
+    #         new_array = []
+    #         new_weights = []
+    #         for index, value in enumerate(array):
+    #             value_in_bin_width = (value - start) / bin_width
+    #             low_index = int(np.floor(value_in_bin_width))
+    #             high_index = int(np.ceil(value_in_bin_width))
+    #             if high_index >= len(bin_centers):
+    #                 high_index = 0
+    #             low_weight = 1 - np.abs(value_in_bin_width - low_index)
+    #             high_weight = 1 - low_weight
+    #             new_array.append(bin_centers[low_index])
+    #             new_array.append(bin_centers[high_index])
+    #             new_weights.append(weights[index] * low_weight)
+    #             new_weights.append(weights[index] * high_weight)
+
+    #         array = np.array(new_array)
+    #         weights = np.array(new_weights)
+
+
+    #     histogram, _ = np.histogram(array, num_bins, (start, stop), weights = weights)
+        
+    #     return bin_centers, histogram
