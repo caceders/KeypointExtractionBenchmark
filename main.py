@@ -18,7 +18,8 @@ from shi_tomasi_sift import ShiTomasiSift
 
 ## Load dataset.    
 dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
-dataset_image_sequences, dataset_homography_sequence = apply_image_noise(dataset_image_sequences, dataset_homography_sequence, *NOISE_RANGES)
+if NOISE_RANGES:
+    dataset_image_sequences, dataset_homography_sequence = apply_image_noise(dataset_image_sequences, dataset_homography_sequence, *NOISE_RANGES)
 
 AGAST = cv2.AgastFeatureDetector_create()
 AKAZE = cv2.AKAZE_create()
@@ -28,7 +29,7 @@ GFTT = cv2.GFTTDetector_create()
 KAZE = cv2.KAZE_create()
 ORB = cv2.ORB_create()
 SIFT = cv2.SIFT_create()
-SIFT_OPTIMAL = cv2.SIFT_create(sigma = 4)
+SIFT_OPTIMAL = cv2.SIFT_create(sigma = 3.5)
 BRIEF = cv2.xfeatures2d.BriefDescriptorExtractor_create()
 FREAK = cv2.xfeatures2d.FREAK_create()
 
@@ -55,41 +56,43 @@ features2d = {
     #"SIFT_OPTIMAL" : SIFT_OPTIMAL,
     #"BRIEF" : BRIEF,
     #"FREAK" : FREAK,
-    "SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT
+    #"SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT,
+    "SHI_TOMASI_SIFT_DOWN" : ShiTomasiSift(should_downsample= True, downsample_iterations=4),
 }
 
-ONLY_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
-ONLY_DESCRIPTOR = ["FREAK", "SIFT_FAST2"]                     
-BLACKLIST = [("ORB", "SIFT_FAST2")]                       
-SELF_ONLY_AS_DETECTOR = ["SIFT SIG 4.8", "SIFT_OPTIMAL", "BRISK", "SIFT", "ORB", "AKAZE"]                    
-SELF_ONLY_AS_DESCRIPTOR = ["SIFT SIG 4.8", "SIFT_OPTIMAL", "AKAZE", "ORB", "BRISK"]             
-
-# Define explicit allowed descriptor per detector
+ONLY_SELF = True #Forces no mixing
+ONLY_USED_AS_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
+ONLY_USED_AS_DESCRIPTOR = ["FREAK", "SIFT_FAST2"]                     
+BLACKLIST = []                                 
 ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
     # "FAST": "SIFT",
     "FAST2": "SIFT_FAST2",
     # "GFTT": "SIFT",
     "GFTT2": "SIFT",
 }
+ALLOWED_DETECTOR_FOR_DESCRIPTOR = {
+    "SIFT_FAST2": "FAST2",
+}
 
 test_combinations: dict[str, FeatureExtractor] = {}
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
 
+        if ONLY_SELF and detector_key != descriptor_key:
+            continue
         if (detector_key, descriptor_key) in BLACKLIST:
             continue
-        if detector_key in ONLY_DESCRIPTOR:
+        if detector_key in ONLY_USED_AS_DESCRIPTOR:
             continue
-        if descriptor_key in ONLY_DETECTOR:
-            continue
-
-        if detector_key in SELF_ONLY_AS_DETECTOR and descriptor_key != detector_key:
-            continue
-        if descriptor_key in SELF_ONLY_AS_DESCRIPTOR and detector_key != descriptor_key:
+        if descriptor_key in ONLY_USED_AS_DETECTOR:
             continue
 
         if detector_key in ALLOWED_DESCRIPTOR_FOR_DETECTOR:
             if descriptor_key != ALLOWED_DESCRIPTOR_FOR_DETECTOR[detector_key]:
+                continue
+
+        if descriptor_key in ALLOWED_DETECTOR_FOR_DESCRIPTOR :
+            if detector_key != ALLOWED_DETECTOR_FOR_DESCRIPTOR[descriptor_key]:
                 continue
 
         if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]:
