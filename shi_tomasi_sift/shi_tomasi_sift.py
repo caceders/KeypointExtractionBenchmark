@@ -32,12 +32,14 @@ class ShiTomasiSift():
                  quality_level : float = 0.001,
                  max_corners : int = 1000,
                  perform_non_maxima_supression : bool = True,
+                 use_descriptor_window_buffer_as_orientation_calculation_window_size : bool = True,
                  orientation_calculation_window_size : int = 16,
                  orientation_calculation_gaussian_weight_std : float = 4.5, ## 1.5 * keypoint size (3)
                  orientation_calculation_bin_count : int = 36,
                  create_new_keypoint_for_large_angle_histogram_values : bool = True,
                  large_angle_histogram_value_threshold : float = 0.8,
                  descriptor_window_size : int = 16,
+                 use_orientation_buffer: bool = True,
                  descriptor_subwindow_size : int = 4,
                  descriptor_gaussian_weight_std : float = 8, ## 16/2 = 1/2 window size # -1 for equal weighting
                  descriptor_bin_count : int = 8,
@@ -47,6 +49,7 @@ class ShiTomasiSift():
                  scaling_factor: float = 1.2,
                  blur_sigma: float = 0.5, #-1 for no blur
                  downsample_iterations: int = 1,
+                 recalculate_orientation_for_keypoints: bool = False
                  ) -> None:
         
         self.derivation_operator = derivation_operator
@@ -69,6 +72,7 @@ class ShiTomasiSift():
         self.max_corners = max_corners
         self.perform_non_maxima_supression = perform_non_maxima_supression
 
+        # Check that descriptor window size can be divided into subwindows
         assert descriptor_window_size % descriptor_subwindow_size == 0
 
         self.orientation_calculation_window_size = orientation_calculation_window_size
@@ -77,11 +81,23 @@ class ShiTomasiSift():
         self.create_new_keypoint_for_large_angle_histogram_values = create_new_keypoint_for_large_angle_histogram_values
         self.large_angle_histogram_value_threshold = large_angle_histogram_value_threshold
         self.descriptor_window_size = descriptor_window_size
+
+        # Keep a descriptor window buffer for orientation and rotation of keypoint. 
+        self.descriptor_window_buffer_size = int(np.ceil(np.sqrt(2) * descriptor_window_size))
+        if self.descriptor_window_buffer_size % 2 != 0:
+            self.descriptor_window_buffer_size += 1 # Keep the window buffer even (equal length on both sides)
+        
+        if not use_orientation_buffer:
+            self.descriptor_window_buffer_size = self.descriptor_window_size
+        
+        if use_descriptor_window_buffer_as_orientation_calculation_window_size and use_orientation_buffer:
+            self.orientation_calculation_window_size = self.descriptor_window_buffer_size
+
         self.descriptor_subwindow_size = descriptor_subwindow_size
         self.descriptor_gaussian_weight_std = descriptor_gaussian_weight_std
         self.descriptor_bin_count = descriptor_bin_count
         self.drop_keypoints_on_border = drop_keypoints_on_border
-        self.use_orientation = use_orientation
+        self.recalculate_orientation_for_keypoints = recalculate_orientation_for_keypoints
 
         self.should_downsample = should_downsample
         self.scale_factor = scaling_factor
@@ -92,6 +108,12 @@ class ShiTomasiSift():
         xs, ys = np.meshgrid(np.arange(descriptor_window_size), np.arange(descriptor_window_size))
         self.xs = xs.astype(np.float32)
         self.ys = ys.astype(np.float32)
+
+        # Build grid of coordinates in buffer
+
+        buffer_xs, buffer_ys = np.meshgrid(np.arange(self.descriptor_window_buffer_size), np.arange(self.descriptor_window_buffer_size))
+        self.buffer_xs = buffer_xs.astype(np.float32)
+        self.buffer_ys = buffer_ys.astype(np.float32)
 
     def detect(self, img : NDArray,
                Ix : NDArray | None = None,
@@ -106,6 +128,9 @@ class ShiTomasiSift():
                 img = downsample(img, self.scale_factor, self.blur_sigma)
 
         #if Ix is None or Iy is None: Er vel ingen grunn til at man forventer å ha disse?
+        # Jo fordi vi beregner Ix og Iy utenfor detect funksjonen i detect_and_compute, og passer
+        # Ix og Iy inn i begge som argument. Tror egentlig vi bare kan regne det ut uansett da, fordi
+        # beregningen av Ix og Iy er ikke en bottleneck akkurat nå.
         Ix, Iy = self._calculate_Ix_and_Iy(img)
         response = self._calculate_response(Ix, Iy)
         response = self._threshold_response(response)
@@ -148,7 +173,7 @@ class ShiTomasiSift():
         descriptors = []
         new_keypoints = []
         for keypoint in keypoints:
-            if self.use_orientation:
+            if self.recalculate_orientation_for_keypoints:
                 orientation_calculation_area_magnitude = extract_area(magnitude,
                                                                     (int(keypoint.pt[0]), int(keypoint.pt[1])),
                                                                     self.orientation_calculation_window_size,
@@ -163,18 +188,21 @@ class ShiTomasiSift():
                                                                                     orientation_calculation_weighted_magnitude,
                                                                                     self.orientation_calculation_bin_count,
                                                                                     0,
-                                                                                    2 * np.pi)
+                                                                                    360)
                 kp_angles = self._get_angles_from_histogram(orientation_histogram, orientation_bins)
             else:
-                kp_angles = [0]
+                if keypoint.angle == -1:
+                    kp_angles = [0]
+                else:
+                    kp_angles = [keypoint.angle]
 
             description_area_magnitude = extract_area(magnitude,
                                                       (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                        self.descriptor_window_size)
+                                                        self.descriptor_window_buffer_size)
             
             description_area_angle = extract_area(pixel_angles,
                                                   (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                  self.descriptor_window_size)
+                                                  self.descriptor_window_buffer_size)
             
 
             if (self.descriptor_gaussian_weight_std == -1):
@@ -187,8 +215,8 @@ class ShiTomasiSift():
 
                 # Rotate angles and coordinates
                 rotated_description_area_angles = description_area_angle - kp_angle
-                rotated_description_area_angles %= 2 * np.pi
-                rotated_coordinates = self._rotate_coordinates_around_center(description_weighted_magnitude, kp_angle)
+                rotated_description_area_angles %= 360
+                rotated_coordinates = self._rotate_coordinates_around_center(-kp_angle)
 
                 num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
 
@@ -200,14 +228,13 @@ class ShiTomasiSift():
 
                 for y_index in range(positional_weights.shape[0]):
                     for x_index in range(positional_weights.shape[0]):
-                        total_weights = description_weighted_magnitude * positional_weights[y_index][x_index]
+                        total_weights = description_weighted_magnitude * positional_weights[y_index, x_index]
                         _, values = self._calculate_histogram(rotated_description_area_angles,
-                                                              total_weights,
-                                                              self.descriptor_bin_count,
-                                                              0,
-                                                              2*np.pi,
-                                                              True)
-                        
+                                                            total_weights,
+                                                            self.descriptor_bin_count,
+                                                            0,
+                                                            360,
+                                                            True)
                         descriptor[y_index, x_index] = values
 
                 descriptor = descriptor.flatten()
@@ -294,9 +321,6 @@ class ShiTomasiSift():
         Ix = cv2.filter2D(I, cv2.CV_32F, -operator_x, borderType=cv2.BORDER_REPLICATE)
         Iy = cv2.filter2D(I, cv2.CV_32F, -operator_y, borderType=cv2.BORDER_REPLICATE)
 
-        # Padding is not needed with cv2.filtered2D
-        # Ix = np.pad(Ix, 1, mode = "edge")
-        # Iy = np.pad(Iy, 1, mode = "edge")
 
         return (Ix, Iy)
 
@@ -370,12 +394,12 @@ class ShiTomasiSift():
         # Drop keypoints on the border where calculation of keypoint orientation or descriptor would be outside of the image.
         index_to_drop = []
         for index, keypoint in enumerate(keypoints):
-            if ((keypoint.pt[0] < self.descriptor_window_size // 2) or
-                (keypoint.pt[1] < self.descriptor_window_size // 2) or 
+            if ((keypoint.pt[0] < self.descriptor_window_buffer_size // 2) or
+                (keypoint.pt[1] < self.descriptor_window_buffer_size // 2) or 
                 (keypoint.pt[0] < self.orientation_calculation_window_size // 2) or
                 (keypoint.pt[1] < self.orientation_calculation_window_size // 2) or
-                (keypoint.pt[0] > ((img.shape[0]) - (self.descriptor_window_size // 2))) or
-                (keypoint.pt[1] > ((img.shape[1]) -(self.descriptor_window_size // 2))) or 
+                (keypoint.pt[0] > ((img.shape[0]) - (self.descriptor_window_buffer_size // 2))) or
+                (keypoint.pt[1] > ((img.shape[1]) -(self.descriptor_window_buffer_size // 2))) or 
                 (keypoint.pt[0] > ((img.shape[0]) - (self.orientation_calculation_window_size // 2))) or
                 (keypoint.pt[1] > ((img.shape[1]) -(self.orientation_calculation_window_size // 2)))):
                     index_to_drop.append(index)
@@ -388,8 +412,8 @@ class ShiTomasiSift():
 
     def _calculate_magnitude_and_angle(self, Ix : NDArray, Iy : NDArray) -> Tuple[NDArray, NDArray]:
         magnitude = np.sqrt(Ix*Ix + Iy*Iy)
-        angle = np.arctan2(Iy, Ix) + np.pi # Change from [-pi, pi] -> [0, 2*pi)
-        angle[angle == 2*np.pi] = 0
+        angle = (np.arctan2(Iy, Ix) + np.pi) * 360 / (2 * np.pi) # Change from [-pi, pi] -> [0, 360)
+        angle[angle == 360] = 0
 
         return (magnitude, angle)
 
@@ -491,39 +515,28 @@ class ShiTomasiSift():
                 angle = ((values[index-1] * prev_bin_value + values[index] * bin_value + values[last_index] * next_bin_value)/
                          (values[index-1] + values[index] + values[last_index]))
 
-                angle %= (2 * np.pi)
+                angle %= 360
                 
                 angles.append(angle)
         
         return angles
 
     
-    def _rotate_coordinates_around_center(self, matrix : NDArray, angle: float) -> NDArray:
+    def _rotate_coordinates_around_center(self, angle: float) -> NDArray:
         '''
         Returns the new "rotated" pixel positions, based on the indexes, around the center of the matrix
         '''
-        # ## From copilot ###
-        # h, w = matrix.shape[:2]
-
-        # # Build grid of original coordinates (x, y)
-        # xs, ys = np.meshgrid(np.arange(w), np.arange(h))
-
-        # # Convert to float
-        # xs = xs.astype(np.float32)
-        # ys = ys.astype(np.float32)
-
-
 
         # Compute center
-        cx = (self.descriptor_window_size - 1) / 2
-        cy = (self.descriptor_window_size - 1) / 2
+        cx = ((self.descriptor_window_buffer_size - 1) // 2)
+        cy = ((self.descriptor_window_buffer_size - 1) // 2)
 
         # Shift to center
-        x_shifted = self.xs - cx
-        y_shifted = self.ys - cy
+        x_shifted = self.buffer_xs - cx
+        y_shifted = self.buffer_ys - cy
 
-        cos_a = np.cos(angle)
-        sin_a = np.sin(angle)
+        cos_a = np.cos((angle / 360)*2*np.pi)
+        sin_a = np.sin((angle / 360)*2*np.pi)
 
         # Rotation formula
         x_rot = x_shifted * cos_a - y_shifted * sin_a
@@ -541,17 +554,19 @@ class ShiTomasiSift():
 
     def _calculate_descriptor_subwindow_center_positions(self) -> NDArray:
         '''
-        Returns an array with the center position of the window at specified index
+        Returns an array with the center position of the window at specified index (Of rotation buffer window)
         '''
         num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
 
-        distances = np.array([[(i * self.descriptor_subwindow_size + self.descriptor_subwindow_size//2 - 1/2,
-                                j * self.descriptor_subwindow_size + self.descriptor_subwindow_size//2 - 1/2)
+        offset_due_to_rotation_buffer = (self.descriptor_window_buffer_size - self.descriptor_window_size)//2
+
+        distances = np.array([[(self.descriptor_subwindow_size/2 - 0.5 + i*self.descriptor_subwindow_size + offset_due_to_rotation_buffer,
+                                self.descriptor_subwindow_size/2 - 0.5 + j*self.descriptor_subwindow_size + offset_due_to_rotation_buffer)
                                 for i in range(num_subwindows_along_axis)]
                                 for j in range(num_subwindows_along_axis)])
 
         return distances
-
+    
     
     def _calculate_positional_weights_with_respect_to_subwindows(
         self,
@@ -582,7 +597,7 @@ class ShiTomasiSift():
 
         # Convert distances to per-axis weights and clip below 0
         inv_size = 1.0 / float(self.descriptor_subwindow_size)
-        w = 1.0 - d * inv_size                             # (H, W, M, 2)
+        w = 1.0 - (d) * inv_size                             # (H, W, M, 2)
         np.maximum(w, 0.0, out=w)                          # clip negatives to 0 in-place
 
         # Combine x and y contributions (axis=-1 is the (2,) axis)
@@ -604,8 +619,36 @@ class ShiTomasiSift():
         
         return new_keypoint
 
+    
+    def _calculate_circular_weights(self) -> NDArray:
+        """
+        Returns a (16, N, N) weight matrix where N = descriptor_window_buffer_size.
+        Each of the 16 slices is a smooth radial Gaussian centred at that ring's
+        midpoint radius — like concentric ripples, overlapping smoothly rather
+        than hard-cut rings. Max radius is N/2 (reaches the window edge).
+        """
+        N          = self.descriptor_window_buffer_size
+        max_dist   = N / 2.0
+        n_rings    = 16
+        ring_width = max_dist / n_rings
 
+        # Pixel distances from the window centre
+        centre = (N - 1) / 2.0
+        gy, gx = np.mgrid[0:N, 0:N]
+        dist = np.sqrt((gx - centre) ** 2 + (gy - centre) ** 2).astype(np.float32)  # (N, N)
 
+        # Ring midpoint radii and sigma (controls ripple width/overlap)
+        r_mid = (np.arange(n_rings) + 0.5) * ring_width   # (16,)
+        sigma = ring_width * 0.6
+
+        # Gaussian centred at each r_mid, normalised by circumference
+        d_to_ring = dist[None, :, :] - r_mid[:, None, None]           # (16, N, N)
+        gaussian  = np.exp(-0.5 * (d_to_ring / sigma) ** 2)           # (16, N, N)
+        circ_norm = 1.0 / (2.0 * np.pi * r_mid)                       # (16,)
+        weights   = gaussian * circ_norm[:, None, None]                # (16, N, N)
+
+        return weights.astype(np.float32)
+        
     # endregion
 
     # region Debug and tools
@@ -769,8 +812,8 @@ def plot_magnitude_and_angle(ax : Axes,
 
     for y_index in range(magnitude_area.shape[0]):
         for x_index in range(magnitude_area.shape[1]):
-            dx = np.cos(angle_area[y_index, x_index]) * magnitude_area[y_index, x_index] / np.max(magnitude_area)
-            dy = np.sin(angle_area[y_index, x_index]) * magnitude_area[y_index, x_index] / np.max(magnitude_area)
+            dx = np.cos((angle_area[y_index, x_index]/360) * 2 * np.pi) * magnitude_area[y_index, x_index] / np.max(magnitude_area)
+            dy = np.sin((angle_area[y_index, x_index]/360) * 2 * np.pi) * magnitude_area[y_index, x_index] / np.max(magnitude_area)
 
 
             ax.annotate("", xytext=(x_index, y_index), xy=(x_index + dx, y_index + dy), arrowprops=dict(arrowstyle="->", color = arrow_color))
@@ -797,15 +840,16 @@ def plot_area_and_arrow_with_angle(ax : Axes,
     arrow_size = image_size // 4
 
     x_start = y_start = (image_size//2)
-    dx = np.cos(angle) * arrow_size
-    dy = np.sin(angle) * arrow_size
+    dx = np.cos((angle/360)*2*np.pi) * arrow_size
+    dy = np.sin((angle/360)*2*np.pi) * arrow_size
     ax.annotate("", xytext=(x_start, y_start), xy=(x_start + dx, y_start + dy), arrowprops=dict(arrowstyle="->", color = arrow_color))
 
 
 def plot_histogram(ax : Axes, hist : NDArray, bins: NDArray, plot_title: str = None):
     if ax is None:
         ax = plt.figure().gca()
-    ax.bar(bins, hist)
+    width = (bins[1] - bins[0])/2
+    ax.bar(bins, hist, width)
 
     if plot_title is not None:
         ax.set_title(plot_title)
