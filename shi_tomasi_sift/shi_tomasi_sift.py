@@ -24,7 +24,7 @@ class ShiTomasiSift():
     # region Public
 
     def __init__(self,
-                 derivation_operator : str = "sobel",
+                 derivation_operator : str = "simple",
                  structure_tensor_window : NDArray | None = None,
                  response_type : str = "normal",
                  use_previous_max_when_calculating_threshold : bool = False,
@@ -49,8 +49,8 @@ class ShiTomasiSift():
         
         self.derivation_operator = derivation_operator
 
-        if self.derivation_operator not in ["sobel", "prewitt", "scharr"]:
-            raise ValueError(f"Invalid derivation operator: {self.derivation_operator}. Valid is 'sobel', 'prewitt' or 'scharr'")
+        if self.derivation_operator not in ["simple", "sobel", "prewitt", "scharr"]:
+            raise ValueError(f"Invalid derivation operator: {self.derivation_operator}. Valid is 'simple, 'sobel', 'prewitt' or 'scharr'")
 
         self.structure_tensor_window = structure_tensor_window
         if self.structure_tensor_window is None:
@@ -250,6 +250,18 @@ class ShiTomasiSift():
         Returns Ix and Iy
         '''
         if self.derivation_operator == "sobel":
+            operator_x = np.array(
+                [[0, 0, 0],
+                [-1, 0, 1],
+                [0, 0, 0]]
+                )
+            
+            operator_y = np.array(
+                [[0, -1, 0],
+                [0, 0, 0],
+                [0, -1, 0]])
+            
+        elif self.derivation_operator == "sobel":
             operator_x = np.array(
                 [[-1, 0, 1],
                 [-2, 0, 2],
@@ -645,7 +657,7 @@ class ShiTomasiSift():
 
         # Convert distances to per-axis weights and clip below 0
         inv_size = 1.0 / float(self.descriptor_subwindow_size)
-        w = 1.0 - (d) * inv_size                             # (H, W, M, 2)
+        w = 1.0 - (d*0.75) * inv_size                             # (H, W, M, 2)
         np.maximum(w, 0.0, out=w)                          # clip negatives to 0 in-place
 
         # Combine x and y contributions (axis=-1 is the (2,) axis)
