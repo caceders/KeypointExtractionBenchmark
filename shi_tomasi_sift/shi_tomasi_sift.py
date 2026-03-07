@@ -4,7 +4,6 @@ import numpy as np
 from numpy.typing import NDArray
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
-from scipy.signal import convolve2d
 from scipy.ndimage import maximum_filter
 from scipy.signal.windows import gaussian
 
@@ -18,6 +17,7 @@ class ShiTomasiSift():
     #   - return value
     #   - expected input types
     # - Make (hist, bin) order be identical to numpy
+    # - Make a more elegant solution to keeping the actual keypoint center in the center
 
     # NB: OpenCV operates with (y, x), while matplotlib and numpy operates with (x, y). Be sure to convert correctly!
 
@@ -44,12 +44,12 @@ class ShiTomasiSift():
                  descriptor_gaussian_weight_std : float = 8, ## 16/2 = 1/2 window size # -1 for equal weighting
                  descriptor_bin_count : int = 8,
                  drop_keypoints_on_border : bool = False,
-                 use_orientation: bool = False,
                  should_downsample: bool = False,
                  scaling_factor: float = 1.2,
                  blur_sigma: float = 0.5, #-1 for no blur
                  downsample_iterations: int = 1,
-                 recalculate_orientation_for_keypoints: bool = False
+                 recalculate_orientation_for_keypoints: bool = False,
+                 d_weight : float = 0.75
                  ) -> None:
         
         self.derivation_operator = derivation_operator
@@ -103,6 +103,7 @@ class ShiTomasiSift():
         self.scale_factor = scaling_factor
         self.blur_sigma = blur_sigma
         self.downsample_iterations = downsample_iterations
+        self.d_weight = d_weight   
 
         # Build grid of original coordinates (x, y)
         xs, ys = np.meshgrid(np.arange(descriptor_window_size), np.arange(descriptor_window_size))
@@ -609,7 +610,7 @@ class ShiTomasiSift():
 
         # Convert distances to per-axis weights and clip below 0
         inv_size = 1.0 / float(self.descriptor_subwindow_size)
-        w = 1.0 - (d*0.75) * inv_size                             # (H, W, M, 2)
+        w = 1.0 - (d*self.d_weight) * inv_size                             # (H, W, M, 2)
         np.maximum(w, 0.0, out=w)                          # clip negatives to 0 in-place
 
         # Combine x and y contributions (axis=-1 is the (2,) axis)
