@@ -33,13 +33,14 @@ class ShiTomasiSift():
                  max_corners : int = 1000,
                  perform_non_maxima_supression : bool = True,
                  use_descriptor_window_buffer_as_orientation_calculation_window_size : bool = True,
-                 orientation_calculation_window_size : int = 16,
+                 orientation_calculation_window_radius : int = 8,
                  orientation_calculation_gaussian_weight_std : float = 4.5, ## 1.5 * keypoint size (3)
                  orientation_calculation_bin_count : int = 36,
                  create_new_keypoint_for_large_angle_histogram_values : bool = True,
                  large_angle_histogram_value_threshold : float = 0.8,
-                 descriptor_window_size : int = 16,
+                 descriptor_window_radius : int = 8,
                  use_orientation_buffer: bool = True,
+                 num_subwindows_per_axis : int = 4,
                  descriptor_subwindow_size : int = 4,
                  descriptor_gaussian_weight_std : float = 8, ## 16/2 = 1/2 window size # -1 for equal weighting
                  descriptor_bin_count : int = 8,
@@ -49,7 +50,8 @@ class ShiTomasiSift():
                  blur_sigma: float = 0.5, #-1 for no blur
                  downsample_iterations: int = 1,
                  recalculate_orientation_for_keypoints: bool = False,
-                 d_weight : float = 0.75
+                 d_weight : float = 0.75,
+                 base_blur_sigma : float = 1.6
                  ) -> None:
         
         self.derivation_operator = derivation_operator
@@ -72,21 +74,23 @@ class ShiTomasiSift():
         self.max_corners = max_corners
         self.perform_non_maxima_supression = perform_non_maxima_supression
 
-        # Check that descriptor window size can be divided into subwindows
-        assert descriptor_window_size % descriptor_subwindow_size == 0
+        # Check that subwindows can fit within descriptor window
+        assert 2 * descriptor_window_radius + 1 > num_subwindows_per_axis * descriptor_subwindow_size
 
-        self.orientation_calculation_window_size = orientation_calculation_window_size
+        
+
+        self.orientation_calculation_window_size = orientation_calculation_window_radius * 2 + 1
         self.orientation_calculation_gaussian_weight_std = orientation_calculation_gaussian_weight_std
         self.orientation_calculation_bin_count = orientation_calculation_bin_count
         self.create_new_keypoint_for_large_angle_histogram_values = create_new_keypoint_for_large_angle_histogram_values
         self.large_angle_histogram_value_threshold = large_angle_histogram_value_threshold
-        self.descriptor_window_size = descriptor_window_size
+        self.descriptor_window_size = descriptor_window_radius * 2 + 1
 
         # Keep a descriptor window buffer for orientation and rotation of keypoint. 
-        self.descriptor_window_buffer_size = int(np.ceil(np.sqrt(2) * descriptor_window_size))
-        if self.descriptor_window_buffer_size % 2 != 0:
-            self.descriptor_window_buffer_size += 1 # Keep the window buffer even (equal length on both sides)
-        
+        self.descriptor_window_buffer_size = int(np.ceil(np.sqrt(2) * self.descriptor_window_size))
+        if self.descriptor_window_buffer_size % 2 == 0:
+            self.descriptor_window_buffer_size += 1 # Keep the window buffer odd (equal length on both sides)
+
         if not use_orientation_buffer:
             self.descriptor_window_buffer_size = self.descriptor_window_size
         
@@ -103,10 +107,11 @@ class ShiTomasiSift():
         self.scale_factor = scaling_factor
         self.blur_sigma = blur_sigma
         self.downsample_iterations = downsample_iterations
-        self.d_weight = d_weight   
+        self.d_weight = d_weight
+        self.base_blur_sigma = base_blur_sigma
 
         # Build grid of original coordinates (x, y)
-        xs, ys = np.meshgrid(np.arange(descriptor_window_size), np.arange(descriptor_window_size))
+        xs, ys = np.meshgrid(np.arange(self.descriptor_window_size), np.arange(self.descriptor_window_size))
         self.xs = xs.astype(np.float32)
         self.ys = ys.astype(np.float32)
 
@@ -158,6 +163,10 @@ class ShiTomasiSift():
         
         if len(img.shape) > 2:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Base blur
+        if self.base_blur_sigma != -1:
+            img = cv2.GaussianBlur(img, (0, 0), self.base_blur_sigma)
 
         if self.should_downsample:
             for i in range(self.downsample_iterations):
@@ -541,8 +550,8 @@ class ShiTomasiSift():
         '''
 
         # Compute center
-        cx = ((self.descriptor_window_buffer_size - 1) // 2)
-        cy = ((self.descriptor_window_buffer_size - 1) // 2)
+        cx = self.descriptor_window_buffer_size // 2
+        cy = self.descriptor_window_buffer_size // 2
 
         # Shift to center
         x_shifted = self.buffer_xs - cx
@@ -573,8 +582,8 @@ class ShiTomasiSift():
 
         offset_due_to_rotation_buffer = (self.descriptor_window_buffer_size - self.descriptor_window_size)//2
 
-        distances = np.array([[(self.descriptor_subwindow_size/2 - 0.5 + i*self.descriptor_subwindow_size + offset_due_to_rotation_buffer,
-                                self.descriptor_subwindow_size/2 - 0.5 + j*self.descriptor_subwindow_size + offset_due_to_rotation_buffer)
+        distances = np.array([[(self.descriptor_subwindow_size/2 + i*self.descriptor_subwindow_size + offset_due_to_rotation_buffer,
+                                self.descriptor_subwindow_size/2 + j*self.descriptor_subwindow_size + offset_due_to_rotation_buffer)
                                 for i in range(num_subwindows_along_axis)]
                                 for j in range(num_subwindows_along_axis)])
 
@@ -623,12 +632,20 @@ class ShiTomasiSift():
         return weights
     
     def _create_new_keypoint(self, keypoint: cv2.KeyPoint, kp_angle) -> cv2.KeyPoint:
+        
+        if self.should_downsample:
 
-        new_keypoint = cv2.KeyPoint(keypoint.pt[0] * self.scale_factor ** self.downsample_iterations,
-                                    keypoint.pt[1] * self.scale_factor ** self.downsample_iterations,
-                                    keypoint.size,
-                                    kp_angle,
-                                    keypoint.response)
+            new_keypoint = cv2.KeyPoint(keypoint.pt[0] * self.scale_factor ** self.downsample_iterations,
+                                        keypoint.pt[1] * self.scale_factor ** self.downsample_iterations,
+                                        keypoint.size,
+                                        kp_angle,
+                                        keypoint.response)
+        else:
+            new_keypoint = cv2.KeyPoint(keypoint.pt[0],
+                                        keypoint.pt[1],
+                                        keypoint.size,
+                                        kp_angle,
+                                        keypoint.response)
         
         return new_keypoint
 
