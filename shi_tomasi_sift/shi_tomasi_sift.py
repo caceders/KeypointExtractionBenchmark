@@ -48,7 +48,7 @@ class ShiTomasiSift():
                  num_octaves_in_scale_pyramid : int = 5,
                  scale_pyramid_scaling_factor: float = 1.2,
                  scale_pyramid_blur_sigma: float = 0.5, #-1 for no blur
-                 recalculate_orientation_for_keypoints: bool = False,
+                 calculate_orientation_for_keypoints: bool = False,
                  d_weight : float = 0.75,
                  ) -> None:
         
@@ -99,7 +99,7 @@ class ShiTomasiSift():
         self.descriptor_gaussian_weight_std = descriptor_gaussian_weight_std
         self.descriptor_bin_count = descriptor_bin_count
         self.drop_keypoints_on_border = drop_keypoints_on_border
-        self.recalculate_orientation_for_keypoints = recalculate_orientation_for_keypoints
+        self.calculate_orientation_for_keypoints = calculate_orientation_for_keypoints
 
         self.num_octaves_in_scale_pyramid = num_octaves_in_scale_pyramid
         self.scale_pyramid_scaling_factor = scale_pyramid_scaling_factor
@@ -182,7 +182,7 @@ class ShiTomasiSift():
             for keypoint in keypoints:
                 if keypoint.octave != octave:
                     continue
-                if self.recalculate_orientation_for_keypoints:
+                if self.calculate_orientation_for_keypoints:
                     orientation_calculation_area_magnitude = extract_area(magnitude,
                                                                         (int(keypoint.pt[0]), int(keypoint.pt[1])),
                                                                         self.orientation_calculation_window_size,
