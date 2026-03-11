@@ -39,8 +39,6 @@ GFTT2 = cv2.GFTTDetector_create(blockSize = 6)
 GFTT2_SCALE = 2
 SIFT_FAST2 = cv2.SIFT_create(sigma = 2.25)
 
-SHI_TOMASI_SIFT = ShiTomasiSift()
-
 features2d = {
     #"AGAST" : AGAST,
     #"AKAZE" : AKAZE,
@@ -51,13 +49,54 @@ features2d = {
     #"GFTT2" : GFTT2,
     #"KAZE" : KAZE,
     #"ORB" : ORB,
-    #"SIFT" : SIFT,
+    # "SIFT" : SIFT,
     #"SIFT_FAST2" : SIFT_FAST2,
-    #"SIFT_OPTIMAL" : SIFT_OPTIMAL,
+    # "SIFT_OPTIMAL" : SIFT_OPTIMAL,
     #"BRIEF" : BRIEF,
     #"FREAK" : FREAK,
     #"SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT,
-    "SHI_TOMASI_SIFT_DOWN" : ShiTomasiSift(should_downsample= True, downsample_iterations=4),
+    # "iteration_1" : ShiTomasiSift(recalculate_orientation_for_keypoints= True,
+    #                                     num_octaves_in_scale_pyramid = 10,
+    #                                     create_new_keypoint_for_large_angle_histogram_values=False,
+    #                                     orientation_calculation_gaussian_weight_std=50,
+    #                                     descriptor_gaussian_weight_std=50,
+    #                                     base_blur_sigma=-1,
+    #                                     ),
+    # "iteration_2" : ShiTomasiSift(recalculate_orientation_for_keypoints= True,
+    #                           scale_pyramid_scaling_factor=1.5,
+    #                           response_type="sftt",
+    #                           scale_pyramid_blur_sigma=-1,
+    #                           orientation_calculation_gaussian_weight_std=15,
+    #                           num_octaves_in_scale_pyramid=10,
+    #                           descriptor_gaussian_weight_std=50,
+    #                           derivation_operator="scharr",
+    #                           d_weight=0.7,
+    #                           base_blur_sigma=0.7,
+    #                           ),
+    "itteration_3_" : ShiTomasiSift(recalculate_orientation_for_keypoints= True,
+                              scale_pyramid_scaling_factor=1.3,
+                              response_type="normal",
+                              scale_pyramid_blur_sigma=-1,
+                              orientation_calculation_gaussian_weight_std=50,
+                              num_octaves_in_scale_pyramid=6,
+                              descriptor_gaussian_weight_std=50,
+                              derivation_operator="simple",
+                              d_weight=0.7,
+                              base_blur_sigma=0.7,
+                              ),
+    # "itteration3_24_descriptor" : ShiTomasiSift(recalculate_orientation_for_keypoints= True,
+    #                           scale_pyramid_scaling_factor=1.3,
+    #                           descriptor_window_radius=12,
+    #                           descriptor_subwindow_size=6,
+    #                           response_type="normal",
+    #                           scale_pyramid_blur_sigma=-1,
+    #                           orientation_calculation_gaussian_weight_std=50,
+    #                           num_octaves_in_scale_pyramid=6,
+    #                           descriptor_gaussian_weight_std=50,
+    #                           derivation_operator="simple",
+    #                           d_weight=0.7,
+    #                           base_blur_sigma=0.7,
+    #                           ),       
 }
 
 ONLY_SELF = True #Forces no mixing
@@ -344,8 +383,11 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
         ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
         for metric, result in results.items():
             print(metric, result)
-        df = pd.DataFrame(all_results)
-        df.to_csv(FILE_NAME, index = False)
+        df = pd.DataFrame(results, index=[0])
+        if not os.path.isfile(FILE_NAME):
+            df.to_csv(FILE_NAME, index = False, header = True, mode='a') # Create header if file does not exist
+        else:
+            df.to_csv(FILE_NAME, index = False, header = False, mode='a') # If exists skip header
 
         # except Exception as e:
         #     error_message = traceback.format_exc()

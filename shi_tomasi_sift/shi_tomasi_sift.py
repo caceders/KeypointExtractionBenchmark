@@ -17,7 +17,6 @@ class ShiTomasiSift():
     #   - return value
     #   - expected input types
     # - Make (hist, bin) order be identical to numpy
-    # - Make a more elegant solution to keeping the actual keypoint center in the center
 
     # NB: OpenCV operates with (y, x), while matplotlib and numpy operates with (x, y). Be sure to convert correctly!
 
@@ -45,13 +44,12 @@ class ShiTomasiSift():
                  descriptor_gaussian_weight_std : float = 8, ## 16/2 = 1/2 window size # -1 for equal weighting
                  descriptor_bin_count : int = 8,
                  drop_keypoints_on_border : bool = False,
-                 should_downsample: bool = False,
-                 scaling_factor: float = 1.2,
-                 blur_sigma: float = 0.5, #-1 for no blur
-                 downsample_iterations: int = 1,
+                 base_blur_sigma : float = 1.6,
+                 num_octaves_in_scale_pyramid : int = 5,
+                 scale_pyramid_scaling_factor: float = 1.2,
+                 scale_pyramid_blur_sigma: float = 0.5, #-1 for no blur
                  recalculate_orientation_for_keypoints: bool = False,
                  d_weight : float = 0.75,
-                 base_blur_sigma : float = 1.6
                  ) -> None:
         
         self.derivation_operator = derivation_operator
@@ -103,10 +101,9 @@ class ShiTomasiSift():
         self.drop_keypoints_on_border = drop_keypoints_on_border
         self.recalculate_orientation_for_keypoints = recalculate_orientation_for_keypoints
 
-        self.should_downsample = should_downsample
-        self.scale_factor = scaling_factor
-        self.blur_sigma = blur_sigma
-        self.downsample_iterations = downsample_iterations
+        self.num_octaves_in_scale_pyramid = num_octaves_in_scale_pyramid
+        self.scale_pyramid_scaling_factor = scale_pyramid_scaling_factor
+        self.scale_pyramid_blur_sigma = scale_pyramid_blur_sigma
         self.d_weight = d_weight
         self.base_blur_sigma = base_blur_sigma
 
@@ -129,28 +126,28 @@ class ShiTomasiSift():
         if len(img.shape) > 2:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        if self.should_downsample:
-            for i in range(self.downsample_iterations):
-                img = downsample(img, self.scale_factor, self.blur_sigma)
-
-        #if Ix is None or Iy is None: Er vel ingen grunn til at man forventer å ha disse?
-        # Jo fordi vi beregner Ix og Iy utenfor detect funksjonen i detect_and_compute, og passer
-        # Ix og Iy inn i begge som argument. Tror egentlig vi bare kan regne det ut uansett da, fordi
-        # beregningen av Ix og Iy er ikke en bottleneck akkurat nå.
-        Ix, Iy = self._calculate_Ix_and_Iy(img)
-        response = self._calculate_response(Ix, Iy)
-        response = self._threshold_response(response)
-        if self.perform_non_maxima_supression:
-            response = self._perform_non_maximum_supression(response)
-        coords = self._get_keypoint_positions(response)
-
         keypoints = []
+        for octave in range(self.num_octaves_in_scale_pyramid):
+            if octave != 0:
+                img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
 
-        for coord in coords:
-            keypoint = cv2.KeyPoint(float(coord[1]), float(coord[0]), 3, response = float(response[coord[0], coord[1]]))
-            keypoints.append(keypoint)
-        
-        keypoints.sort(key = lambda keypoint : - keypoint.response)
+            #if Ix is None or Iy is None: Er vel ingen grunn til at man forventer å ha disse?
+            # Jo fordi vi beregner Ix og Iy utenfor detect funksjonen i detect_and_compute, og passer
+            # Ix og Iy inn i begge som argument. Tror egentlig vi bare kan regne det ut uansett da, fordi
+            # beregningen av Ix og Iy er ikke en bottleneck akkurat nå.
+            Ix, Iy = self._calculate_Ix_and_Iy(img)
+            response = self._calculate_response(Ix, Iy)
+            response = self._threshold_response(response)
+            if self.perform_non_maxima_supression:
+                response = self._perform_non_maximum_supression(response)
+            coords = self._get_keypoint_positions(response)
+
+
+            for coord in coords:
+                keypoint = cv2.KeyPoint(float(coord[1]), float(coord[0]), 3 * octave * self.scale_pyramid_scaling_factor, response = float(response[coord[0], coord[1]]), octave=octave)
+                keypoints.append(keypoint)
+            
+            keypoints.sort(key = lambda keypoint : - keypoint.response)
 
         return keypoints[:self.max_corners]
     
@@ -164,98 +161,100 @@ class ShiTomasiSift():
         if len(img.shape) > 2:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
+        descriptors = []
+        new_keypoints = []
+
         # Base blur
         if self.base_blur_sigma != -1:
             img = cv2.GaussianBlur(img, (0, 0), self.base_blur_sigma)
 
-        if self.should_downsample:
-            for i in range(self.downsample_iterations):
-                img = downsample(img, self.scale_factor, self.blur_sigma)
+        for octave in range(self.num_octaves_in_scale_pyramid):
+            if octave != 0:
+                img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
 
-        if self.drop_keypoints_on_border:
-            keypoints = self._drop_keypoints_on_border(keypoints, img)
-        
-        if Ix is None or Iy is None:
+
+            if self.drop_keypoints_on_border:
+                keypoints = self._drop_keypoints_on_border(keypoints, img)
+            
             Ix, Iy = self._calculate_Ix_and_Iy(img)
-        magnitude, pixel_angles = self._calculate_magnitude_and_angle(Ix, Iy)
+            magnitude, pixel_angles = self._calculate_magnitude_and_angle(Ix, Iy)
 
-
-        descriptors = []
-        new_keypoints = []
-        for keypoint in keypoints:
-            if self.recalculate_orientation_for_keypoints:
-                orientation_calculation_area_magnitude = extract_area(magnitude,
+            for keypoint in keypoints:
+                if keypoint.octave != octave:
+                    continue
+                if self.recalculate_orientation_for_keypoints:
+                    orientation_calculation_area_magnitude = extract_area(magnitude,
+                                                                        (int(keypoint.pt[0]), int(keypoint.pt[1])),
+                                                                        self.orientation_calculation_window_size,
+                                                                        "edge")
+                    orientation_calculation_area_angle = extract_area(pixel_angles,
                                                                     (int(keypoint.pt[0]), int(keypoint.pt[1])),
                                                                     self.orientation_calculation_window_size,
                                                                     "edge")
-                orientation_calculation_area_angle = extract_area(pixel_angles,
-                                                                (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                                self.orientation_calculation_window_size,
-                                                                "edge")
-                
-                orientation_calculation_weighted_magnitude = weight_area_with_gaussian_window(orientation_calculation_area_magnitude, self.orientation_calculation_gaussian_weight_std)
-                orientation_bins, orientation_histogram = self._calculate_histogram(orientation_calculation_area_angle,
-                                                                                    orientation_calculation_weighted_magnitude,
-                                                                                    self.orientation_calculation_bin_count,
-                                                                                    0,
-                                                                                    360)
-                kp_angles = self._get_angles_from_histogram(orientation_histogram, orientation_bins)
-            else:
-                if keypoint.angle == -1:
-                    kp_angles = [0]
+                    
+                    orientation_calculation_weighted_magnitude = weight_area_with_gaussian_window(orientation_calculation_area_magnitude, self.orientation_calculation_gaussian_weight_std)
+                    orientation_bins, orientation_histogram = self._calculate_histogram(orientation_calculation_area_angle,
+                                                                                        orientation_calculation_weighted_magnitude,
+                                                                                        self.orientation_calculation_bin_count,
+                                                                                        0,
+                                                                                        360)
+                    kp_angles = self._get_angles_from_histogram(orientation_histogram, orientation_bins)
                 else:
-                    kp_angles = [keypoint.angle]
+                    if keypoint.angle == -1:
+                        kp_angles = [0]
+                    else:
+                        kp_angles = [keypoint.angle]
 
-            description_area_magnitude = extract_area(magnitude,
-                                                      (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                        self.descriptor_window_buffer_size)
-            
-            description_area_angle = extract_area(pixel_angles,
-                                                  (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                  self.descriptor_window_buffer_size)
-            
-
-            if (self.descriptor_gaussian_weight_std == -1):
-                description_weighted_magnitude = description_area_magnitude
-            else:
-                description_weighted_magnitude = weight_area_with_gaussian_window(description_area_magnitude, self.descriptor_gaussian_weight_std)
-            
-
-            for kp_angle in kp_angles:
-
-                # Rotate angles and coordinates
-                rotated_description_area_angles = description_area_angle - kp_angle
-                rotated_description_area_angles %= 360
-                rotated_coordinates = self._rotate_coordinates_around_center(-kp_angle)
-
-                num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
-
-                subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
-
-                descriptor = np.ndarray((num_subwindows_along_axis, num_subwindows_along_axis, self.descriptor_bin_count))
-
-                positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(rotated_coordinates, subwindow_positions)
-
-                for y_index in range(positional_weights.shape[0]):
-                    for x_index in range(positional_weights.shape[0]):
-                        total_weights = description_weighted_magnitude * positional_weights[y_index, x_index]
-                        _, values = self._calculate_histogram(rotated_description_area_angles,
-                                                            total_weights,
-                                                            self.descriptor_bin_count,
-                                                            0,
-                                                            360,
-                                                            True)
-                        descriptor[y_index, x_index] = values
-
-                descriptor = descriptor.flatten()
-                descriptor = descriptor / np.linalg.norm(descriptor)
-                descriptor[descriptor > 0.2] = 0.2
-                descriptor = descriptor / np.linalg.norm(descriptor)
+                description_area_magnitude = extract_area(magnitude,
+                                                        (int(keypoint.pt[0]), int(keypoint.pt[1])),
+                                                            self.descriptor_window_buffer_size)
                 
-                new_keypoint = self._create_new_keypoint(keypoint, kp_angle)
+                description_area_angle = extract_area(pixel_angles,
+                                                    (int(keypoint.pt[0]), int(keypoint.pt[1])),
+                                                    self.descriptor_window_buffer_size)
+                
 
-                new_keypoints.append(new_keypoint)
-                descriptors.append(descriptor)
+                if (self.descriptor_gaussian_weight_std == -1):
+                    description_weighted_magnitude = description_area_magnitude
+                else:
+                    description_weighted_magnitude = weight_area_with_gaussian_window(description_area_magnitude, self.descriptor_gaussian_weight_std)
+                
+
+                for kp_angle in kp_angles:
+
+                    # Rotate angles and coordinates
+                    rotated_description_area_angles = description_area_angle - kp_angle
+                    rotated_description_area_angles %= 360
+                    rotated_coordinates = self._rotate_coordinates_around_center(-kp_angle)
+
+                    num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
+
+                    subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
+
+                    descriptor = np.ndarray((num_subwindows_along_axis, num_subwindows_along_axis, self.descriptor_bin_count))
+
+                    positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(rotated_coordinates, subwindow_positions)
+
+                    for y_index in range(positional_weights.shape[0]):
+                        for x_index in range(positional_weights.shape[0]):
+                            total_weights = description_weighted_magnitude * positional_weights[y_index, x_index]
+                            _, values = self._calculate_histogram(rotated_description_area_angles,
+                                                                total_weights,
+                                                                self.descriptor_bin_count,
+                                                                0,
+                                                                360,
+                                                                True)
+                            descriptor[y_index, x_index] = values
+
+                    descriptor = descriptor.flatten()
+                    descriptor = descriptor / np.linalg.norm(descriptor)
+                    descriptor[descriptor > 0.2] = 0.2
+                    descriptor = descriptor / np.linalg.norm(descriptor)
+                    
+                    new_keypoint = self._create_new_keypoint(keypoint, kp_angle)
+
+                    new_keypoints.append(new_keypoint)
+                    descriptors.append(descriptor)
         
         return (new_keypoints, descriptors)
                 
@@ -278,19 +277,8 @@ class ShiTomasiSift():
         '''
         Returns Ix and Iy
         '''
+            
         if self.derivation_operator == "sobel":
-            operator_x = np.array(
-                [[0, 0, 0],
-                [-1, 0, 1],
-                [0, 0, 0]]
-                )
-            
-            operator_y = np.array(
-                [[0, -1, 0],
-                [0, 0, 0],
-                [0, -1, 0]])
-            
-        elif self.derivation_operator == "sobel":
             operator_x = np.array(
                 [[-1, 0, 1],
                 [-2, 0, 2],
@@ -494,8 +482,17 @@ class ShiTomasiSift():
                 weights=w[mask_low] * low_weight[mask_low],
                 minlength=num_bins
             )
+        
+        mask_high = (high >= 0) & (high < num_bins)
+        if np.any(mask_high):
+            hist += np.bincount(
+                high[mask_high],
+                weights=w[mask_high] * high_weight[mask_high],
+                minlength=num_bins
+            )
 
         # HIGH contributions (always valid 0..num_bins-1 after wrapping)
+        
         hist += np.bincount(
             high,
             weights=w * high_weight,
@@ -632,20 +629,12 @@ class ShiTomasiSift():
         return weights
     
     def _create_new_keypoint(self, keypoint: cv2.KeyPoint, kp_angle) -> cv2.KeyPoint:
-        
-        if self.should_downsample:
 
-            new_keypoint = cv2.KeyPoint(keypoint.pt[0] * self.scale_factor ** self.downsample_iterations,
-                                        keypoint.pt[1] * self.scale_factor ** self.downsample_iterations,
-                                        keypoint.size,
-                                        kp_angle,
-                                        keypoint.response)
-        else:
-            new_keypoint = cv2.KeyPoint(keypoint.pt[0],
-                                        keypoint.pt[1],
-                                        keypoint.size,
-                                        kp_angle,
-                                        keypoint.response)
+        new_keypoint = cv2.KeyPoint(keypoint.pt[0] * self.scale_pyramid_scaling_factor ** keypoint.octave,
+                                    keypoint.pt[1] * self.scale_pyramid_scaling_factor ** keypoint.octave,
+                                    keypoint.size,
+                                    kp_angle,
+                                    keypoint.response)
         
         return new_keypoint
 
@@ -939,65 +928,3 @@ def plot_subwindow_positions(ax : Axes,
     # endregion
 
     # endregion
-    
-    #CA versions before the machines took over
-
-        # def _calculate_positional_weights_with_respect_to_subwindows(self, rotated_coordinates, subwindow_center_positions) -> NDArray:
-    #     weights = np.zeros((subwindow_center_positions.shape[0], subwindow_center_positions.shape[1], rotated_coordinates.shape[0], rotated_coordinates.shape[1]))
-    #     for y_index in range(len(subwindow_center_positions)):
-    #         for x_index in range(len(subwindow_center_positions[y_index])):
-    #             # Move into own function to be able to debug
-    #             pixel_distances_to_subwindow_center = np.abs(rotated_coordinates - subwindow_center_positions[y_index, x_index])
-    #             positional_weights = 1 - (pixel_distances_to_subwindow_center / self.descriptor_subwindow_size)
-    #             positional_weights_y = positional_weights[..., 0]
-    #             positional_weights_y[positional_weights_y < 0] = 0
-    #             positional_weights_x = positional_weights[..., 1]
-    #             positional_weights_x[positional_weights_x < 0] = 0
-
-    #             weights[y_index, x_index] = positional_weights_x * positional_weights_y
-    #     return weights
-
-    # def _calculate_histogram(self,
-    #                          array : NDArray,
-    #                          weights : NDArray,
-    #                          num_bins : int,
-    #                          start : float,
-    #                          stop : float,
-    #                          interpolated : bool = False,
-    #                          cyclic: bool = True
-    #                          ) -> Tuple[NDArray, NDArray]:
-    #     '''
-    #     Returns ([bins], [values]). If interpolate then interpolate values between the two centers of adjacent bins
-    #     '''
-    #     array = array.flatten()
-    #     weights = weights.flatten()
-
-    #     bin_width = (stop - start)/(num_bins)
-    #     bin_centers = np.array([(start + bin_width * (i) + bin_width/2) for i in range(num_bins)])
-
-    #     if cyclic:
-    #         array = ((array - start) % (stop - start)) + start
-
-    #     if interpolated:
-    #         new_array = []
-    #         new_weights = []
-    #         for index, value in enumerate(array):
-    #             value_in_bin_width = (value - start) / bin_width
-    #             low_index = int(np.floor(value_in_bin_width))
-    #             high_index = int(np.ceil(value_in_bin_width))
-    #             if high_index >= len(bin_centers):
-    #                 high_index = 0
-    #             low_weight = 1 - np.abs(value_in_bin_width - low_index)
-    #             high_weight = 1 - low_weight
-    #             new_array.append(bin_centers[low_index])
-    #             new_array.append(bin_centers[high_index])
-    #             new_weights.append(weights[index] * low_weight)
-    #             new_weights.append(weights[index] * high_weight)
-
-    #         array = np.array(new_array)
-    #         weights = np.array(new_weights)
-
-
-    #     histogram, _ = np.histogram(array, num_bins, (start, stop), weights = weights)
-        
-    #     return bin_centers, histogram
