@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from scipy.ndimage import maximum_filter
 from scipy.signal.windows import gaussian
+from scipy.ndimage import uniform_filter1d
 
 class ShiTomasiSift():
 
@@ -50,7 +51,11 @@ class ShiTomasiSift():
                  scale_pyramid_blur_sigma: float = 0.5, #-1 for no blur
                  calculate_orientation_for_keypoints: bool = False,
                  d_weight : float = 0.75,
+                 use_circular_descriptor : bool = False,
+                 n_rings : int = 16,
                  ) -> None:
+        
+        self.shi_tomasi = cv2.GFTTDetector.create(maxCorners=max_corners)
         
         self.derivation_operator = derivation_operator
 
@@ -106,6 +111,8 @@ class ShiTomasiSift():
         self.scale_pyramid_blur_sigma = scale_pyramid_blur_sigma
         self.d_weight = d_weight
         self.base_blur_sigma = base_blur_sigma
+        self.use_circular_descriptor = use_circular_descriptor
+        self.n_rings = n_rings
 
         # Build grid of original coordinates (x, y)
         xs, ys = np.meshgrid(np.arange(self.descriptor_window_size), np.arange(self.descriptor_window_size))
@@ -117,6 +124,9 @@ class ShiTomasiSift():
         buffer_xs, buffer_ys = np.meshgrid(np.arange(self.descriptor_window_buffer_size), np.arange(self.descriptor_window_buffer_size))
         self.buffer_xs = buffer_xs.astype(np.float32)
         self.buffer_ys = buffer_ys.astype(np.float32)
+
+        # Pre-compute circular ring weights (n_rings, N, N)
+        self.circular_weights = self._calculate_circular_weights()
 
     def detect(self, img : NDArray,
                Ix : NDArray | None = None,
@@ -147,7 +157,14 @@ class ShiTomasiSift():
                 keypoint = cv2.KeyPoint(float(coord[1]), float(coord[0]), 3 * octave * self.scale_pyramid_scaling_factor, response = float(response[coord[0], coord[1]]), octave=octave)
                 keypoints.append(keypoint)
             
-            keypoints.sort(key = lambda keypoint : - keypoint.response)
+        keypoints.sort(key = lambda keypoint : - keypoint.response)
+
+            # kps = self.shi_tomasi.detect(img)
+            # for kp in kps:
+            #     keypoint = cv2.KeyPoint(kp.pt[0], kp.pt[1], 3 * octave * self.scale_pyramid_scaling_factor, response = kp.response, octave=octave)
+            #     keypoints.append(keypoint)
+        # keypoints.sort(key = lambda keypoint : - keypoint.response)
+            
 
         return keypoints[:self.max_corners]
     
@@ -198,6 +215,8 @@ class ShiTomasiSift():
                                                                                         self.orientation_calculation_bin_count,
                                                                                         0,
                                                                                         360)
+                    # smoothed_histogram = self._smooth_histogram_circular(orientation_histogram)
+                    # kp_angles = self._get_angles_from_histogram(smoothed_histogram, orientation_bins)
                     kp_angles = self._get_angles_from_histogram(orientation_histogram, orientation_bins)
                 else:
                     if keypoint.angle == -1:
@@ -227,24 +246,41 @@ class ShiTomasiSift():
                     rotated_description_area_angles %= 360
                     rotated_coordinates = self._rotate_coordinates_around_center(-kp_angle)
 
-                    num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
+                    if self.use_circular_descriptor:
+                        # Circular/ring descriptor: each ring is one "cell"
+                        # Shape: (n_rings, descriptor_bin_count) — same 128 dims as 4×4×8 by default
+                        descriptor = np.zeros((self.n_rings, self.descriptor_bin_count), dtype=np.float64)
 
-                    subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
-
-                    descriptor = np.ndarray((num_subwindows_along_axis, num_subwindows_along_axis, self.descriptor_bin_count))
-
-                    positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(rotated_coordinates, subwindow_positions)
-
-                    for y_index in range(positional_weights.shape[0]):
-                        for x_index in range(positional_weights.shape[0]):
-                            total_weights = description_weighted_magnitude * positional_weights[y_index, x_index]
+                        for ring_index in range(self.n_rings):
+                            total_weights = description_weighted_magnitude * self.circular_weights[ring_index]
                             _, values = self._calculate_histogram(rotated_description_area_angles,
                                                                 total_weights,
                                                                 self.descriptor_bin_count,
                                                                 0,
                                                                 360,
                                                                 True)
-                            descriptor[y_index, x_index] = values
+                            descriptor[ring_index] = values
+
+                    else:
+                        # Original stacked subwindow descriptor
+                        num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
+
+                        subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
+
+                        descriptor = np.ndarray((num_subwindows_along_axis, num_subwindows_along_axis, self.descriptor_bin_count))
+
+                        positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(rotated_coordinates, subwindow_positions)
+
+                        for y_index in range(positional_weights.shape[0]):
+                            for x_index in range(positional_weights.shape[0]):
+                                total_weights = description_weighted_magnitude * positional_weights[y_index, x_index]
+                                _, values = self._calculate_histogram(rotated_description_area_angles,
+                                                                    total_weights,
+                                                                    self.descriptor_bin_count,
+                                                                    0,
+                                                                    360,
+                                                                    True)
+                                descriptor[y_index, x_index] = values
 
                     descriptor = descriptor.flatten()
                     descriptor = descriptor / np.linalg.norm(descriptor)
@@ -491,16 +527,15 @@ class ShiTomasiSift():
                 minlength=num_bins
             )
 
-        # HIGH contributions (always valid 0..num_bins-1 after wrapping)
-        
-        hist += np.bincount(
-            high,
-            weights=w * high_weight,
-            minlength=num_bins
-        )
-
         return bin_centers, hist
 
+    def _smooth_histogram_circular(self, hist, passes=6):
+        kernel = np.array([1, 4, 6, 4, 1], dtype=np.float64) / 16.0
+        for _ in range(passes):
+            # Wrap-pad, convolve, unpad
+            padded = np.concatenate([hist[-2:], hist, hist[:2]])
+            hist = np.convolve(padded, kernel, mode='valid')
+        return hist
 
     def _get_angles_from_histogram(self, values : NDArray, bins : NDArray) -> list[float]:
         '''
@@ -531,9 +566,16 @@ class ShiTomasiSift():
                 bin_value = bins[index]
                 next_bin_value = bins[index] + bin_size
 
-                angle = ((values[index-1] * prev_bin_value + values[index] * bin_value + values[last_index] * next_bin_value)/
-                         (values[index-1] + values[index] + values[last_index]))
+                # angle = ((values[index-1] * prev_bin_value + values[index] * bin_value + values[last_index] * next_bin_value)/
+                #          (values[index-1] + values[index] + values[last_index]))
 
+                h_prev = values[index - 1]
+                h_curr = values[index]
+                h_next = values[last_index]
+                denom = (h_prev - 2*h_curr + h_next)
+                offset = 0.5 * (h_prev - h_next) / (denom + 1e-9) if abs(denom) > 1e-9 else 0.0
+                angle = (bins[index] + offset * bin_size)
+                
                 angle %= 360
                 
                 angles.append(angle)
@@ -647,8 +689,8 @@ class ShiTomasiSift():
         than hard-cut rings. Max radius is N/2 (reaches the window edge).
         """
         N          = self.descriptor_window_buffer_size
-        max_dist   = N / 2.0
-        n_rings    = 16
+        max_dist   = self.descriptor_window_size / 2.0
+        n_rings    = self.n_rings
         ring_width = max_dist / n_rings
 
         # Pixel distances from the window centre
