@@ -46,6 +46,7 @@ class ShiTomasiSift():
                  descriptor_bin_count : int = 8,
                  drop_keypoints_on_border : bool = False,
                  base_blur_sigma : float = 1.6,
+                 start_scale_scaling_pyramid : int = 0,
                  num_octaves_in_scale_pyramid : int = 5,
                  scale_pyramid_scaling_factor: float = 1.2,
                  scale_pyramid_blur_sigma: float = 0.5, #-1 for no blur
@@ -53,7 +54,7 @@ class ShiTomasiSift():
                  d_weight : float = 0.75,
                  use_circular_descriptor : bool = False,
                  n_rings : int = 16,
-                 enable_histogram_smoothing : bool = False,
+                 enable_histogram_smoothing : bool = True,
                  histogram_smoothing_kernel : NDArray = np.array([1, 4, 6, 4, 1], dtype=np.float64) / 16.0
                  ) -> None:
         
@@ -106,6 +107,7 @@ class ShiTomasiSift():
         self.drop_keypoints_on_border = drop_keypoints_on_border
         self.calculate_orientation_for_keypoints = calculate_orientation_for_keypoints
 
+        self.start_scale_scaling_pyramid = start_scale_scaling_pyramid
         self.num_octaves_in_scale_pyramid = num_octaves_in_scale_pyramid
         self.scale_pyramid_scaling_factor = scale_pyramid_scaling_factor
         self.scale_pyramid_blur_sigma = scale_pyramid_blur_sigma
@@ -140,10 +142,11 @@ class ShiTomasiSift():
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         keypoints = []
-        for octave in range(self.num_octaves_in_scale_pyramid):
+        for octave in range(self.start_scale_scaling_pyramid + self.num_octaves_in_scale_pyramid):
             if octave != 0:
                 img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
-
+            if octave < self.start_scale_scaling_pyramid:
+                continue
             Ix, Iy = self._calculate_Ix_and_Iy(img)
             response = self._calculate_response(Ix, Iy)
             response = self._threshold_response(response)
@@ -178,10 +181,11 @@ class ShiTomasiSift():
         if self.base_blur_sigma != -1:
             img = cv2.GaussianBlur(img, (0, 0), self.base_blur_sigma)
 
-        for octave in range(self.num_octaves_in_scale_pyramid):
+        for octave in range(self.start_scale_scaling_pyramid + self.num_octaves_in_scale_pyramid):
             if octave != 0:
                 img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
-
+            if octave < self.start_scale_scaling_pyramid:
+                continue
 
             if self.drop_keypoints_on_border:
                 keypoints = self._drop_keypoints_on_border(keypoints, img)
@@ -200,70 +204,9 @@ class ShiTomasiSift():
                     else:
                         kp_angles = [keypoint.angle]
 
-                description_area_magnitude = extract_area(magnitude,
-                                                        (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                            self.descriptor_window_buffer_size)
-                
-                description_area_angle = extract_area(pixel_angles,
-                                                    (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                    self.descriptor_window_buffer_size)
-                
-
-                if (self.descriptor_gaussian_weight_std == -1):
-                    description_weighted_magnitude = description_area_magnitude
-                else:
-                    description_weighted_magnitude = weight_area_with_gaussian_window(description_area_magnitude, self.descriptor_gaussian_weight_std)
-                
-
                 for kp_angle in kp_angles:
 
-                    # Rotate angles and coordinates
-                    rotated_description_area_angles = description_area_angle - kp_angle
-                    rotated_description_area_angles %= 360
-                    rotated_coordinates = self._rotate_coordinates_around_center(-kp_angle)
-
-                    if self.use_circular_descriptor:
-                        # Circular/ring descriptor: each ring is one "cell"
-                        # Shape: (n_rings, descriptor_bin_count) — same 128 dims as 4×4×8 by default
-                        descriptor = np.zeros((self.n_rings, self.descriptor_bin_count), dtype=np.float64)
-
-                        for ring_index in range(self.n_rings):
-                            total_weights = description_weighted_magnitude * self.circular_weights[ring_index]
-                            _, values = self._calculate_histogram(rotated_description_area_angles,
-                                                                total_weights,
-                                                                self.descriptor_bin_count,
-                                                                0,
-                                                                360,
-                                                                True)
-                            descriptor[ring_index] = values
-
-                    else:
-                        # Original stacked subwindow descriptor
-                        num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
-
-                        subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
-
-                        descriptor = np.ndarray((num_subwindows_along_axis, num_subwindows_along_axis, self.descriptor_bin_count))
-
-                        positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(rotated_coordinates, subwindow_positions)
-
-                        for y_index in range(positional_weights.shape[0]):
-                            for x_index in range(positional_weights.shape[0]):
-                                total_weights = description_weighted_magnitude * positional_weights[y_index, x_index]
-                                _, values = self._calculate_histogram(rotated_description_area_angles,
-                                                                    total_weights,
-                                                                    self.descriptor_bin_count,
-                                                                    0,
-                                                                    360,
-                                                                    True)
-                                descriptor[y_index, x_index] = values
-
-                    descriptor = descriptor.flatten()
-                    descriptor = descriptor / np.linalg.norm(descriptor)
-                    descriptor[descriptor > 0.2] = 0.2
-                    descriptor = descriptor / np.linalg.norm(descriptor)
-                    
-                    new_keypoint = self._create_new_keypoint(keypoint, kp_angle)
+                    new_keypoint, descriptor = self._calculate_descriptor(keypoint, kp_angle, magnitude, pixel_angles)
 
                     new_keypoints.append(new_keypoint)
                     descriptors.append(descriptor)
@@ -541,30 +484,40 @@ class ShiTomasiSift():
                 bin_value = bins[index]
                 next_bin_value = bins[index] + bin_size
 
-                # angle = ((values[index-1] * prev_bin_value + values[index] * bin_value + values[last_index] * next_bin_value)/
-                #          (values[index-1] + values[index] + values[last_index]))
+                prev_value = values[index - 1]
+                current_value = values[index]
+                next_value = values[last_index]
 
-                h_prev = values[index - 1]
-                h_curr = values[index]
-                h_next = values[last_index]
-                denom = (h_prev - 2*h_curr + h_next)
-                offset = 0.5 * (h_prev - h_next) / (denom + 1e-9) if abs(denom) > 1e-9 else 0.0
-                angle = (bins[index] + offset * bin_size)
-                
-                angle %= 360
-                
-                angles.append(angle)
+                if current_value > prev_value and current_value > next_value:
+
+                    # angle = ((values[index-1] * prev_bin_value + values[index] * bin_value + values[last_index] * next_bin_value)/
+                    #         (values[index-1] + values[index] + values[last_index]))
+
+
+                    denom = (prev_value - 2*current_value + next_value)
+                    offset = 0.5 * (prev_value - next_value) / (denom + 1e-9) if abs(denom) > 1e-9 else 0.0
+                    angle = (bins[index] + offset * bin_size)
+                    
+                    angle %= 360
+                    
+                    angles.append(angle)
         
         return angles
     
 
-    def _calculate_orientation_of_keypoint(self, keypoint : cv2.KeyPoint, magnitude : NDArray, pixel_angles : NDArray) -> list:
+    def _calculate_orientation_of_keypoint(self, keypoint_or_center : cv2.KeyPoint | tuple, magnitude : NDArray, pixel_angles : NDArray) -> list:
+        
+        if type(keypoint_or_center) == cv2.KeyPoint:
+            x, y = keypoint_or_center.pt[0], keypoint_or_center.pt[1]
+        else:
+            x, y = keypoint_or_center[0], keypoint_or_center[1]
+
         orientation_calculation_area_magnitude = extract_area(magnitude,
-                                                            (int(keypoint.pt[0]), int(keypoint.pt[1])),
+                                                            (int(x), int(y)),
                                                             self.orientation_calculation_window_size,
                                                             "edge")
         orientation_calculation_area_angle = extract_area(pixel_angles,
-                                                        (int(keypoint.pt[0]), int(keypoint.pt[1])),
+                                                        (int(x), int(y)),
                                                         self.orientation_calculation_window_size,
                                                         "edge")
         
@@ -670,13 +623,24 @@ class ShiTomasiSift():
 
         return weights
     
-    def _create_new_keypoint(self, keypoint: cv2.KeyPoint, kp_angle) -> cv2.KeyPoint:
+    def _create_new_keypoint(self, keypoint_or_center: cv2.KeyPoint | tuple, kp_angle) -> cv2.KeyPoint:
 
-        new_keypoint = cv2.KeyPoint(keypoint.pt[0] * self.scale_pyramid_scaling_factor ** keypoint.octave,
-                                    keypoint.pt[1] * self.scale_pyramid_scaling_factor ** keypoint.octave,
-                                    keypoint.size,
+        if type(keypoint_or_center) == cv2.KeyPoint:
+            x, y = keypoint_or_center.pt[0], keypoint_or_center.pt[1]
+            octave = keypoint_or_center.octave
+            size = keypoint_or_center.size
+            response = keypoint_or_center.response
+        else:
+            x, y = keypoint_or_center[0], keypoint_or_center[1]
+            octave = 0
+            size = 0
+            response = 0
+
+        new_keypoint = cv2.KeyPoint(x * self.scale_pyramid_scaling_factor ** octave,
+                                    y * self.scale_pyramid_scaling_factor ** octave,
+                                    size,
                                     kp_angle,
-                                    keypoint.response)
+                                    response)
         
         return new_keypoint
 
@@ -709,6 +673,83 @@ class ShiTomasiSift():
         weights   = gaussian * circ_norm[:, None, None]                # (16, N, N)
 
         return weights.astype(np.float32)
+    
+    def _calculate_descriptor(self, keypoint_or_center : cv2.KeyPoint | tuple, kp_angle: float, magnitude : NDArray, pixel_angles : NDArray) -> Tuple:
+
+        if type(keypoint_or_center) == cv2.KeyPoint:
+            x, y = keypoint_or_center.pt[0], keypoint_or_center.pt[1]
+        else:
+            x, y = keypoint_or_center[0], keypoint_or_center[1]
+
+        description_area_magnitude = extract_area(magnitude,
+                                                (int(x), int(y)),
+                                                            self.descriptor_window_buffer_size)
+                
+        description_area_angle = extract_area(pixel_angles,
+                                            (int(x), int(y)),
+                                            self.descriptor_window_buffer_size)
+        
+
+        if (self.descriptor_gaussian_weight_std == -1):
+            description_weighted_magnitude = description_area_magnitude
+        else:
+            description_weighted_magnitude = weight_area_with_gaussian_window(description_area_magnitude, self.descriptor_gaussian_weight_std)
+        
+        # Rotate angles and coordinates
+        rotated_description_area_angles = description_area_angle - kp_angle
+        rotated_description_area_angles %= 360
+        rotated_coordinates = self._rotate_coordinates_around_center(-kp_angle)
+
+        if self.use_circular_descriptor:
+            # Circular/ring descriptor: each ring is one "cell"
+            # Shape: (n_rings, descriptor_bin_count) — same 128 dims as 4×4×8 by default
+            descriptor = np.zeros((self.n_rings, self.descriptor_bin_count), dtype=np.float64)
+
+            for ring_index in range(self.n_rings):
+                total_weights = description_weighted_magnitude * self.circular_weights[ring_index]
+                _, values = self._calculate_histogram(rotated_description_area_angles,
+                                                    total_weights,
+                                                    self.descriptor_bin_count,
+                                                    0,
+                                                    360,
+                                                    True)
+                descriptor[ring_index] = values
+            descriptor = descriptor.flatten()
+            descriptor = descriptor / np.linalg.norm(descriptor)
+            descriptor[descriptor > 0.2] = 0.2
+            descriptor = descriptor / np.linalg.norm(descriptor)
+            
+            new_keypoint = self._create_new_keypoint(keypoint_or_center, kp_angle)
+            return (new_keypoint, descriptor)
+
+        else:
+            # Original stacked subwindow descriptor
+            num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
+
+            subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
+
+            descriptor = np.ndarray((num_subwindows_along_axis, num_subwindows_along_axis, self.descriptor_bin_count))
+
+            positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(rotated_coordinates, subwindow_positions)
+
+            for y_index in range(positional_weights.shape[0]):
+                for x_index in range(positional_weights.shape[0]):
+                    total_weights = description_weighted_magnitude * positional_weights[y_index, x_index]
+                    _, values = self._calculate_histogram(rotated_description_area_angles,
+                                                        total_weights,
+                                                        self.descriptor_bin_count,
+                                                        0,
+                                                        360,
+                                                        True)
+                    descriptor[y_index, x_index] = values
+
+            descriptor = descriptor.flatten()
+            descriptor = descriptor / np.linalg.norm(descriptor)
+            descriptor[descriptor > 0.2] = 0.2
+            descriptor = descriptor / np.linalg.norm(descriptor)
+            
+            new_keypoint = self._create_new_keypoint(keypoint_or_center, kp_angle)
+            return (new_keypoint, descriptor)
         
     # endregion
 
