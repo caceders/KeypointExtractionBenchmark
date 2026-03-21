@@ -15,6 +15,7 @@ import traceback
 import warnings
 from config import *
 from shi_tomasi_sift import ShiTomasiSift
+import json
 
 ## Load dataset.    
 dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
@@ -55,41 +56,9 @@ features2d = {
     #"BRIEF" : BRIEF,
     #"FREAK" : FREAK,
     #"SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT,
-    # "iteration_1" : ShiTomasiSift(recalculate_orientation_for_keypoints= True,
-    #                                     num_octaves_in_scale_pyramid = 10,
-    #                                     create_new_keypoint_for_large_angle_histogram_values=False,
-    #                                     orientation_calculation_gaussian_weight_std=50,
-    #                                     descriptor_gaussian_weight_std=50,
-    #                                     base_blur_sigma=-1,
-    #                                     ),
-    # "iteration_2" : ShiTomasiSift(recalculate_orientation_for_keypoints= True,
-    #                           scale_pyramid_scaling_factor=1.5,
-    #                           response_type="sftt",
-    #                           scale_pyramid_blur_sigma=-1,
-    #                           orientation_calculation_gaussian_weight_std=15,
-    #                           num_octaves_in_scale_pyramid=10,
-    #                           descriptor_gaussian_weight_std=50,
-    #                           derivation_operator="scharr",
-    #                           d_weight=0.7,
-    #                           base_blur_sigma=0.7,
-    #                           ),
-    "itteration_3_" : ShiTomasiSift(calculate_orientation_for_keypoints= True,
-                              scale_pyramid_scaling_factor=1.3,
-                              response_type="sftt",
-                              scale_pyramid_blur_sigma=-1,
-                              orientation_calculation_gaussian_weight_std=50,
-                              num_octaves_in_scale_pyramid=6,
-                              descriptor_gaussian_weight_std=50,
-                              derivation_operator="simple",
-                              d_weight=0.7,
-                              base_blur_sigma=0.7,
-                              max_corners=MAX_FEATURES
-                              ),
-    # "itteration3_24_descriptor" : ShiTomasiSift(recalculate_orientation_for_keypoints= True,
+    # "itteration_3_" : ShiTomasiSift(calculate_orientation_for_keypoints= True,
     #                           scale_pyramid_scaling_factor=1.3,
-    #                           descriptor_window_radius=12,
-    #                           descriptor_subwindow_size=6,
-    #                           response_type="normal",
+    #                           response_type="sftt",
     #                           scale_pyramid_blur_sigma=-1,
     #                           orientation_calculation_gaussian_weight_std=50,
     #                           num_octaves_in_scale_pyramid=6,
@@ -97,7 +66,14 @@ features2d = {
     #                           derivation_operator="simple",
     #                           d_weight=0.7,
     #                           base_blur_sigma=0.7,
-    #                           ),       
+    #                           max_corners=MAX_FEATURES
+    #                           ),   
+    "SHIFT7_6_octaves" : ShiTomasiSift(starting_level_scale_pyramid=7, num_octaves_in_scale_pyramid=6),
+
+
+
+
+
 }
 
 ONLY_SELF = True #Forces no mixing
@@ -203,6 +179,7 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
         distinctiveness = np.fromiter((m.match_properties["distinctiveness"] for m in all_matches), float, count=num_matches)
         sizes = np.fromiter(((m.reference_feature.keypoint.size + m.related_feature.keypoint.size) / 2 for m in all_matches), float, count=num_matches)
         responses = np.fromiter(((m.reference_feature.keypoint.response + m.related_feature.keypoint.response) / 2 for m in all_matches), float, count=num_matches)
+        octaves = np.fromiter((feature.keypoint.octave for sequence in image_feature_set for image in sequence for feature in image), float)
 
         # Precompute masks
         correct_mask = is_correct
@@ -234,10 +211,6 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
             return float(np.mean(x)) if len(x) else 0.0
 
         avg_size = sizes.mean()
-        std_size = sizes.std()
-        min_size = sizes.min()
-        max_size = sizes.max()
-        unique_sizes_count = len(np.unique(sizes))
 
         # Correct-only subsets
         sizes_correct = sizes[correct_mask]
@@ -245,18 +218,14 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
         responses_correct = responses[correct_mask]
         distinctiveness_correct = distinctiveness[correct_mask]
 
-        # Additional requested metrics
         total_num_features = sum(len(image) for sequence in image_feature_set for image in sequence)
 
         # Per-image metrics
         correct_per_sequence = np.array([sum(m.is_correct for m in s) for s in matching_match_sets])
         avg_correct_per_sequence = correct_per_sequence.mean()
-        std_correct_per_sequence = correct_per_sequence.std()
 
         avg_size_correct = safe_mean(sizes_correct)
         ratio_size_correct = avg_size_correct / avg_size if avg_size != 0 else 0
-
-        norm_std_size = std_size / avg_size if avg_size != 0 else 0
 
         avg_dist = distances.mean()
         avg_dist_correct = safe_mean(distances_correct)
@@ -272,14 +241,38 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
 
         # Rank stats: all + correct
         avg_rank_all = match_rank.mean()
-        std_rank_all = match_rank.std()
-        avg_rank_correct = match_rank[correct_mask].mean() if correct_mask.any() else 0
-        std_rank_correct = match_rank[correct_mask].std() if correct_mask.any() else 0
 
-        outside_num_best_matches_all = np.mean(match_rank > NUM_BEST_MATCHES//2)
-        outside_num_best_matches_correct = np.mean(match_rank[correct_mask] > NUM_BEST_MATCHES//2) if correct_mask.any() else 0
+        # discrep_count = 0
+        # total_discrep = 0
+        # for m in all_matches:
+        #     if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave:
+        #         discrep_count += 1
+        #         total_discrep += abs(m.reference_feature.keypoint.octave - m.related_feature.keypoint.octave)
+        avg_octave = np.average(octaves)
+        octave_discrepancy_count = np.sum([1 for m in all_matches if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave])
+        if (octave_discrepancy_count != 0):
+            octave_avg_discrepancy = np.average([abs(m.reference_feature.keypoint.octave - m.related_feature.keypoint.octave) for m in all_matches if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave])
+        else:
+            octave_avg_discrepancy = 0
 
+        octave_stats = {}
 
+        for i in set(octaves):
+            keypoints = sum(1 for octave in octaves if octave == i)
+            responses = [
+                feature.keypoint.response
+                for sequence in image_feature_set
+                for image in sequence
+                for feature in image
+                if feature.keypoint.octave == i
+            ]
+
+            octave_stats[int(i)] = {
+                "keypoints": keypoints,
+                "response": float(np.average(responses)) if len(responses) > 0 else None
+            }
+
+        
         # ========================
         # STORE RESULTS
         # ========================
@@ -288,7 +281,6 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
             "combination": f"{feature_extractor_key}" if (len(KEYPOINT_SIZE_SCALINGS) == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
             "speed": speed,
             "repeatability mean": np.mean(set_repeatabilities),
-            "repeatability std": np.std(set_repeatabilities),
             
             "total num keypoints": total_num_features,
             "total num matches": num_matches,
@@ -302,34 +294,25 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
 
             # Size metrics
             "size mean": avg_size,
-            "size std": std_size,
-            "size normalized std": norm_std_size,
-            "size min": min_size,
-            "size max": max_size,
-            #"size unique count": unique_sizes_count,
             "size correct: avg": avg_size_correct,
             "size correct/all ratio": ratio_size_correct,
 
-            
-            
-            #"correct matches per sequence: std": std_correct_per_sequence,
-
             "distance correct/all ratio": ratio_dist_correct,
-
             "response correct/all ratio": ratio_resp_correct,
-
-            #"distinctiveness all: avg": avg_distinct,
-            #"distinctiveness correct: avg": avg_distinct_correct,
             "distinctiveness correct/all ratio": ratio_distinct_correct,
 
             # Rank metrics
             "match rank: avg": avg_rank_all,
-            #"match rank: std": std_rank_all,
-            "match rank correct: avg": avg_rank_correct,
-            #"match rank correct: std": std_rank_correct,
-            f"ratio rank >{NUM_BEST_MATCHES//2} / all": outside_num_best_matches_all,
-            f"ratio rank >{NUM_BEST_MATCHES//2} correct / rank >{NUM_BEST_MATCHES//2}": outside_num_best_matches_correct,
+
+            f"avg octave " : avg_octave,
+            f"octave discrepancies" : octave_discrepancy_count,
+            f"avg octave discrepancy" : octave_avg_discrepancy,
+            "octave_stats" : json.dumps(octave_stats)
         }
+
+        # for i in set(octaves):
+        #     results[f"num keypoints at octave {int(i)}"] = np.sum([1 for octave in octaves if octave == i])
+        #     results[f"avg response at octave {int(i)}"] = np.average([feature.keypoint.response for sequence in image_feature_set for image in sequence for feature in image if feature.keypoint.octave == i])
 
         for match_ranking_property in match_properties:
             APs = [match_set.get_average_precision_score(match_ranking_property) for match_set in matching_match_sets]
@@ -396,3 +379,32 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
         #         f.write(f"{feature_extractor_key}\n")
         #         f.write(f"{error_message}\n")
         #         f.write("\n")
+
+
+
+        # std_rank_all = match_rank.std()
+        # avg_rank_correct = match_rank[correct_mask].mean() if correct_mask.any() else 0
+        # std_rank_correct = match_rank[correct_mask].std() if correct_mask.any() else 0
+
+        # outside_num_best_matches_all = np.mean(match_rank > NUM_BEST_MATCHES//2)
+        # outside_num_best_matches_correct = np.mean(match_rank[correct_mask] > NUM_BEST_MATCHES//2) if correct_mask.any() else 0
+        # std_size = sizes.std()
+        # min_size = sizes.min()
+        # max_size = sizes.max()
+        # unique_sizes_count = len(np.unique(sizes))
+        # norm_std_size = std_size / avg_size if avg_size != 0 else 0
+        # std_correct_per_sequence = correct_per_sequence.std()
+            #"match rank: std": std_rank_all,
+            #"match rank correct: avg": avg_rank_correct,
+            #"match rank correct: std": std_rank_correct,
+            #f"ratio rank >{NUM_BEST_MATCHES//2} / all": outside_num_best_matches_all,
+            #f"ratio rank >{NUM_BEST_MATCHES//2} correct / rank >{NUM_BEST_MATCHES//2}": outside_num_best_matches_correct,
+            #"distinctiveness all: avg": avg_distinct,
+            #"distinctiveness correct: avg": avg_distinct_correct,
+            #"size std": std_size,
+            #"size normalized std": norm_std_size,
+            #"size min": min_size,
+            #"size max": max_size,
+            #"size unique count": unique_sizes_count,
+            #"correct matches per sequence: std": std_correct_per_sequence,
+            #"repeatability std": np.std(set_repeatabilities),

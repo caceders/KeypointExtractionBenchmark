@@ -1,13 +1,13 @@
 SKIP = ["speedtest", "verification", "retrieval"]
 #SKIP = ["speedtest"]
-FILE_NAME = "shift_invariant_downsampling_16_8,0.5,4.csv"
+FILE_NAME = "shift_octave_response_weighting.csv"
 # Rotation, scale, gaussian blur, motion blur
-#NOISE_RANGES =[(-0,0), (1,1), (0,0), (0,0)]
+#NOISE_RANGES =[(-0,0), (0.7,1.3), (0,0), (0,0)]
 NOISE_RANGES = []
 FORCE_CONSTANT_ANGLE = False
 KEYPOINT_SIZE_SCALINGS = [1]
 
-MAX_FEATURES = 500
+MAX_FEATURES = 250
 VISUALIZE = False
 SEQUENCE_TO_VISUALIZE = 89
 
@@ -24,6 +24,6 @@ NUM_ILLUMINATION_SEQUENCES = 56
 NUM_ROTATION_SEQUENCES = NUM_SEQUENCES - NUM_ILLUMINATION_SEQUENCES
 
 NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION = 13
-NUM_SCORES_DISTINCTIVNESS = 100
-NUM_BEST_MATCHES = 100
+NUM_SCORES_DISTINCTIVNESS = 200
+NUM_BEST_MATCHES = 200
 
