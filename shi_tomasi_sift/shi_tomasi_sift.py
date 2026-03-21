@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from scipy.ndimage import maximum_filter
 from scipy.signal.windows import gaussian
+from scipy.ndimage import uniform_filter1d
 
 class ShiTomasiSift():
 
@@ -46,12 +47,16 @@ class ShiTomasiSift():
                  drop_keypoints_on_border : bool = False,
                  base_blur_sigma : float = -1, #1.6
                  starting_level_scale_pyramid : int = 0,
-                 num_octaves_in_scale_pyramid : int = 10,
+                 num_octaves_in_scale_pyramid : int = 5,
                  scale_pyramid_scaling_factor: float = 1.2,
                  scale_pyramid_blur_sigma: float = -1, #-1 for no blur
                  calculate_orientation_for_keypoints: bool = True,
                  d_weight : float = 1, #0.75,
                  octave_response_weight = 0,
+                 use_circular_descriptor : bool = False,
+                 n_rings : int = 16,
+                 enable_histogram_smoothing : bool = True,
+                 histogram_smoothing_kernel : NDArray = np.array([1, 4, 6, 4, 1], dtype=np.float64) / 16.0
                  ) -> None:
         
         self.derivation_operator = derivation_operator
@@ -110,6 +115,11 @@ class ShiTomasiSift():
         self.d_weight = d_weight
         self.octave_response_weight = octave_response_weight
         self.base_blur_sigma = base_blur_sigma
+        self.use_circular_descriptor = use_circular_descriptor
+        self.n_rings = n_rings
+
+        self.enable_histogram_smoothing = enable_histogram_smoothing
+        self.histogram_smoothing_kernel = histogram_smoothing_kernel
 
         # Build grid of original coordinates (x, y)
         xs, ys = np.meshgrid(np.arange(self.descriptor_window_size), np.arange(self.descriptor_window_size))
@@ -121,6 +131,9 @@ class ShiTomasiSift():
         buffer_xs, buffer_ys = np.meshgrid(np.arange(self.descriptor_window_buffer_size), np.arange(self.descriptor_window_buffer_size))
         self.buffer_xs = buffer_xs.astype(np.float32)
         self.buffer_ys = buffer_ys.astype(np.float32)
+
+        # Pre-compute circular ring weights (n_rings, N, N)
+        self.circular_weights = self._calculate_circular_weights()
 
     def detect(self, img : NDArray,
                Ix : NDArray | None = None,
@@ -135,14 +148,11 @@ class ShiTomasiSift():
                 img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
 
         keypoints = []
-        for octave in range(self.num_octaves_in_scale_pyramid):
+        for octave in range(self.start_scale_scaling_pyramid + self.num_octaves_in_scale_pyramid):
             if octave != 0:
                 img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
-
-            #if Ix is None or Iy is None: Er vel ingen grunn til at man forventer å ha disse?
-            # Jo fordi vi beregner Ix og Iy utenfor detect funksjonen i detect_and_compute, og passer
-            # Ix og Iy inn i begge som argument. Tror egentlig vi bare kan regne det ut uansett da, fordi
-            # beregningen av Ix og Iy er ikke en bottleneck akkurat nå.
+            if octave < self.start_scale_scaling_pyramid:
+                continue
             Ix, Iy = self._calculate_Ix_and_Iy(img)
             response = self._calculate_response(Ix, Iy)
             coords = self._get_keypoint_positions(response)
@@ -157,7 +167,8 @@ class ShiTomasiSift():
                 keypoint = cv2.KeyPoint(float(coord[1]), float(coord[0]), 3 * max(octave * self.scale_pyramid_scaling_factor,1), response = float(response[coord[0], coord[1]]) * (1+octave*self.octave_response_weight), octave=octave)
                 keypoints.append(keypoint)
             
-            keypoints.sort(key = lambda keypoint : - keypoint.response)
+        keypoints.sort(key = lambda keypoint : - keypoint.response)
+            
 
         return keypoints[:self.max_corners]
     
@@ -184,7 +195,8 @@ class ShiTomasiSift():
         for octave in range(self.num_octaves_in_scale_pyramid):
             if octave != 0:
                 img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
-
+            if octave < self.start_scale_scaling_pyramid:
+                continue
 
             if self.drop_keypoints_on_border:
                 keypoints = self._drop_keypoints_on_border(keypoints, img)
@@ -196,75 +208,16 @@ class ShiTomasiSift():
                 if keypoint.octave != octave:
                     continue
                 if self.calculate_orientation_for_keypoints:
-                    orientation_calculation_area_magnitude = extract_area(magnitude,
-                                                                        (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                                        self.orientation_calculation_window_size,
-                                                                        "edge")
-                    orientation_calculation_area_angle = extract_area(pixel_angles,
-                                                                    (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                                    self.orientation_calculation_window_size,
-                                                                    "edge")
-                    
-                    orientation_calculation_weighted_magnitude = weight_area_with_gaussian_window(orientation_calculation_area_magnitude, self.orientation_calculation_gaussian_weight_std)
-                    orientation_bins, orientation_histogram = self._calculate_histogram(orientation_calculation_area_angle,
-                                                                                        orientation_calculation_weighted_magnitude,
-                                                                                        self.orientation_calculation_bin_count,
-                                                                                        0,
-                                                                                        360)
-                    kp_angles = self._get_angles_from_histogram(orientation_histogram, orientation_bins)
+                    kp_angles = self._calculate_orientation_of_keypoint(keypoint, magnitude, pixel_angles)
                 else:
                     if keypoint.angle == -1:
                         kp_angles = [0]
                     else:
                         kp_angles = [keypoint.angle]
 
-                description_area_magnitude = extract_area(magnitude,
-                                                        (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                            self.descriptor_window_buffer_size)
-                
-                description_area_angle = extract_area(pixel_angles,
-                                                    (int(keypoint.pt[0]), int(keypoint.pt[1])),
-                                                    self.descriptor_window_buffer_size)
-                
-
-                if (self.descriptor_gaussian_weight_std == -1):
-                    description_weighted_magnitude = description_area_magnitude
-                else:
-                    description_weighted_magnitude = weight_area_with_gaussian_window(description_area_magnitude, self.descriptor_gaussian_weight_std)
-                
-
                 for kp_angle in kp_angles:
 
-                    # Rotate angles and coordinates
-                    rotated_description_area_angles = description_area_angle - kp_angle
-                    rotated_description_area_angles %= 360
-                    rotated_coordinates = self._rotate_coordinates_around_center(-kp_angle)
-
-                    num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
-
-                    subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
-
-                    descriptor = np.ndarray((num_subwindows_along_axis, num_subwindows_along_axis, self.descriptor_bin_count))
-
-                    positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(rotated_coordinates, subwindow_positions)
-
-                    for y_index in range(positional_weights.shape[0]):
-                        for x_index in range(positional_weights.shape[0]):
-                            total_weights = description_weighted_magnitude * positional_weights[y_index, x_index]
-                            _, values = self._calculate_histogram(rotated_description_area_angles,
-                                                                total_weights,
-                                                                self.descriptor_bin_count,
-                                                                0,
-                                                                360,
-                                                                True)
-                            descriptor[y_index, x_index] = values
-
-                    descriptor = descriptor.flatten()
-                    descriptor = descriptor / np.linalg.norm(descriptor)
-                    descriptor[descriptor > 0.2] = 0.2
-                    descriptor = descriptor / np.linalg.norm(descriptor)
-                    
-                    new_keypoint = self._create_new_keypoint(keypoint, kp_angle)
+                    new_keypoint, descriptor = self._calculate_descriptor(keypoint, kp_angle, magnitude, pixel_angles)
 
                     new_keypoints.append(new_keypoint)
                     descriptors.append(descriptor)
@@ -504,16 +457,14 @@ class ShiTomasiSift():
                 minlength=num_bins
             )
 
-        # HIGH contributions (always valid 0..num_bins-1 after wrapping)
-        
-        hist += np.bincount(
-            high,
-            weights=w * high_weight,
-            minlength=num_bins
-        )
-
         return bin_centers, hist
 
+    def _smooth_histogram_circular(self, hist, kernel, passes=6):
+        for _ in range(passes):
+            # Wrap-pad, convolve, unpad
+            padded = np.concatenate([hist[-2:], hist, hist[:2]])
+            hist = np.convolve(padded, kernel, mode='valid')
+        return hist
 
     def _get_angles_from_histogram(self, values : NDArray, bins : NDArray) -> list[float]:
         '''
@@ -544,14 +495,56 @@ class ShiTomasiSift():
                 bin_value = bins[index]
                 next_bin_value = bins[index] + bin_size
 
-                angle = ((values[index-1] * prev_bin_value + values[index] * bin_value + values[last_index] * next_bin_value)/
-                         (values[index-1] + values[index] + values[last_index]))
+                prev_value = values[index - 1]
+                current_value = values[index]
+                next_value = values[last_index]
 
-                angle %= 360
-                
-                angles.append(angle)
+                if current_value > prev_value and current_value > next_value:
+
+                    # angle = ((values[index-1] * prev_bin_value + values[index] * bin_value + values[last_index] * next_bin_value)/
+                    #         (values[index-1] + values[index] + values[last_index]))
+
+
+                    denom = (prev_value - 2*current_value + next_value)
+                    offset = 0.5 * (prev_value - next_value) / (denom + 1e-9) if abs(denom) > 1e-9 else 0.0
+                    angle = (bins[index] + offset * bin_size)
+                    
+                    angle %= 360
+                    
+                    angles.append(angle)
         
         return angles
+    
+
+    def _calculate_orientation_of_keypoint(self, keypoint_or_center : cv2.KeyPoint | tuple, magnitude : NDArray, pixel_angles : NDArray) -> list:
+        
+        if type(keypoint_or_center) == cv2.KeyPoint:
+            x, y = keypoint_or_center.pt[0], keypoint_or_center.pt[1]
+        else:
+            x, y = keypoint_or_center[0], keypoint_or_center[1]
+
+        orientation_calculation_area_magnitude = extract_area(magnitude,
+                                                            (int(x), int(y)),
+                                                            self.orientation_calculation_window_size,
+                                                            "edge")
+        orientation_calculation_area_angle = extract_area(pixel_angles,
+                                                        (int(x), int(y)),
+                                                        self.orientation_calculation_window_size,
+                                                        "edge")
+        
+        orientation_calculation_weighted_magnitude = weight_area_with_gaussian_window(orientation_calculation_area_magnitude, self.orientation_calculation_gaussian_weight_std)
+        orientation_bins, orientation_histogram = self._calculate_histogram(orientation_calculation_area_angle,
+                                                                            orientation_calculation_weighted_magnitude,
+                                                                            self.orientation_calculation_bin_count,
+                                                                            0,
+                                                                            360)
+        if self.enable_histogram_smoothing:
+            smoothed_histogram = self._smooth_histogram_circular(orientation_histogram, self.histogram_smoothing_kernel)
+            kp_angles = self._get_angles_from_histogram(smoothed_histogram, orientation_bins)
+            return kp_angles
+        else:
+            kp_angles = self._get_angles_from_histogram(orientation_histogram, orientation_bins)
+            return kp_angles
 
     
     def _rotate_coordinates_around_center(self, angle: float) -> NDArray:
@@ -641,14 +634,24 @@ class ShiTomasiSift():
 
         return weights
     
-    def _create_new_keypoint(self, keypoint: cv2.KeyPoint, kp_angle) -> cv2.KeyPoint:
+    def _create_new_keypoint(self, keypoint_or_center: cv2.KeyPoint | tuple, kp_angle) -> cv2.KeyPoint:
 
-        new_keypoint = cv2.KeyPoint(keypoint.pt[0] * self.scale_pyramid_scaling_factor ** (keypoint.octave + self.starting_level_scale_pyramid),
-                                    keypoint.pt[1] * self.scale_pyramid_scaling_factor ** (keypoint.octave + self.starting_level_scale_pyramid),
-                                    keypoint.size,
+        if type(keypoint_or_center) == cv2.KeyPoint:
+            x, y = keypoint_or_center.pt[0], keypoint_or_center.pt[1]
+            octave = keypoint_or_center.octave
+            size = keypoint_or_center.size
+            response = keypoint_or_center.response
+        else:
+            x, y = keypoint_or_center[0], keypoint_or_center[1]
+            octave = 0
+            size = 0
+            response = 0
+
+        new_keypoint = cv2.KeyPoint(x * self.scale_pyramid_scaling_factor ** (octave + self.starting_level_scale_pyramid),
+                                    y * self.scale_pyramid_scaling_factor ** (octave + self.starting_level_scale_pyramid),
+                                    size,
                                     kp_angle,
-                                    keypoint.response,
-                                    keypoint.octave)
+                                    response)
         
         return new_keypoint
 
@@ -661,8 +664,8 @@ class ShiTomasiSift():
         than hard-cut rings. Max radius is N/2 (reaches the window edge).
         """
         N          = self.descriptor_window_buffer_size
-        max_dist   = N / 2.0
-        n_rings    = 16
+        max_dist   = self.descriptor_window_size / 2.0
+        n_rings    = self.n_rings
         ring_width = max_dist / n_rings
 
         # Pixel distances from the window centre
@@ -681,6 +684,83 @@ class ShiTomasiSift():
         weights   = gaussian * circ_norm[:, None, None]                # (16, N, N)
 
         return weights.astype(np.float32)
+    
+    def _calculate_descriptor(self, keypoint_or_center : cv2.KeyPoint | tuple, kp_angle: float, magnitude : NDArray, pixel_angles : NDArray) -> Tuple:
+
+        if type(keypoint_or_center) == cv2.KeyPoint:
+            x, y = keypoint_or_center.pt[0], keypoint_or_center.pt[1]
+        else:
+            x, y = keypoint_or_center[0], keypoint_or_center[1]
+
+        description_area_magnitude = extract_area(magnitude,
+                                                (int(x), int(y)),
+                                                            self.descriptor_window_buffer_size)
+                
+        description_area_angle = extract_area(pixel_angles,
+                                            (int(x), int(y)),
+                                            self.descriptor_window_buffer_size)
+        
+
+        if (self.descriptor_gaussian_weight_std == -1):
+            description_weighted_magnitude = description_area_magnitude
+        else:
+            description_weighted_magnitude = weight_area_with_gaussian_window(description_area_magnitude, self.descriptor_gaussian_weight_std)
+        
+        # Rotate angles and coordinates
+        rotated_description_area_angles = description_area_angle - kp_angle
+        rotated_description_area_angles %= 360
+        rotated_coordinates = self._rotate_coordinates_around_center(-kp_angle)
+
+        if self.use_circular_descriptor:
+            # Circular/ring descriptor: each ring is one "cell"
+            # Shape: (n_rings, descriptor_bin_count) — same 128 dims as 4×4×8 by default
+            descriptor = np.zeros((self.n_rings, self.descriptor_bin_count), dtype=np.float64)
+
+            for ring_index in range(self.n_rings):
+                total_weights = description_weighted_magnitude * self.circular_weights[ring_index]
+                _, values = self._calculate_histogram(rotated_description_area_angles,
+                                                    total_weights,
+                                                    self.descriptor_bin_count,
+                                                    0,
+                                                    360,
+                                                    True)
+                descriptor[ring_index] = values
+            descriptor = descriptor.flatten()
+            descriptor = descriptor / np.linalg.norm(descriptor)
+            descriptor[descriptor > 0.2] = 0.2
+            descriptor = descriptor / np.linalg.norm(descriptor)
+            
+            new_keypoint = self._create_new_keypoint(keypoint_or_center, kp_angle)
+            return (new_keypoint, descriptor)
+
+        else:
+            # Original stacked subwindow descriptor
+            num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
+
+            subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
+
+            descriptor = np.ndarray((num_subwindows_along_axis, num_subwindows_along_axis, self.descriptor_bin_count))
+
+            positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(rotated_coordinates, subwindow_positions)
+
+            for y_index in range(positional_weights.shape[0]):
+                for x_index in range(positional_weights.shape[0]):
+                    total_weights = description_weighted_magnitude * positional_weights[y_index, x_index]
+                    _, values = self._calculate_histogram(rotated_description_area_angles,
+                                                        total_weights,
+                                                        self.descriptor_bin_count,
+                                                        0,
+                                                        360,
+                                                        True)
+                    descriptor[y_index, x_index] = values
+
+            descriptor = descriptor.flatten()
+            descriptor = descriptor / np.linalg.norm(descriptor)
+            descriptor[descriptor > 0.2] = 0.2
+            descriptor = descriptor / np.linalg.norm(descriptor)
+            
+            new_keypoint = self._create_new_keypoint(keypoint_or_center, kp_angle)
+            return (new_keypoint, descriptor)
         
     # endregion
 
