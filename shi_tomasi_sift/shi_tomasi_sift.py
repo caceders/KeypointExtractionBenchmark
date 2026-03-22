@@ -143,16 +143,13 @@ class ShiTomasiSift():
         if len(img.shape) > 2:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        if (self.starting_level_scale_pyramid != 0):
-            for i in range(self.starting_level_scale_pyramid):
-                img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
+        for i in range(self.starting_level_scale_pyramid):
+            img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
 
         keypoints = []
-        for octave in range(self.start_scale_scaling_pyramid + self.num_octaves_in_scale_pyramid):
+        for octave in range(self.num_octaves_in_scale_pyramid):
             if octave != 0:
                 img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
-            if octave < self.start_scale_scaling_pyramid:
-                continue
             Ix, Iy = self._calculate_Ix_and_Iy(img)
             response = self._calculate_response(Ix, Iy)
             coords = self._get_keypoint_positions(response)
@@ -189,14 +186,12 @@ class ShiTomasiSift():
         if self.base_blur_sigma != -1:
             img = cv2.GaussianBlur(img, (0, 0), self.base_blur_sigma)
 
-        if (self.starting_level_scale_pyramid != 0):
-            for i in range(self.starting_level_scale_pyramid):
-                img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
+        for i in range(self.starting_level_scale_pyramid):
+            img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
+
         for octave in range(self.num_octaves_in_scale_pyramid):
             if octave != 0:
                 img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
-            if octave < self.start_scale_scaling_pyramid:
-                continue
 
             if self.drop_keypoints_on_border:
                 keypoints = self._drop_keypoints_on_border(keypoints, img)
@@ -651,7 +646,8 @@ class ShiTomasiSift():
                                     y * self.scale_pyramid_scaling_factor ** (octave + self.starting_level_scale_pyramid),
                                     size,
                                     kp_angle,
-                                    response)
+                                    response,
+                                    octave)
         
         return new_keypoint
 
