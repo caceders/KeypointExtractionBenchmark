@@ -29,12 +29,12 @@ class ShiTomasiSift():
                  response_type : str = "normal",
                  use_previous_max_when_calculating_threshold : bool = False,
                  first_max_value_when_previous_max_is_used : int = 80000,
-                 quality_level : float = 0.001,
+                 quality_level : float = 0.005,
                  max_corners : int = 1000,
                  perform_non_maxima_supression : bool = True,
-                 use_descriptor_window_buffer_as_orientation_calculation_window_size : bool = True,
+                 use_descriptor_window_buffer_as_orientation_calculation_window_size : bool = False,
                  orientation_calculation_window_radius : int = 8,
-                 orientation_calculation_gaussian_weight_std : float = 4.5, ## 1.5 * keypoint size (3)
+                 orientation_calculation_gaussian_weight_std : float = 8, ## 1.5 * keypoint size (3)
                  orientation_calculation_bin_count : int = 36,
                  create_new_keypoint_for_large_angle_histogram_values : bool = True,
                  large_angle_histogram_value_threshold : float = 0.8,
@@ -45,13 +45,14 @@ class ShiTomasiSift():
                  descriptor_gaussian_weight_std : float = 8, ## 16/2 = 1/2 window size # -1 for equal weighting
                  descriptor_bin_count : int = 8,
                  drop_keypoints_on_border : bool = False,
-                 base_blur_sigma : float = 1.6,
-                 start_scale_scaling_pyramid : int = 0,
+                 base_blur_sigma : float = -1, #1.6
+                 starting_level_scale_pyramid : int = 0,
                  num_octaves_in_scale_pyramid : int = 5,
                  scale_pyramid_scaling_factor: float = 1.2,
-                 scale_pyramid_blur_sigma: float = 0.5, #-1 for no blur
-                 calculate_orientation_for_keypoints: bool = False,
-                 d_weight : float = 0.75,
+                 scale_pyramid_blur_sigma: float = -1, #-1 for no blur
+                 calculate_orientation_for_keypoints: bool = True,
+                 d_weight : float = 1, #0.75,
+                 octave_response_weight = 0,
                  use_circular_descriptor : bool = False,
                  n_rings : int = 16,
                  enable_histogram_smoothing : bool = True,
@@ -107,11 +108,12 @@ class ShiTomasiSift():
         self.drop_keypoints_on_border = drop_keypoints_on_border
         self.calculate_orientation_for_keypoints = calculate_orientation_for_keypoints
 
-        self.start_scale_scaling_pyramid = start_scale_scaling_pyramid
+        self.starting_level_scale_pyramid = starting_level_scale_pyramid
         self.num_octaves_in_scale_pyramid = num_octaves_in_scale_pyramid
         self.scale_pyramid_scaling_factor = scale_pyramid_scaling_factor
         self.scale_pyramid_blur_sigma = scale_pyramid_blur_sigma
         self.d_weight = d_weight
+        self.octave_response_weight = octave_response_weight
         self.base_blur_sigma = base_blur_sigma
         self.use_circular_descriptor = use_circular_descriptor
         self.n_rings = n_rings
@@ -141,22 +143,25 @@ class ShiTomasiSift():
         if len(img.shape) > 2:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
+        for i in range(self.starting_level_scale_pyramid):
+            img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
+
         keypoints = []
-        for octave in range(self.start_scale_scaling_pyramid + self.num_octaves_in_scale_pyramid):
+        for octave in range(self.num_octaves_in_scale_pyramid):
             if octave != 0:
                 img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
-            if octave < self.start_scale_scaling_pyramid:
-                continue
             Ix, Iy = self._calculate_Ix_and_Iy(img)
             response = self._calculate_response(Ix, Iy)
-            response = self._threshold_response(response)
-            if self.perform_non_maxima_supression:
-                response = self._perform_non_maximum_supression(response)
             coords = self._get_keypoint_positions(response)
-
+            response = self._threshold_response(response)
+            coords = self._get_keypoint_positions(response)
+            if self.perform_non_maxima_supression:
+                response = self._perform_non_maximum_supression(response)  
+            coords = self._get_keypoint_positions(response)
+                
 
             for coord in coords:
-                keypoint = cv2.KeyPoint(float(coord[1]), float(coord[0]), 3 * octave * self.scale_pyramid_scaling_factor, response = float(response[coord[0], coord[1]]), octave=octave)
+                keypoint = cv2.KeyPoint(float(coord[1]), float(coord[0]), 3 * max(octave * self.scale_pyramid_scaling_factor,1), response = float(response[coord[0], coord[1]]) * (1+octave*self.octave_response_weight), octave=octave)
                 keypoints.append(keypoint)
             
         keypoints.sort(key = lambda keypoint : - keypoint.response)
@@ -181,11 +186,12 @@ class ShiTomasiSift():
         if self.base_blur_sigma != -1:
             img = cv2.GaussianBlur(img, (0, 0), self.base_blur_sigma)
 
-        for octave in range(self.start_scale_scaling_pyramid + self.num_octaves_in_scale_pyramid):
+        for i in range(self.starting_level_scale_pyramid):
+            img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
+
+        for octave in range(self.num_octaves_in_scale_pyramid):
             if octave != 0:
                 img = downsample(img, self.scale_pyramid_scaling_factor, self.scale_pyramid_blur_sigma)
-            if octave < self.start_scale_scaling_pyramid:
-                continue
 
             if self.drop_keypoints_on_border:
                 keypoints = self._drop_keypoints_on_border(keypoints, img)
@@ -636,11 +642,12 @@ class ShiTomasiSift():
             size = 0
             response = 0
 
-        new_keypoint = cv2.KeyPoint(x * self.scale_pyramid_scaling_factor ** octave,
-                                    y * self.scale_pyramid_scaling_factor ** octave,
+        new_keypoint = cv2.KeyPoint(x * self.scale_pyramid_scaling_factor ** (octave + self.starting_level_scale_pyramid),
+                                    y * self.scale_pyramid_scaling_factor ** (octave + self.starting_level_scale_pyramid),
                                     size,
                                     kp_angle,
-                                    response)
+                                    response,
+                                    octave)
         
         return new_keypoint
 

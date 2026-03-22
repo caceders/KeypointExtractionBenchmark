@@ -3,236 +3,309 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import re
+import json
 
-CSV_PATH = "shift_comparison.csv"
+# ---------------------------- CONFIG ----------------------------
+CSV_PATH = "shift_octave_response_weighting.csv"
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
 #   "alphabetical_by_descriptor" -> descriptor name, then descriptor number, then detector
 #   "metric"                     -> per-metric sort; ties respect detector-first order
-SORT_MODE = "alphabetical_by_detector"   # "alphabetical_by_detector" | "alphabetical_by_descriptor" | "metric"
-METRIC_ASCENDING = False                   # used only when SORT_MODE == "metric"
-# Descriptor number ordering when present
-NUMBER_DESCENDING = True   # True => 32 above 4; False => 4 above 32
-PERCENTAGE = True
+SORT_MODE = "alphabetical_by_detector"
+METRIC_ASCENDING = False
+NUMBER_DESCENDING = True
 # Color/section grouping:
 #   "auto":       descriptor when SORT_MODE is alphabetical_by_descriptor, else detector
 #   "detector":   always color/section by detector
 #   "descriptor": always color/section by descriptor name
 SECTION_COLOR_MODE = "auto"
 SHADE_SECTIONS = True
-BLACKLIST_DETECTORS = {"MSER", "AGAST", "SIFT 3.2"}
+BLACKLIST_DETECTORS   = {"MSER", "AGAST", "SIFT 3.2"}
 BLACKLIST_DESCRIPTORS = {"DAISY"}
-BLACKLIST_NUMBERS = set({64, 32, 0.030625})
+BLACKLIST_NUMBERS     = {64, 32, 0.030625}
 BLACKLIST_NUMBERS_EPSILON = None
-BLACKLIST_CASE_INSENSITIVE = True
-DEBUG = False
+BLACKLIST_CASE_INSENSITIVE = True 
+EXCLUDE_DESCRIPTOR_NUM_FROM_PLOTS = True
 FIG_DPI = 120
 FONT_FAMILY_YTICKS = "monospace"
-EXCLUDE_DESCRIPTOR_NUM_FROM_PLOTS = True
 
-def _require_set(name, val):
-    if not isinstance(val, (set, frozenset)):
-        raise TypeError(f"{name} must be a set")
-_require_set("BLACKLIST_DETECTORS", BLACKLIST_DETECTORS)
-_require_set("BLACKLIST_DESCRIPTORS", BLACKLIST_DESCRIPTORS)
-_require_set("BLACKLIST_NUMBERS", BLACKLIST_NUMBERS)
+# ----------------------------------------------------------------
+# Helper to set figure window title robustly
+def set_fig_title(fig, title):
+    try:
+        fig.canvas.manager.set_window_title(title)
+    except:
+        try:
+            fig.canvas.set_window_title(title)
+        except:
+            pass
 
-# ---------- LOAD CSV ----------
+# ----------------------------------------------------------------
+# Load CSV
 df = pd.read_csv(CSV_PATH)
-if "combination" not in df.columns:
-    df["combination"] = df.index.astype(str)
-else:
-    df["combination"] = df["combination"].astype(str).str.strip()
+df["combination"] = df.get("combination", df.index).astype(str).str.strip()
 
+# Split combination
 parts = df["combination"].str.split("+", n=1, expand=True)
-df["detector"] = parts[0].fillna("").str.strip()
-df["descriptor_full"] = parts[1].fillna("").str.strip()
+df["detector"] = parts[0].str.strip()
+df["descriptor_full"] = parts[1].str.strip()
 
+# Extract descriptor name + number
+desc_ex = df["descriptor_full"].str.extract(r"^(.*?)(?:\s+(\d+(?:\.\d+)?))?$")
+df["descriptor_name"] = desc_ex[0].str.strip()
+df["descriptor_num"]  = pd.to_numeric(desc_ex[1], errors="coerce")
 
-desc_extract = df["descriptor_full"].str.extract( r"^(.*?)([+-]?\d+(?:\.\d+)?)?$")
-df["descriptor_name"] = desc_extract[0].fillna("").str.strip()
-df["descriptor_num"] = pd.to_numeric(desc_extract[1], errors="coerce")
-
-# ---------- BLACKLIST ----------
-if BLACKLIST_CASE_INSENSITIVE:
-    det_mask = df["detector"].str.lower().isin({d.lower() for d in BLACKLIST_DETECTORS})
-    desc_mask = df["descriptor_name"].str.lower().isin({d.lower() for d in BLACKLIST_DESCRIPTORS})
-else:
-    det_mask = df["detector"].isin(BLACKLIST_DETECTORS)
-    desc_mask = df["descriptor_name"].isin(BLACKLIST_DESCRIPTORS)
-
-if len(BLACKLIST_NUMBERS) == 0:
-    num_mask = pd.Series(False, index=df.index)
-else:
+# ----------------------------------------------------------------
+# Blacklist
+if BLACKLIST_DESCRIPTORS:
+    df = df.loc[~df["descriptor_name"].str.lower().isin({d.lower() for d in BLACKLIST_DESCRIPTORS})]
+if BLACKLIST_DETECTORS:
+    df = df.loc[~df["detector"].str.lower().isin({d.lower() for d in BLACKLIST_DETECTORS})]
+if BLACKLIST_NUMBERS:
     if BLACKLIST_NUMBERS_EPSILON is None:
-        num_mask = df["descriptor_num"].isin(list(BLACKLIST_NUMBERS))
+        df = df.loc[~df["descriptor_num"].isin(list(BLACKLIST_NUMBERS))]
     else:
         eps = float(BLACKLIST_NUMBERS_EPSILON)
-        num_mask = pd.Series(False, index=df.index)
+        bad = []
         for b in BLACKLIST_NUMBERS:
             try: bval = float(b)
             except: continue
-            num_mask |= (df["descriptor_num"].notna() & (np.abs(df["descriptor_num"] - bval) <= eps))
+            bad.append(np.abs(df["descriptor_num"] - bval) <= eps)
+        if bad:
+            mask = bad[0]
+            for m in bad[1:]: mask |= m
+            df = df.loc[~mask]
 
-drop_mask = det_mask | desc_mask | num_mask
-df = df.loc[~drop_mask].reset_index(drop=True)
+df = df.reset_index(drop=True)
 
-# ---------- FIND ILLUM/VIEWPOINT COLUMN PAIRS ----------
-illum_cols = [c for c in df.columns if c.lower().endswith("illumination")]
-view_cols  = [c for c in df.columns if c.lower().endswith("viewpoint")]
+# ----------------------------------------------------------------
+# Detect illumination/viewpoint metric pairs
+illum_cols=[c for c in df.columns if c.lower().endswith("illumination")]
+view_cols =[c for c in df.columns if c.lower().endswith("viewpoint")]
 
-pairs = []
+pairs=[]
 for illum in illum_cols:
-    base = illum.rsplit(" ", 1)[0]
+    base = illum.rsplit(" ",1)[0]
     view = base + " viewpoint"
     if view in view_cols:
         pairs.append((base, illum, view))
 
-# Create averaged columns
+# Average illumination/viewpoint into a new metric
 for base, illum, view in pairs:
     df[base] = (df[illum] + df[view]) / 2
     df[f"{base}__illum"] = df[illum]
     df[f"{base}__view"]  = df[view]
 
-# ---------- NUMERIC COLUMNS (AVERAGED ONLY) ----------
+# ----------------------------------------------------------------
+# EXCLUDE octave_stats from main plots
+def is_octave_col(c):
+    return "octave" in c.lower()
+
 numeric_cols = [
     c for c in df.select_dtypes(include="number").columns
     if not c.endswith("__illum")
     and not c.endswith("__view")
     and not c.lower().endswith("illumination")
     and not c.lower().endswith("viewpoint")
+    and not is_octave_col(c)
 ]
 
 if EXCLUDE_DESCRIPTOR_NUM_FROM_PLOTS and "descriptor_num" in numeric_cols:
     numeric_cols.remove("descriptor_num")
 
-if len(numeric_cols) == 0:
-    raise ValueError("No numeric columns to plot.")
-
-# ---------- SORTING BASELINES ----------
-df_work = df.assign(
-    __det_key=df["detector"].fillna("").str.lower(),
-    __desc_key=df["descriptor_name"].fillna("").str.lower(),
-    __comb_key=df["combination"].fillna("").str.lower()
+# ----------------------------------------------------------------
+# ORDERING LOGIC (unchanged)
+dfw=df.assign(
+    __det_key=df["detector"].str.lower(),
+    __desc_key=df["descriptor_name"].str.lower(),
+    __comb_key=df["combination"].str.lower()
 )
 
-desc_num_key = np.where(df["descriptor_num"].notna(),
-                        -df["descriptor_num"].values if NUMBER_DESCENDING else df["descriptor_num"].values,
-                        -np.inf if NUMBER_DESCENDING else np.inf)
+desc_num_key=np.where(
+    df["descriptor_num"].notna(),
+    -df["descriptor_num"] if NUMBER_DESCENDING else df["descriptor_num"],
+    -np.inf if NUMBER_DESCENDING else np.inf
+)
+dfw["__desc_num_key"]=desc_num_key
 
-df_work["__desc_num_key"] = desc_num_key
-
-df_alpha_by_detector = df_work.sort_values(
+df_by_det=dfw.sort_values(
     by=["__det_key","__desc_key","__desc_num_key","__comb_key"],
     kind="mergesort"
-).drop(columns=["__det_key","__desc_key","__desc_num_key","__comb_key"]).reset_index(drop=True)
+).drop(columns=dfw.filter(like="__").columns).reset_index(drop=True)
 
-df_alpha_by_descriptor = df_work.sort_values(
+df_by_desc=dfw.sort_values(
     by=["__desc_key","__desc_num_key","__det_key","__comb_key"],
     kind="mergesort"
-).drop(columns=["__det_key","__desc_key","__desc_num_key","__comb_key"]).reset_index(drop=True)
+).drop(columns=dfw.filter(like="__").columns).reset_index(drop=True)
 
-# ---------- COLORS ----------
-all_detectors = sorted(df["detector"].dropna().astype(str).unique(), key=str.lower)
-all_descriptors = sorted(df["descriptor_name"].dropna().astype(str).unique(), key=str.lower)
-cmap_det = plt.cm.get_cmap("tab20")
-cmap_desc = plt.cm.get_cmap("tab20")
-det_color_map = {d: cmap_det(i % cmap_det.N) for i, d in enumerate(all_detectors)}
-desc_color_map = {d: cmap_desc(i % cmap_desc.N) for i, d in enumerate(all_descriptors)}
+# ----------------------------------------------------------------
+# COLOR MAPS
+all_det=sorted(df["detector"].unique(), key=str.lower)
+all_des=sorted(df["descriptor_name"].unique(), key=str.lower)
+cmap_det=plt.cm.get_cmap("tab20")
+cmap_desc=plt.cm.get_cmap("tab20")
+det_color={d:cmap_det(i%20) for i,d in enumerate(all_det)}
+des_color={d:cmap_desc(i%20) for i,d in enumerate(all_des)}
 
-# ---------- PLOTTING ----------
-smode = SORT_MODE.lower()
-
+# ----------------------------------------------------------------
+# MAIN METRIC PLOTS
 for col in numeric_cols:
-    if smode == "alphabetical_by_detector":
-        df_sorted = df_alpha_by_detector.copy()
-        legend_title = "Detector"
-        group_key = "detector" if SECTION_COLOR_MODE != "descriptor" else "descriptor_name"
-    elif smode == "alphabetical_by_descriptor":
-        df_sorted = df_alpha_by_descriptor.copy()
-        legend_title = "Descriptor"
-        group_key = "descriptor_name" if SECTION_COLOR_MODE != "detector" else "detector"
-    elif smode == "metric":
-        df_sorted = df_alpha_by_detector.sort_values(by=col, ascending=METRIC_ASCENDING, kind="mergesort").reset_index(drop=True)
-        group_key = "detector"
-    else:
-        raise ValueError("Invalid SORT_MODE")
 
-    # Choose color map
-    color_map = det_color_map if group_key == "detector" else desc_color_map
+    if SORT_MODE=="alphabetical_by_detector":
+        df_sorted=df_by_det.copy()
+        group_key="detector" if SECTION_COLOR_MODE!="descriptor" else "descriptor_name"
+    elif SORT_MODE=="alphabetical_by_descriptor":
+        df_sorted=df_by_desc.copy()
+        group_key="descriptor_name" if SECTION_COLOR_MODE!="detector" else "detector"
+    else:  # metric
+        df_sorted=df_by_det.sort_values(by=col, ascending=METRIC_ASCENDING, kind="mergesort")
+        group_key="detector"
 
-    group_vals = df_sorted[group_key].astype(str).tolist()
-    bar_colors = [color_map[g] for g in group_vals]
+    color_map = det_color if group_key=="detector" else des_color
+    bar_colors=[color_map[g] for g in df_sorted[group_key]]
 
-    # Y labels
-    split = [s.split("+",1) for s in (df_sorted["detector"].astype(str)+"+"+df_sorted["descriptor_full"].astype(str))]
-    maxL = max(len(p[0]) for p in split)
-    maxR = max(len(p[1]) for p in split)
-    y_labels = [p[0].ljust(maxL)+" + "+p[1].ljust(maxR) for p in split]
+    # Labels
+    split=[s.split("+",1) for s in (df_sorted["detector"]+"+"+df_sorted["descriptor_full"])]
+    maxL=max(len(p[0]) for p in split); maxR=max(len(p[1]) for p in split)
+    y_labels=[p[0].ljust(maxL)+" + "+p[1].ljust(maxR) for p in split]
+    y_pos=np.arange(len(df_sorted))
 
-    y_pos = np.arange(len(df_sorted))
-    fig_h = max(6, len(df_sorted)*0.14)
-    fig, ax = plt.subplots(figsize=(10, fig_h), dpi=FIG_DPI)
-    try: fig.canvas.manager.set_window_title(str(col))
-    except: pass
+    fig_h=max(6, len(df_sorted)*0.14)
+    fig,ax=plt.subplots(figsize=(10,fig_h),dpi=FIG_DPI)
+    set_fig_title(fig, col)
 
-    ax.barh(y_pos, df_sorted[col].values, color=bar_colors)
+    ax.barh(y_pos, df_sorted[col], color=bar_colors)
 
-    # ---- DRAW < AND X ----
-    for idx, row in df_sorted.iterrows():
-        illum = row.get(f"{col}__illum", None)
-        view  = row.get(f"{col}__view", None)
-
+    # < and X markers
+    for i,row in df_sorted.iterrows():
+        illum=row.get(f"{col}__illum")
+        view =row.get(f"{col}__view")
         if illum is not None:
-            ax.text(illum, idx, "<", va="center", ha="center",
-                    color="black", fontweight="bold")
-
+            ax.text(illum, i, "<", ha="center", va="center", fontweight="bold")
         if view is not None:
-            ax.text(view, idx, "X", va="center", ha="center",
-                    color="black", fontweight="bold")
+            ax.text(view, i, "X", ha="center", va="center", fontweight="bold")
 
-    # ---- SHADE SECTIONS ----
-    if SHADE_SECTIONS and len(df_sorted) > 0:
-        seq = df_sorted[group_key].astype(str).tolist()
-        runs = []
-        start = 0
-        curr = seq[0]
-        for i,v in enumerate(seq[1:], start=1):
-            if v != curr:
-                runs.append((start,i,curr)); start=i; curr=v
+    # Shading (optional)
+    if SHADE_SECTIONS:
+        seq=df_sorted[group_key].tolist()
+        runs=[]; start=0; curr=seq[0]
+        for j,v in enumerate(seq[1:],1):
+            if v!=curr: runs.append((start,j,curr)); start=j; curr=v
         runs.append((start,len(seq),curr))
+        xright=ax.get_xlim()[1] or float(df_sorted[col].max())
+        for k,(a,b,g) in enumerate(runs):
+            ax.axhspan(a-0.5, b-0.5, color=color_map[g], alpha=0.08, lw=0)
+            if k>0: ax.axhline(a-0.5, color="gray", ls="--", alpha=0.7)
+            mid=(a+b-1)/2
+            ax.text(xright*1.01, mid, g, ha="left", va="center",
+                    fontweight="bold", color=color_map[g])
 
-        x_right = ax.get_xlim()[1] or float(df_sorted[col].max())
-        for i,(r0,r1,g) in enumerate(runs):
-            ax.axhspan(r0-0.5, r1-0.5, color=color_map[g], alpha=0.08, lw=0)
-            if i>0:
-                ax.axhline(r0-0.5, color="gray", linestyle="--", linewidth=1, alpha=0.7)
-            mid = (r0+r1-1)/2
-            ax.text(x_right*1.01, mid, g, va="center", ha="left",
-                    fontsize=11, fontweight="bold", color=color_map[g])
+    ax.set_title(col, fontweight="bold")
+    ax.set_xlabel(col)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(y_labels, fontfamily=FONT_FAMILY_YTICKS)
+    ax.grid(True, axis="x", linestyle=":", alpha=0.5)
+    ax.legend(handles=[
+        mpatches.Patch(color='none',label='< illumination'),
+        mpatches.Patch(color='none',label='X viewpoint')
+    ], loc="lower right")
 
-    # ---- TITLE / LABELS ----
-    m = re.match(r"^(.*?)(\s*\[[^\]]*\])\s*$", str(col))
-    if m:
-        name = m.group(1).strip()
-        unit = m.group(2).strip()
-    else:
-        name = str(col).strip()
-        unit = ""
-    name_cap = name[:1].upper()+name[1:]
+    plt.tight_layout()
 
-    ax.set_title(f"{name_cap} — grouped by {legend_title}", fontsize=12, fontweight="bold")
-    ax.set_xlabel(f"{name_cap}{(' '+unit) if unit else ''}")
-    ax.set_ylabel("combination")
+# ===================================================================
+#              OCTAVE PLOTTING (JSON-BASED)
+# ===================================================================
+
+# Load the JSON dict from the CSV
+df["octave_stats"] = df["octave_stats"].apply(json.loads)
+
+# ----------------------------------------------------------------
+# Helper to collect (method, octave, metric) rows
+def explode_octave_metric(metric_name):
+    """
+    metric_name: 'keypoints' or 'response'
+    returns DataFrame with:
+      combination, detector, descriptor_full, octave_idx, value
+    """
+    rows = []
+    for idx, row in df.iterrows():
+        stats = row["octave_stats"]
+        for oct_idx, metrics in stats.items():
+            if metric_name not in metrics or metrics[metric_name] is None:
+                continue
+            rows.append({
+                "combination": row["combination"],
+                "detector": row["detector"],
+                "descriptor_full": row["descriptor_full"],
+                "octave_idx": int(oct_idx),
+                "value": metrics[metric_name]
+            })
+    return pd.DataFrame(rows)
+
+# ----------------------------------------------------------------
+# OCTAVE KEYPOINTS PLOT
+df_key = explode_octave_metric("keypoints")
+
+if not df_key.empty:
+    # sort by method order then octave
+    order_map = {name:i for i,name in enumerate(df_by_det["combination"])}
+    df_key["_order"] = df_key["combination"].map(order_map)
+    df_key = df_key.sort_values(["_order","octave_idx"])
+
+    y_labels=[f"{r['detector']} + {r['descriptor_full']} — octave {r['octave_idx']}"
+              for _,r in df_key.iterrows()]
+    y_pos=np.arange(len(df_key))
+
+    cmap = plt.cm.get_cmap("tab10")
+    colors=[cmap(o%10) for o in df_key["octave_idx"]]
+
+    fig, ax = plt.subplots(figsize=(10, max(6, len(df_key)*0.14)), dpi=FIG_DPI)
+    set_fig_title(fig, "Keypoints per octave")
+
+    ax.barh(y_pos, df_key["value"], color=colors)
+    ax.set_title("Keypoints per octave", fontsize=12, fontweight="bold")
+    ax.set_xlabel("Num keypoints")
     ax.set_yticks(y_pos)
     ax.set_yticklabels(y_labels, fontfamily=FONT_FAMILY_YTICKS)
     ax.grid(True, axis="x", linestyle=":", alpha=0.5)
 
-    # ---- LEGEND ----
-    illum_patch = mpatches.Patch(color='none', label='<  illumination')
-    view_patch  = mpatches.Patch(color='none', label='X  viewpoint')
-    ax.legend(handles=[illum_patch, view_patch], loc="lower right")
+    handles = [mpatches.Patch(color=cmap(i%10), label=f"octave {i}")
+               for i in sorted(df_key["octave_idx"].unique())]
+    ax.legend(handles=handles, loc="lower right")
 
     plt.tight_layout()
 
+# ----------------------------------------------------------------
+# OCTAVE RESPONSE PLOT
+df_resp = explode_octave_metric("response")
+
+if not df_resp.empty:
+    order_map = {name:i for i,name in enumerate(df_by_det["combination"])}
+    df_resp["_order"] = df_resp["combination"].map(order_map)
+    df_resp = df_resp.sort_values(["_order","octave_idx"])
+
+    y_labels=[f"{r['detector']} + {r['descriptor_full']} — octave {r['octave_idx']}"
+              for _,r in df_resp.iterrows()]
+    y_pos=np.arange(len(df_resp))
+
+    cmap = plt.cm.get_cmap("tab10")
+    colors=[cmap(o%10) for o in df_resp["octave_idx"]]
+
+    fig, ax = plt.subplots(figsize=(10, max(6, len(df_resp)*0.14)), dpi=FIG_DPI)
+    set_fig_title(fig, "Response per octave")
+
+    ax.barh(y_pos, df_resp["value"], color=colors)
+    ax.set_title("Average response per octave", fontsize=12, fontweight="bold")
+    ax.set_xlabel("Avg response")
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(y_labels, fontfamily=FONT_FAMILY_YTICKS)
+    ax.grid(True, axis="x", linestyle=":", alpha=0.5)
+
+    handles = [mpatches.Patch(color=cmap(i%10), label=f"octave {i}")
+               for i in sorted(df_resp["octave_idx"].unique())]
+    ax.legend(handles=handles, loc="lower right")
+
+    plt.tight_layout()
+
+# ----------------------------------------------------------------
 plt.show()
