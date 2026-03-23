@@ -3,13 +3,14 @@ from benchmark.utils import calculate_overlap_one_circle_to_many
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
-from benchmark.matching import MatchSet, greedy_maximum_bipartite_matching
+from benchmark.matching import MatchSet, greedy_maximum_bipartite_matching, Match
 from typing import Tuple, Callable
 import random
 import numpy as np
 import warnings
 from beartype import beartype
 from config import *
+import cv2
 
 # Beartype commented out for performance
 #@beartype
@@ -27,13 +28,49 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
 
 
 #@beartype
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int):  
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool):  
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
+            
 
             keypoints = feature_extractor.detect_keypoints(image)
+            num_keypoints = len(keypoints)
+            min_required_keypoints = round(max_features*1.1)
+            if min_required_keypoints < len(keypoints):
+                scores = np.array([keypoint.response for keypoint in keypoints])
+                idx = np.argpartition(scores, -min_required_keypoints)[-min_required_keypoints:]
+                keypoints = [keypoints[i] for i in idx]
+            for keypoint in keypoints:
+                keypoint.size = keypoint.size * keypoint_size_scaling
+                if (FORCE_CONSTANT_ANGLE):
+                    keypoint.angle = 0
+
+            if (len(keypoints) == 0):
+                continue
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+
+            if num_keypoints > min_required_keypoints and len(keypoints) < max_features:
+                print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+
+            # if (num_keypoints < max_features):
+            #     print("seq ", sequence_index, " ", image_index, " ", max_features-num_keypoints)
+            
+
+            # For debug ################################
+            
+            # best_keypoint = max(list(keypoints), key=lambda kp: kp.response)
+            # biggest_keypoint = max(list(keypoints), key=lambda kp: kp.size)
+            # print(best_keypoint.size)
+            # print(best_keypoint.response)
+            # print(biggest_keypoint.size)
+            # print(biggest_keypoint.response)
+            # out_image = cv2.drawKeypoints(image, [max(list(keypoints), key=lambda kp: kp.size), max(list(keypoints), key=lambda kp: kp.response)], None, color=None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            # #out_image = cv2.drawKeypoints(image, keypoints, None, color=None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            # cv2.imshow("Keypoints", out_image)
+            # cv2.waitKey(0)   # 200 ms = 0.2 s
+            # cv2.destroyAllWindows()
+            # ############################################
             
             # prebinding locals for performance increase
             Feature_ = Feature
@@ -48,12 +85,11 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
                 scores = np.array([f.keypoint.response for f in features])
                 idx = np.argpartition(scores, -max_features)[-max_features:]
                 features = [features[i] for i in idx]
-            
             image_feature_set[sequence_index][image_index] = features
 
 
 #@beartype
-def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homography_sequence: list[list[np.ndarray]], FEATURE_OVERLAP_THRESHOLD: float):
+def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homography_sequence: list[list[np.ndarray]]):
     
     set_numbers_of_possible_correct_matches= []
     set_repeatabilities = []
@@ -76,17 +112,20 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
 
             # transform sizes
             related_features_size_transformed = np.array([feature.get_size_after_homography_transform(homography) for feature in related_images_features])
-            overlap_matrix = []
+            closeness_matrix = []
             for reference_feature in reference_features:
                 
                 # Check distances
                 distances = np.linalg.norm(related_features_position_transformed - reference_feature.pt, axis=1)
                 
-                overlaps = calculate_overlap_one_circle_to_many(reference_feature.keypoint.size, related_features_size_transformed, distances)
-                overlap_matrix.append(overlaps)
+                if USE_DISTANCE:
+                    closeness_matrix.append(distances)
+                    mask = (distances <= DISTANCE_THRESHOLD)
+                else:
+                    overlaps = calculate_overlap_one_circle_to_many(reference_feature.keypoint.size, related_features_size_transformed, distances)
+                    closeness_matrix.append(overlaps)
+                    mask = (overlaps >= FEATURE_OVERLAP_THRESHOLD)
 
-                # Final mask: ONLY overlap criterion
-                mask = (overlaps >= FEATURE_OVERLAP_THRESHOLD)
 
                 valid_feature_indexes = np.nonzero(mask)[0]
                 if valid_feature_indexes.size == 0:
@@ -95,14 +134,16 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
                 # Store valid features for that check mask
                 for index in valid_feature_indexes:
                     related_feature = related_images_features[index]
-                    distance = distances[index]
                     reference_feature.store_valid_match_for_image(related_image_index, related_feature)
                     related_feature.store_valid_match_for_image(0, reference_feature)
 
             # Run matching
-            overlap_matrix_np = np.array(overlap_matrix)
+            closeness_matrix_np = np.array(closeness_matrix)
 
-            matches = greedy_maximum_bipartite_matching(reference_features, related_images_features, overlap_matrix_np, True, False)
+            if USE_DISTANCE:
+                matches = greedy_maximum_bipartite_matching(reference_features, related_images_features, closeness_matrix_np, False, False)
+            else:
+                matches = greedy_maximum_bipartite_matching(reference_features, related_images_features, closeness_matrix_np, True, False)
 
             number_of_possible_correct_matches = sum(1 for match in matches
                                                         if (valid_matches:=match.reference_feature.get_valid_matches_for_image(related_image_index)) is not None and 
@@ -113,8 +154,7 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
             number_of_reference_features = len(reference_features)
 
             repeatability = (
-                number_of_possible_correct_matches / number_of_reference_features
-                if number_of_reference_features > 0 else 0.0
+                number_of_possible_correct_matches / number_of_reference_features if number_of_reference_features > 0 else 0.0
             )
             repeatabilities.append(repeatability)
 
@@ -125,16 +165,148 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
 
 
 #@beartype
-def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable) -> list[MatchSet]:
+def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seq_to_visualize: int) -> list[MatchSet]:
     matching_match_sets: list[MatchSet] = []
-    for image_feature_sequence in tqdm(image_feature_set, leave=False, desc="Calculating matching results"):
+    for seq, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
         matching_match_set = MatchSet()
         matching_match_sets.append(matching_match_set)
         reference_features = image_feature_sequence.reference_image_features
 
-        for related_image_features in image_feature_sequence.related_images_features:
-            matches = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
+        for rel_idx, related_image_features in enumerate(image_feature_sequence.related_images_features):
+            matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
             matching_match_set.add_match(matches)
+
+            if visualize and seq == seq_to_visualize:
+
+                ## For debug ################################
+                def transformed_keypoint_size(kp, H):
+                    """Compute the transformed keypoint center and new size using global NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION."""
+                    x, y = kp.pt
+                    r = kp.size / 2
+
+                    # Sample points around the keypoint
+                    angles = np.linspace(0, 2*np.pi, NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, endpoint=False)
+                    pts = np.array([[x + r * np.cos(a), y + r * np.sin(a)] for a in angles], dtype=np.float32)
+
+                    # Homogeneous coordinates
+                    pts_h = np.hstack([pts, np.ones((NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, 1), dtype=np.float32)])
+                    center_h = np.array([x, y, 1.0], dtype=np.float32)
+
+                    # Apply homography
+                    pts_t_h = pts_h @ H.T
+                    center_t_h = H @ center_h
+                    pts_t = pts_t_h[:, :2] / pts_t_h[:, 2:3]
+                    center_t = center_t_h[:2] / center_t_h[2]
+
+                    new_r = np.mean(np.linalg.norm(pts_t - center_t, axis=1))
+                    return 2 * new_r, tuple(center_t.astype(int))
+
+                # -------------------
+                # Images and homography
+                img_ref = dataset_image_sequences[seq][0]
+                img_rel = dataset_image_sequences[seq][rel_idx + 1]
+                H = dataset_homography_sequence[seq][rel_idx]
+
+                h1, w1 = img_ref.shape[:2]
+                h2, w2 = img_rel.shape[:2]
+
+                # Sort matches
+                sorted_matches = sorted(matches, key=lambda m: m.match_properties["distance"])
+
+                # Window names
+                main_window = "Matches Viewer"
+                overlay_window = "Highlighted Match Overlay"
+                cv2.namedWindow(main_window)
+                cv2.namedWindow(overlay_window)
+
+                # Current match index
+                current_idx = 0  # 0 = first match
+
+                def redraw_main(idx):
+                    """Draw main viewer with matches up to current index."""
+                    out = np.zeros((max(h1, h2), w1 + w2, 3), dtype=img_ref.dtype)
+                    out[:h1, :w1] = img_ref
+                    out[:h2, w1:w1 + w2] = img_rel
+
+                    n = idx + 1
+                    visible = sorted_matches[:n]
+
+                    for i, match in enumerate(visible):
+                        kp1 = match.reference_feature.keypoint
+                        kp2 = match.related_feature.keypoint
+
+                        p1 = tuple(map(int, kp1.pt))
+                        p2 = (int(kp2.pt[0] + w1), int(kp2.pt[1]))
+
+                        r1 = max(2, int(kp1.size / 2))
+                        r2 = max(2, int(kp2.size / 2))
+
+                        if i == n - 1:
+                            color = (0, 255, 255)  # highlighted
+                            thickness = 2
+                        else:
+                            color = (0, 255, 0) if match.is_correct else (0, 0, 255)
+                            thickness = 1
+
+                        cv2.circle(out, p1, r1, color, thickness)
+                        cv2.circle(out, p2, r2, color, thickness)
+                        cv2.line(out, p1, p2, color, thickness)
+
+                    cv2.imshow(main_window, out)
+
+                def redraw_overlay(idx):
+                    """Draw overlay image with only the highlighted match transformed."""
+                    match = sorted_matches[idx]
+                    kp1 = match.reference_feature.keypoint
+                    kp2 = match.related_feature.keypoint
+
+                    overlay = img_ref.copy()  # overlay only on reference image
+
+                    # Draw reference keypoint
+                    r1 = max(2, int(kp1.size / 2))
+                    cv2.circle(overlay, tuple(map(int, kp1.pt)), r1, (0, 255, 0), 2)
+
+                    # Draw transformed related keypoint
+                    new_size, new_center = transformed_keypoint_size(kp2, H)
+                    cv2.circle(overlay, new_center, max(2, int(new_size / 2)), (255, 0, 0), 2)
+
+                    cv2.imshow(overlay_window, overlay)
+
+                def update(idx):
+                    """Update both windows for current index."""
+                    redraw_main(idx)
+                    redraw_overlay(idx)
+                    cv2.setTrackbarPos("Matches", main_window, idx)
+
+                # Trackbar callback
+                def on_trackbar(val):
+                    global current_idx
+                    current_idx = val
+                    update(current_idx)
+
+                # Create trackbar
+                cv2.createTrackbar("Matches", main_window, current_idx, len(sorted_matches)-1, on_trackbar)
+
+                # Initial draw
+                update(current_idx)
+
+                # -------------------
+                # Main loop
+                while True:
+                    key = cv2.waitKey(30) & 0xFF
+
+                    if key == 27:  # ESC
+                        break
+                    elif key == 81 or key == ord('a'):  # LEFT arrow or 'a'
+                        current_idx = max(0, current_idx - 1)
+                        update(current_idx)
+                    elif key == 83 or key == ord('d'):  # RIGHT arrow or 'd'
+                        current_idx = min(len(sorted_matches) - 1, current_idx + 1)
+                        update(current_idx)
+
+                cv2.destroyAllWindows()
+
+                #############################################
 
     return matching_match_sets
 

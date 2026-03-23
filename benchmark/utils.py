@@ -5,28 +5,23 @@ import os
 import matplotlib.pyplot as plt
 import math
 import random
+from typing import Tuple
+
+
 
 def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
     """
-    Load the HPSequence dataset:
-    by passing the path to the sequence.
+    Load the HPSequence dataset (PPM images and homographies),
 
-    Parameters
-    ----------
-    path_to_HPSequences: str
-        The path to the extracted HPsequences dataset.
-
-    Returns
-    -------
-    Tuple[list[list[np.ndarray]], list[list[np.ndarray]]
-        A 2d list of the image sequences with the respective images and a
-        2d list of the homographical transformation matrixes between the
-        reference image and the related images.
+    Returns:
+        image_sequences: 2D list of sequences -> images
+        homography_sequences: 2D list of sequences -> homography matrices
+                              (reference image to each subsequent image).
     """
     image_sequences: list[list[np.ndarray]] = []
     homography_sequences: list[list[np.ndarray]] = []
 
-    # Itterate over all subfolders.
+    # Iterate over all subfolders.
     for name in os.listdir(path_to_HPSequences):
         subfolder = os.path.join(path_to_HPSequences, name)
         if not os.path.isdir(subfolder):
@@ -56,6 +51,7 @@ def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], 
         homography_sequences.append(homographies)
 
     return image_sequences, homography_sequences
+
 
 
 def calculate_overlap_one_circle_to_many(circle_diameter: float, other_circles_diameters : np.ndarray, distances):
