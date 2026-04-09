@@ -16,6 +16,7 @@ import warnings
 from config import *
 from shi_tomasi_sift import ShiTomasiSift
 import json
+from scipy.spatial.distance import pdist
 
 ## Load dataset.    
 dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
@@ -276,7 +277,54 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
             octave_avg_discrepancy = 0
             octave_stats = {}
 
-        
+        # Average distances between descriptors:
+        distances_incorrect = distances[incorrect_mask]
+        avg_dist_incorrect = safe_mean(distances_incorrect)
+
+        # Descriptor distinctions and use of the descriptor space
+
+        mean_pairwise_distances = []
+        mean_pairwise_distances_normalized = []
+        normalized_effective_ranks = []
+
+        for image_feature_sequence in image_feature_set:
+            sequence_descriptor = [feature.description for image_feature in image_feature_sequence
+                            for feature in image_feature]
+            descriptors = np.array(sequence_descriptor)
+
+            if feature_extractor.distance_type == cv2.NORM_L2:
+                pairwise = pdist(descriptors, metric='euclidean')
+                mean_pairwise_distance = float(pairwise.mean())
+                mean_pairwise_distances.append(mean_pairwise_distance)
+
+                norms = np.linalg.norm(descriptors, axis=1, keepdims=True)
+                normalized = descriptors / np.where(norms == 0, 1, norms)
+                mean_pairwise_distance_normalized = float(pdist(normalized, metric='euclidean').mean())
+                mean_pairwise_distances_normalized.append(mean_pairwise_distance_normalized)
+
+                cov = np.cov(descriptors, rowvar=False)
+
+            elif feature_extractor.distance_type == cv2.NORM_HAMMING:
+                bit_matrix = np.unpackbits(descriptors, axis=1).astype(float)
+                mean_pairwise_distance = float(pdist(bit_matrix, metric='hamming').mean())
+                mean_pairwise_distances.append(mean_pairwise_distance)
+
+                mean_pairwise_distance_normalized = mean_pairwise_distances  # magnitude meaningless for binary
+                mean_pairwise_distances_normalized.append(mean_pairwise_distance_normalized)
+
+                cov = np.cov(bit_matrix, rowvar=False)
+
+            eigenvalues = np.linalg.eigvalsh(cov)
+            eigenvalues = eigenvalues[eigenvalues > 0]
+            p = eigenvalues / eigenvalues.sum()
+            normalized_effective_rank = float(np.exp(-np.sum(p * np.log(p))) / cov.shape[0])
+            normalized_effective_ranks.append(normalized_effective_rank)
+
+        mean_pairwise_distances = np.mean(mean_pairwise_distances)
+        mean_pairwise_distances_normalized = np.mean(mean_pairwise_distances_normalized)
+        normalized_effective_ranks = np.mean(normalized_effective_ranks)
+
+
         # ========================
         # STORE RESULTS
         # ========================
@@ -302,9 +350,19 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
             "size correct: avg": avg_size_correct,
             "size correct/all ratio": ratio_size_correct,
 
+            # Distance metrics
+            "descriptor distance correct: avg": avg_dist_correct,
+            "descriptor distance incorrect: avg": avg_dist_incorrect,
+
             "distance correct/all ratio": ratio_dist_correct,
             "response correct/all ratio": ratio_resp_correct,
             "distinctiveness correct/all ratio": ratio_distinct_correct,
+
+            # Descriptor distance metrics:
+            "mean pairwise_distances" : mean_pairwise_distances,
+            "mean pairwise_distances_normalized" : mean_pairwise_distances_normalized,
+            "normalized_effective_ranks" : normalized_effective_ranks,
+
 
             # Rank metrics
             "match rank: avg": avg_rank_all,

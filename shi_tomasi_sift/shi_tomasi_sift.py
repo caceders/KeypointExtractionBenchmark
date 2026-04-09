@@ -24,19 +24,20 @@ class ShiTomasiSift():
     # region Public
 
     def __init__(self,
-                 derivation_operator : str = "simple",
+                 derivation_operator : str = "simple", #"simple", "sobel", "prewitt", "scharr"
                  structure_tensor_window : NDArray | None = None,
-                 response_type : str = "normal",
+                 response_type : str = "normal", # "sftt", "normal
                  use_previous_max_when_calculating_threshold : bool = False,
                  first_max_value_when_previous_max_is_used : int = 80000,
                  quality_level : float = 0.005,
                  max_corners : int = 1000,
                  perform_non_maxima_supression : bool = True,
                  use_descriptor_window_buffer_as_orientation_calculation_window_size : bool = False,
-                 orientation_calculation_window_radius : int = 8,
+                 orientation_calculation_window_radius : int = 13, # ceil(sqrt(2) * (8*2 + 1)/2)
                  orientation_calculation_gaussian_weight_std : float = 8, ## 1.5 * keypoint size (3)
                  orientation_calculation_bin_count : int = 36,
-                 create_new_keypoint_for_large_angle_histogram_values : bool = True,
+                 orientation_calculation_angle_method : str = "parabolic", # "parabolic" or "interpolated"
+                 orientation_calculation_strategy : str = "classic", # "classic", "singular" or "ratio_test" 
                  large_angle_histogram_value_threshold : float = 0.8,
                  descriptor_window_radius : int = 8,
                  use_orientation_buffer: bool = True,
@@ -46,7 +47,7 @@ class ShiTomasiSift():
                  descriptor_bin_count : int = 8,
                  drop_keypoints_on_border : bool = False,
                  base_blur_sigma : float = -1, #1.6
-                 starting_level_scale_pyramid : int = 0,
+                 starting_level_scale_pyramid : int = 8,
                  num_octaves_in_scale_pyramid : int = 5,
                  scale_pyramid_scaling_factor: float = 1.2,
                  scale_pyramid_blur_sigma: float = -1, #-1 for no blur
@@ -87,7 +88,8 @@ class ShiTomasiSift():
         self.orientation_calculation_window_size = orientation_calculation_window_radius * 2 + 1
         self.orientation_calculation_gaussian_weight_std = orientation_calculation_gaussian_weight_std
         self.orientation_calculation_bin_count = orientation_calculation_bin_count
-        self.create_new_keypoint_for_large_angle_histogram_values = create_new_keypoint_for_large_angle_histogram_values
+        self.orientation_calculation_angle_method = orientation_calculation_angle_method
+        self.orientation_calculation_strategy = orientation_calculation_strategy
         self.large_angle_histogram_value_threshold = large_angle_histogram_value_threshold
         self.descriptor_window_size = descriptor_window_radius * 2 + 1
 
@@ -204,6 +206,8 @@ class ShiTomasiSift():
                     continue
                 if self.calculate_orientation_for_keypoints:
                     kp_angles = self._calculate_orientation_of_keypoint(keypoint, magnitude, pixel_angles)
+                    if kp_angles is None: # Drop keypoint due to descriptor ratio test
+                        continue
                 else:
                     if keypoint.angle == -1:
                         kp_angles = [0]
@@ -461,7 +465,7 @@ class ShiTomasiSift():
             hist = np.convolve(padded, kernel, mode='valid')
         return hist
 
-    def _get_angles_from_histogram(self, values : NDArray, bins : NDArray) -> list[float]:
+    def _get_angles_from_histogram(self, values : NDArray, bins : NDArray) -> list[float] | None:
         '''
         Returns a list of angles, one for each keypoint
         '''
@@ -474,10 +478,18 @@ class ShiTomasiSift():
         angles = []
 
         
-        if self.create_new_keypoint_for_large_angle_histogram_values:
+        if self.orientation_calculation_strategy == "classic":
             bin_indexes_to_compute = np.where(values > (max_value * self.large_angle_histogram_value_threshold))[0]
+        elif self.orientation_calculation_strategy == "singular":
+            bin_indexes_to_compute = np.array([max_index])
+        elif self.orientation_calculation_strategy == "ratio_test":
+            bin_indexes_to_compute = np.array([max_index])
+            over_threshold = np.where(values > (max_value * self.large_angle_histogram_value_threshold))[0]
+            if len(over_threshold) > 1:
+                return None
         else:
             bin_indexes_to_compute = np.array([max_index])
+            raise TypeError("orientation_calculation_strategy needs to be one of: 'classic','singular','ratio_test'")
             
 
         for index in bin_indexes_to_compute:
@@ -496,22 +508,26 @@ class ShiTomasiSift():
 
                 if current_value > prev_value and current_value > next_value:
 
-                    # angle = ((values[index-1] * prev_bin_value + values[index] * bin_value + values[last_index] * next_bin_value)/
-                    #         (values[index-1] + values[index] + values[last_index]))
+                    if self.orientation_calculation_angle_method == "interpolated":
+                        angle = ((values[index-1] * prev_bin_value + values[index] * bin_value + values[last_index] * next_bin_value)/
+                                (values[index-1] + values[index] + values[last_index]))
 
-
-                    denom = (prev_value - 2*current_value + next_value)
-                    offset = 0.5 * (prev_value - next_value) / (denom + 1e-9) if abs(denom) > 1e-9 else 0.0
-                    angle = (bins[index] + offset * bin_size)
-                    
-                    angle %= 360
-                    
+                    elif self.orientation_calculation_angle_method == "parabolic":
+                        denom = (prev_value - 2*current_value + next_value)
+                        offset = 0.5 * (prev_value - next_value) / (denom + 1e-9) if abs(denom) > 1e-9 else 0.0
+                        angle = (bins[index] + offset * bin_size)
+                        
+                        angle %= 360
+                    else:
+                        angle = 0
+                        raise TypeError("orientation calculation method needs to be 'parabolic' or 'interpolated'")
+                        
                     angles.append(angle)
         
         return angles
     
 
-    def _calculate_orientation_of_keypoint(self, keypoint_or_center : cv2.KeyPoint | tuple, magnitude : NDArray, pixel_angles : NDArray) -> list:
+    def _calculate_orientation_of_keypoint(self, keypoint_or_center : cv2.KeyPoint | tuple, magnitude : NDArray, pixel_angles : NDArray) -> list | None:
         
         if type(keypoint_or_center) == cv2.KeyPoint:
             x, y = keypoint_or_center.pt[0], keypoint_or_center.pt[1]
