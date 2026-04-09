@@ -6,7 +6,7 @@ from benchmark.image_feature_set import ImageFeatureSet
 from benchmark.pipeline import *
 from benchmark.matching import MatchSet, MatchRankingProperty, greedy_maximum_bipartite_matching_descriptor_distance
 from benchmark.utils import load_HPSequences, compare_rankings_and_visualize_across_sets
-from benchmark.noise import apply_image_noise
+from benchmark.noise import *
 from tqdm import tqdm
 import cv2
 import numpy as np
@@ -19,8 +19,14 @@ import json
 
 ## Load dataset.    
 dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
-if NOISE_RANGES:
-    dataset_image_sequences, dataset_homography_sequence = apply_image_noise(dataset_image_sequences, dataset_homography_sequence, *NOISE_RANGES)
+if APPLY_NOISE:
+    if APPLY_EXISTING_NOISE:
+        dataset_image_sequences, dataset_homography_sequence = apply_noise(dataset_image_sequences, dataset_homography_sequence, load_noise(NOISE_FILE_NAME))
+    else:
+        noise = generate_noise(dataset_image_sequences, *NOISE_RANGES)
+        dataset_image_sequences, dataset_homography_sequence = apply_noise(dataset_image_sequences, dataset_homography_sequence, noise)
+        save_noise(noise, NOISE_FILE_NAME)
+
 
 AGAST = cv2.AgastFeatureDetector_create()
 AKAZE = cv2.AKAZE_create()
@@ -29,6 +35,7 @@ FAST = cv2.FastFeatureDetector_create()
 GFTT = cv2.GFTTDetector_create()
 KAZE = cv2.KAZE_create()
 ORB = cv2.ORB_create()
+#SIFT = cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100)
 SIFT = cv2.SIFT_create()
 SIFT_OPTIMAL = cv2.SIFT_create(sigma = 3.5)
 BRIEF = cv2.xfeatures2d.BriefDescriptorExtractor_create()
@@ -36,9 +43,10 @@ FREAK = cv2.xfeatures2d.FREAK_create()
 
 FAST2 = cv2.FastFeatureDetector_create(threshold = 15)
 FAST2_SCALE = 1.5
-GFTT2 = cv2.GFTTDetector_create(blockSize = 6)
+GFTT2 = cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005)
 GFTT2_SCALE = 2
 SIFT_FAST2 = cv2.SIFT_create(sigma = 2.25)
+SIFT_GFTT2 = cv2.SIFT_create()
 
 features2d = {
     #"AGAST" : AGAST,
@@ -49,43 +57,37 @@ features2d = {
     #"GFTT" : GFTT,
     #"GFTT2" : GFTT2,
     #"KAZE" : KAZE,
-    #"ORB" : ORB,
-    # "SIFT" : SIFT,
+    "ORB" : ORB,
+    #"SIFT" : SIFT,
     #"SIFT_FAST2" : SIFT_FAST2,
-    # "SIFT_OPTIMAL" : SIFT_OPTIMAL,
+    #"SIFT_GFTT2" : SIFT_GFTT2,
+    #"SIFT_OPTIMAL" : SIFT_OPTIMAL,
     #"BRIEF" : BRIEF,
     #"FREAK" : FREAK,
     #"SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT,
-    # "itteration_3_" : ShiTomasiSift(calculate_orientation_for_keypoints= True,
-    #                           scale_pyramid_scaling_factor=1.3,
-    #                           response_type="sftt",
-    #                           scale_pyramid_blur_sigma=-1,
-    #                           orientation_calculation_gaussian_weight_std=50,
-    #                           num_octaves_in_scale_pyramid=6,
-    #                           descriptor_gaussian_weight_std=50,
-    #                           derivation_operator="simple",
-    #                           d_weight=0.7,
-    #                           base_blur_sigma=0.7,
-    #                           max_corners=MAX_FEATURES
-    #                           ),   
-    "SHIFT7_6_octaves" : ShiTomasiSift(starting_level_scale_pyramid=7, num_octaves_in_scale_pyramid=6),
 
+    #"SHIFT_5_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
 
-
-
+    
+                                                        
 
 }
 
-ONLY_SELF = True #Forces no mixing
+ONLY_SELF = False #Forces no mixing
 ONLY_USED_AS_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
-ONLY_USED_AS_DESCRIPTOR = ["FREAK", "SIFT_FAST2"]                     
+ONLY_USED_AS_DESCRIPTOR = ["FREAK", "SIFT_FAST2", "SIFT_GFTT2"]                     
 BLACKLIST = []                                 
 ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
     # "FAST": "SIFT",
     "FAST2": "SIFT_FAST2",
     # "GFTT": "SIFT",
+    "GFTT2": "SIFT_GFTT2",
     "GFTT2": "SIFT",
-}
+    "ORB" : "ORB",
+    "SIFT" : "SIFT",
+    "BRISK": "BRISK",
+    "SHIFT_5_octaves" : "SHIFT_5_octaves"
+}   
 ALLOWED_DETECTOR_FOR_DESCRIPTOR = {
     "SIFT_FAST2": "FAST2",
 }
@@ -133,7 +135,9 @@ warnings.filterwarnings("once", category=UserWarning)
 image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
 
 
-for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Calculating for all sizes"):
+#for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Calculating for all sizes"):
+keypoint_size_scaling = KEYPOINT_SIZE_SCALINGS[0]
+for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, desc="Calculating for all levels of downsampling"):
     for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="Calculating for all combinations"):
         print(f"Calculating for {feature_extractor_key}")   
         
@@ -149,7 +153,7 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
         if "speedtest" not in SKIP:
             speed = speed_test(feature_extractor, dataset_image_sequences)
         
-        find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE)
+        find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_iteration_num, DOWNSCALE_FACTOR)
         set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
 
         if "matching" not in SKIP:
@@ -241,36 +245,36 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
 
         # Rank stats: all + correct
         avg_rank_all = match_rank.mean()
+        if (REGISTER_OCTAVE_DATA and feature_extractor_key != "SIFT+SIFT" and feature_extractor_key != "AKAZE+AKAZE"):
+            avg_octave = np.average(octaves)
+            octave_discrepancy_count = np.sum([1 for m in all_matches if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave])
+            if (octave_discrepancy_count != 0):
+                octave_avg_discrepancy = np.average([abs(m.reference_feature.keypoint.octave - m.related_feature.keypoint.octave) for m in all_matches if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave])
+            else:
+                octave_avg_discrepancy = 0
 
-        # discrep_count = 0
-        # total_discrep = 0
-        # for m in all_matches:
-        #     if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave:
-        #         discrep_count += 1
-        #         total_discrep += abs(m.reference_feature.keypoint.octave - m.related_feature.keypoint.octave)
-        avg_octave = np.average(octaves)
-        octave_discrepancy_count = np.sum([1 for m in all_matches if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave])
-        if (octave_discrepancy_count != 0):
-            octave_avg_discrepancy = np.average([abs(m.reference_feature.keypoint.octave - m.related_feature.keypoint.octave) for m in all_matches if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave])
+            octave_stats = {}
+
+            for i in set(octaves):
+                keypoints = sum(1 for octave in octaves if octave == i)
+                responses = [
+                    feature.keypoint.response
+                    for sequence in image_feature_set
+                    for image in sequence
+                    for feature in image
+                    if feature.keypoint.octave == i
+                ]
+
+                octave_stats[int(i)] = {
+                    "keypoints": keypoints,
+                    "response": float(np.average(responses)) if len(responses) > 0 else None,
+                    "correct matches" : int(np.sum([match.is_correct for match in all_matches if match.reference_feature.keypoint.octave == i or match.related_feature.keypoint.octave == i]))
+                }
         else:
+            avg_octave = 0
+            octave_discrepancy_count = 0
             octave_avg_discrepancy = 0
-
-        octave_stats = {}
-
-        for i in set(octaves):
-            keypoints = sum(1 for octave in octaves if octave == i)
-            responses = [
-                feature.keypoint.response
-                for sequence in image_feature_set
-                for image in sequence
-                for feature in image
-                if feature.keypoint.octave == i
-            ]
-
-            octave_stats[int(i)] = {
-                "keypoints": keypoints,
-                "response": float(np.average(responses)) if len(responses) > 0 else None
-            }
+            octave_stats = {}
 
         
         # ========================
@@ -278,7 +282,8 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
         # ========================
 
         results = {
-            "combination": f"{feature_extractor_key}" if (len(KEYPOINT_SIZE_SCALINGS) == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
+            #"combination": f"{feature_extractor_key}" if (len(KEYPOINT_SIZE_SCALINGS) == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
+            "combination": f"{feature_extractor_key}" if (len(DOWNSAMPLE_ITERATIONS_NUMS) == 1) else f"{feature_extractor_key} {downsample_iteration_num}",
             "speed": speed,
             "repeatability mean": np.mean(set_repeatabilities),
             
@@ -309,10 +314,6 @@ for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Cal
             f"avg octave discrepancy" : octave_avg_discrepancy,
             "octave_stats" : json.dumps(octave_stats)
         }
-
-        # for i in set(octaves):
-        #     results[f"num keypoints at octave {int(i)}"] = np.sum([1 for octave in octaves if octave == i])
-        #     results[f"avg response at octave {int(i)}"] = np.average([feature.keypoint.response for sequence in image_feature_set for image in sequence for feature in image if feature.keypoint.octave == i])
 
         for match_ranking_property in match_properties:
             APs = [match_set.get_average_precision_score(match_ranking_property) for match_set in matching_match_sets]

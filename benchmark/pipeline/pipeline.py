@@ -26,13 +26,22 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
     speed = 1/time
     return speed
 
+def downsample(img, scale_factor: float, sigma: float):
+    if sigma != -1:
+        img = cv2.GaussianBlur(img, (0,0), sigma, borderType=cv2.BORDER_REFLECT_101)
+    downsampled_img = cv2.resize(img, None, fx= 1/scale_factor, fy= 1/scale_factor, interpolation=cv2.INTER_NEAREST)
+
+
+    return downsampled_img
 
 #@beartype
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool):  
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool, DOWNSAMPLE_ITERATIONS: int, DOWNSCALE_FACTOR: float):  
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
             
+            for i in range(DOWNSAMPLE_ITERATIONS):
+                image = downsample(image,DOWNSCALE_FACTOR,1.2)
 
             keypoints = feature_extractor.detect_keypoints(image)
             num_keypoints = len(keypoints)
@@ -49,6 +58,9 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
             if (len(keypoints) == 0):
                 continue
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+
+            for keypoint in keypoints:
+                keypoint.pt = (keypoint.pt[0] * DOWNSCALE_FACTOR ** DOWNSAMPLE_ITERATIONS, keypoint.pt[1] * DOWNSCALE_FACTOR ** DOWNSAMPLE_ITERATIONS)
 
             if num_keypoints > min_required_keypoints and len(keypoints) < max_features:
                 print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
@@ -165,9 +177,9 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
 
 
 #@beartype
-def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seq_to_visualize: int) -> list[MatchSet]:
+def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seqs_to_visualize: int) -> list[MatchSet]:
     matching_match_sets: list[MatchSet] = []
-    for seq, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
+    for seq_num, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
         matching_match_set = MatchSet()
         matching_match_sets.append(matching_match_set)
         reference_features = image_feature_sequence.reference_image_features
@@ -176,7 +188,7 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
             matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
             matching_match_set.add_match(matches)
 
-            if visualize and seq == seq_to_visualize:
+            if visualize and seq_num in seqs_to_visualize:
 
                 ## For debug ################################
                 def transformed_keypoint_size(kp, H):
@@ -203,9 +215,9 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
 
                 # -------------------
                 # Images and homography
-                img_ref = dataset_image_sequences[seq][0]
-                img_rel = dataset_image_sequences[seq][rel_idx + 1]
-                H = dataset_homography_sequence[seq][rel_idx]
+                img_ref = dataset_image_sequences[seq_num][0]
+                img_rel = dataset_image_sequences[seq_num][rel_idx + 1]
+                H = dataset_homography_sequence[seq_num][rel_idx]
 
                 h1, w1 = img_ref.shape[:2]
                 h2, w2 = img_rel.shape[:2]
