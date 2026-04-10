@@ -6,7 +6,7 @@ import re
 import json
 
 # ---------------------------- CONFIG ----------------------------
-CSV_PATH = "big_downsampling_test.csv"
+CSV_PATH = "results/" + "big_downsampling_test.csv"
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
 #   "alphabetical_by_descriptor" -> descriptor name, then descriptor number, then detector

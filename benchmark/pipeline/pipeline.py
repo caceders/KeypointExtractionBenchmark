@@ -1,5 +1,5 @@
 from tqdm import tqdm
-from benchmark.utils import calculate_overlap_one_circle_to_many
+from benchmark.utils import calculate_overlap_one_circle_to_many, downsample
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
@@ -26,22 +26,14 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
     speed = 1/time
     return speed
 
-def downsample(img, scale_factor: float, sigma: float):
-    if sigma != -1:
-        img = cv2.GaussianBlur(img, (0,0), sigma, borderType=cv2.BORDER_REFLECT_101)
-    downsampled_img = cv2.resize(img, None, fx= 1/scale_factor, fy= 1/scale_factor, interpolation=cv2.INTER_NEAREST)
-
-
-    return downsampled_img
-
 #@beartype
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool, DOWNSAMPLE_ITERATIONS: int, DOWNSCALE_FACTOR: float):  
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool, DOWNSAMPLE_ITERATIONS: int, DOWNSCALE_FACTOR: float, DOWNSAMPLE_INTERPOLATION_TYPE):  
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
             
             for i in range(DOWNSAMPLE_ITERATIONS):
-                image = downsample(image,DOWNSCALE_FACTOR,1.2)
+                image = downsample(image,DOWNSCALE_FACTOR,1.2, DOWNSAMPLE_INTERPOLATION_TYPE)
 
             keypoints = feature_extractor.detect_keypoints(image)
             num_keypoints = len(keypoints)

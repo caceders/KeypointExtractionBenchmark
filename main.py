@@ -154,7 +154,7 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
         if "speedtest" not in SKIP:
             speed = speed_test(feature_extractor, dataset_image_sequences)
         
-        find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_iteration_num, DOWNSCALE_FACTOR)
+        find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_iteration_num, DOWNSCALE_FACTOR, DOWNSAMPLE_INTERPOLATION_TYPE)
         set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
 
         if "matching" not in SKIP:

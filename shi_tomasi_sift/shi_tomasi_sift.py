@@ -25,7 +25,7 @@ class ShiTomasiSift():
 
     def __init__(self,
                  derivation_operator : str = "simple", #"simple", "sobel", "prewitt", "scharr"
-                 structure_tensor_window : NDArray | None = None,
+                 structure_tensor_window : NDArray | None = None, #Sjekk for ulike størrelser
                  response_type : str = "normal", # "sftt", "normal
                  use_previous_max_when_calculating_threshold : bool = False,
                  first_max_value_when_previous_max_is_used : int = 80000,

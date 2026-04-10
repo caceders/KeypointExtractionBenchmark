@@ -4,3 +4,6 @@ venv/
 venv2/
 __pycache__/
 *.prof
+KITTI/data_odometry_gray/
+KITTI/results/
+results/

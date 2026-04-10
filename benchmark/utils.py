@@ -9,6 +9,15 @@ from typing import Tuple
 
 
 
+def downsample(img, scale_factor: float, sigma: float, interpolation_type):
+    if sigma != -1:
+        img = cv2.GaussianBlur(img, (0,0), sigma, borderType=cv2.BORDER_REFLECT_101)
+    downsampled_img = cv2.resize(img, None, fx= 1/scale_factor, fy= 1/scale_factor, interpolation= interpolation_type)
+
+
+    return downsampled_img
+
+
 def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
     """
     Load the HPSequence dataset (PPM images and homographies),
