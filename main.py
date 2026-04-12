@@ -18,6 +18,7 @@ from shi_tomasi_sift import ShiTomasiSift
 import json
 from scipy.spatial.distance import pdist
 
+
 ## Load dataset.    
 dataset_image_sequences, dataset_homography_sequence = load_HPSequences(r"hpatches-sequences-release")
 if APPLY_NOISE:
@@ -28,51 +29,29 @@ if APPLY_NOISE:
         dataset_image_sequences, dataset_homography_sequence = apply_noise(dataset_image_sequences, dataset_homography_sequence, noise)
         save_noise(noise, NOISE_FILE_NAME)
 
-
-AGAST = cv2.AgastFeatureDetector_create()
-AKAZE = cv2.AKAZE_create()
-BRISK = cv2.BRISK_create()
-FAST = cv2.FastFeatureDetector_create()
-GFTT = cv2.GFTTDetector_create()
-KAZE = cv2.KAZE_create()
-ORB = cv2.ORB_create()
-#SIFT = cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100)
-SIFT = cv2.SIFT_create()
-SIFT_OPTIMAL = cv2.SIFT_create(sigma = 3.5)
-BRIEF = cv2.xfeatures2d.BriefDescriptorExtractor_create()
-FREAK = cv2.xfeatures2d.FREAK_create()
-
-FAST2 = cv2.FastFeatureDetector_create(threshold = 15)
-FAST2_SCALE = 1.5
-GFTT2 = cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005)
-GFTT2_SCALE = 2
-SIFT_FAST2 = cv2.SIFT_create(sigma = 2.25)
-SIFT_GFTT2 = cv2.SIFT_create()
-
 features2d = {
-    #"AGAST" : AGAST,
-    #"AKAZE" : AKAZE,
-    #"BRISK" : BRISK,
-    #"FAST" : FAST,
-    #"FAST2" : FAST2,
-    #"GFTT" : GFTT,
-    #"GFTT2" : GFTT2,
-    #"KAZE" : KAZE,
-    "ORB" : ORB,
-    #"SIFT" : SIFT,
-    #"SIFT_FAST2" : SIFT_FAST2,
-    #"SIFT_GFTT2" : SIFT_GFTT2,
-    #"SIFT_OPTIMAL" : SIFT_OPTIMAL,
-    #"BRIEF" : BRIEF,
-    #"FREAK" : FREAK,
-    #"SHI_TOMASI_SIFT" : SHI_TOMASI_SIFT,
-
+    #"AGAST" : cv2.AgastFeatureDetector_create(),
+    #"AKAZE" : cv2.AKAZE_create(),
+    #"BRISK" : cv2.BRISK_create(),
+    #"FAST" : cv2.FastFeatureDetector_create(),
+    #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
+    #"GFTT" : cv2.GFTTDetector_create(),
+    #"GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
+    #"KAZE" : cv2.KAZE_create(),
+    "ORB" : cv2.ORB_create(nlevels = 1),
+    #"ORB_NO_PYRAMID" : cv2.ORB_create(nlevels = 1),
+    #"SIFT" : cv2.SIFT_create(),
+    #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
+    #"SIFT_FAST2" : cv2.SIFT_create(sigma = 2.25),
+    #"SIFT_GFTT2" : SIFT_GFTT2 = cv2.SIFT_create(),
+    #"SIFT_SIG_3.5" : cv2.SIFT_create(sigma = 3.5),
+    #"BRIEF" : cv2.xfeatures2d.BriefDescriptorExtractor_create(),
     #"SHIFT_5_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
-
-    
-                                                        
-
+    #"SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
 }
+
+GFTT2_SCALE = 2
+FAST2_SCALE = 1.5
 
 ONLY_SELF = False #Forces no mixing
 ONLY_USED_AS_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
@@ -114,7 +93,11 @@ for detector_key in features2d.keys():
             if detector_key != ALLOWED_DETECTOR_FOR_DESCRIPTOR[descriptor_key]:
                 continue
 
-        if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]:
+        binary_descriptors = (
+            cv2.ORB, cv2.BRISK, cv2.AKAZE, cv2.xfeatures2d.BriefDescriptorExtractor, cv2.xfeatures2d.FREAK, cv2.xfeatures2d.LATCH
+        )
+
+        if isinstance(features2d[descriptor_key], binary_descriptors):
             distance_type = cv2.NORM_HAMMING
         else:
             distance_type = cv2.NORM_L2
@@ -428,9 +411,9 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
             print(metric, result)
         df = pd.DataFrame(results, index=[0])
         if not os.path.isfile(FILE_NAME):
-            df.to_csv(FILE_NAME, index = False, header = True, mode='a') # Create header if file does not exist
+            df.to_csv("results/" + FILE_NAME, index = False, header = True, mode='a') # Create header if file does not exist
         else:
-            df.to_csv(FILE_NAME, index = False, header = False, mode='a') # If exists skip header
+            df.to_csv("results/" + FILE_NAME, index = False, header = False, mode='a') # If exists skip header
 
         # except Exception as e:
         #     error_message = traceback.format_exc()

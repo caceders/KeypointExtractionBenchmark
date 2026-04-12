@@ -221,7 +221,7 @@ class ShiTomasiSift():
                     new_keypoints.append(new_keypoint)
                     descriptors.append(descriptor)
         
-        return (new_keypoints, descriptors)
+        return (new_keypoints, np.array(descriptors, dtype=np.float32))
                 
             
 

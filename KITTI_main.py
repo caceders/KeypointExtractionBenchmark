@@ -7,6 +7,8 @@ import math
 from typing import Dict, List, Tuple, Optional
 from shi_tomasi_sift import ShiTomasiSift
 from benchmark.utils import downsample
+import os
+import pandas as pd
 
 #########################################################
 # ================= USER CONFIG =========================
@@ -15,7 +17,7 @@ from benchmark.utils import downsample
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "test_4_1.2"
+RUN_NAME = "BIG_TEST_8"
 BASE_OUT = Path("KITTI/results") / RUN_NAME
 CSV_PATH = BASE_OUT / "results.csv"
 TRAJ_DIR = BASE_OUT / "trajectories"
@@ -26,7 +28,7 @@ LOWE_RATIO = 0.75
 PNP_REPROJ_THRESH = 2.0
 EPIPOLAR_TOL = 1.0
 RPE_DELTA = 1
-downsample_iterations = 4
+downsample_iterations = 8
 downsample_factor = 1.2
 downsample_interpolation_type = cv2.INTER_LINEAR
 downsample_gaussian_sigma = -1
@@ -35,44 +37,34 @@ downsample_gaussian_sigma = -1
 # ===========  YOUR FEATURE COMBINATIONS  ===============
 #########################################################
 
-# Insert your existing code here (unchanged):
-AKAZE = cv2.AKAZE_create()
-BRISK = cv2.BRISK_create()
-FAST = cv2.FastFeatureDetector_create()
-GFTT = cv2.GFTTDetector_create()
-ORB = cv2.ORB_create()
-ORB_NO_PYRAMID = cv2.ORB_create(nlevels = 1)
-#SIFT = cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100)
-SIFT = cv2.SIFT_create()
-SIFT_OPTIMAL = cv2.SIFT_create(sigma = 3.5)
-BRIEF = cv2.xfeatures2d.BriefDescriptorExtractor_create()
-FAST2 = cv2.FastFeatureDetector_create(threshold = 15)
-FAST2_SCALE = 1.5
-GFTT2 = cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005)
-GFTT2_SCALE = 2
-SIFT_FAST2 = cv2.SIFT_create(sigma = 2.25)
-SIFT_GFTT2 = cv2.SIFT_create()
 
 features2d = {
-    #"AKAZE" : AKAZE,
-    "BRISK" : BRISK,
-    #"FAST" : FAST,
-    #"FAST2" : FAST2,
-    #"GFTT" : GFTT,
-    #"GFTT2" : GFTT2,
-    "ORB" : ORB,
-    "ORB_NO_PYRAMID" : ORB_NO_PYRAMID,
-    "SIFT" : SIFT,
-    #"SIFT_FAST2" : SIFT_FAST2,
-    #"SIFT_GFTT2" : SIFT_GFTT2,
-    #"SIFT_OPTIMAL" : SIFT_OPTIMAL,
-    #"BRIEF" : BRIEF,
-    "SHIFT_5_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
+    #"AKAZE" : cv2.AKAZE_create(),
+    "BRISK" : cv2.BRISK_create(),
+    #"FAST" : cv2.FastFeatureDetector_create(),
+    #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
+    "GFTT" : cv2.GFTTDetector_create(),
+    "GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
+    "ORB" : cv2.ORB_create(),
+    "ORB_NO_PYRAMID" : cv2.ORB_create(nlevels=1),
+    "ORB_4_LAYERS" : cv2.ORB_create(nlevels=4),
+    "SIFT" : cv2.SIFT_create(),
+    #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
+    #"SIFT_FAST2" : cv2.SIFT_create(sigma = 2.25),
+    #"SIFT_GFTT2" : SIFT_GFTT2 = cv2.SIFT_create(),
+    #"SIFT_SIG_3.5" : cv2.SIFT_create(sigma = 3.5),
+    #"BRIEF" : cv2.xfeatures2d.BriefDescriptorExtractor_create(),
+    "SHIFT_3_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=3),
     "SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
 }
 
+GFTT2_SCALE = 2
+FAST2_SCALE = 1.5
+
+
 
 ONLY_SELF = True #Forces no mixing
+ONLY_SELF_EXCEPTIONS = [("GFTT", "SIFT"), ("GFTT2", "SIFT")]
 ONLY_USED_AS_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
 ONLY_USED_AS_DESCRIPTOR = ["SIFT_FAST2", "SIFT_GFTT2"]                     
 BLACKLIST = []                                 
@@ -118,7 +110,7 @@ test_combinations: dict[str, FeatureExtractor] = {}
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
 
-        if ONLY_SELF and detector_key != descriptor_key:
+        if ONLY_SELF and detector_key != descriptor_key and (detector_key, descriptor_key) not in ONLY_SELF_EXCEPTIONS:
             continue
         if (detector_key, descriptor_key) in BLACKLIST:
             continue
@@ -135,10 +127,16 @@ for detector_key in features2d.keys():
             if detector_key != ALLOWED_DETECTOR_FOR_DESCRIPTOR[descriptor_key]:
                 continue
 
-        if descriptor_key in ["BRISK", "ORB", "AKAZE", "BRIEF", "FREAK", "LATCH"]:
+        
+        binary_descriptors = (
+            cv2.ORB, cv2.BRISK, cv2.AKAZE, cv2.xfeatures2d.BriefDescriptorExtractor, cv2.xfeatures2d.FREAK, cv2.xfeatures2d.LATCH
+        )
+
+        if isinstance(features2d[descriptor_key], binary_descriptors):
             distance_type = cv2.NORM_HAMMING
         else:
             distance_type = cv2.NORM_L2
+
 
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
@@ -392,14 +390,14 @@ def run_stereo_vo(seq_root, name, extractor):
 
 
         if name == "FAST2+SIFT_FAST2":
-            for keypoint in kL0:
+            for keypoint in kpL:
                     keypoint.size = keypoint.size * FAST2_SCALE
-            for keypoint in kR0:
+            for keypoint in kpR:
                     keypoint.size = keypoint.size * FAST2_SCALE
         if name == "GFTT2+SIFT_GFTT2":
-            for keypoint in kL0:
+            for keypoint in kpL:
                     keypoint.size = keypoint.size * GFTT2_SCALE
-            for keypoint in kR0:
+            for keypoint in kpR:
                     keypoint.size = keypoint.size * GFTT2_SCALE
 
         kpL, dL = extractor.compute(L,kpL)
@@ -454,14 +452,10 @@ def run_stereo_vo(seq_root, name, extractor):
 #########################################################
 
 def main():
-    results = []
-
     for seq in SEQUENCES:
-        seq_root = Path(DATA_ROOT)/"sequences"/seq
-        gt_path = Path(DATA_ROOT)/"poses"/f"{seq}.txt"
+        seq_root = Path(DATA_ROOT) / "sequences" / seq
+        gt_path = Path(DATA_ROOT) / "poses" / f"{seq}.txt"
         gt_poses = read_gt_poses(gt_path)
-
-
 
         print(f"=== Running sequence {seq} ===")
 
@@ -473,57 +467,46 @@ def main():
             traj_path = TRAJ_DIR / f"traj_{seq}_{name.replace('+','-')}.txt"
             save_trajectory_kitti(traj_path, poses)
 
-            
             if gt_poses is None:
                 ate = float("nan")
-                rpe1_trans, rpe1_rot = float("nan")
-                rpe10_trans, rpe10_rot = float("nan")
+                rpe1_trans = rpe1_rot = float("nan")
+                rpe10_trans = rpe10_rot = float("nan")
             else:
                 ate = compute_ate(poses, gt_poses)
-                
+
                 rpe1_trans, rpe1_rot = compute_rpe(poses, gt_poses, delta=1)
                 rpe10_trans, rpe10_rot = compute_rpe(poses, gt_poses, delta=10)
 
+            # ---- build per-method result dict ----
+            results = {
+                "sequence": seq,
+                "method": name,
+                "ATE_RMSE": ate,
+                "RPE1_trans_RMSE": rpe1_trans,
+                "RPE1_rot_RMSE": rpe1_rot,
+                "RPE10_trans_RMSE": rpe10_trans,
+                "RPE10_rot_RMSE": rpe10_rot,
+                "PnP_inliers_mean": float(np.mean(stats["pnp_inliers"])),
+                "temporal_matches_mean": float(np.mean(stats["temporal_matches"])),
+                "stereo_matches_mean": float(np.mean(stats["stereo_matches"])),
+                "triangulated_mean": float(np.mean(stats["triangulated"])),
+                "failures": int(stats["failures"]),
+            }
 
+            # ---- print results immediately ----
+            for k, v in results.items():
+                print(f"    {k}: {v}")
 
+            # ---- append to CSV safely ----
+            df = pd.DataFrame(results, index=[0])
 
-            results.append([
-                seq, name,
-                ate,
-                rpe1_trans,
-                rpe1_rot,
-                rpe10_trans,
-                rpe10_rot,
-                np.mean(stats["pnp_inliers"]),
-                np.mean(stats["temporal_matches"]),
-                np.mean(stats["stereo_matches"]),
-                np.mean(stats["triangulated"]),
-                stats["failures"]
-            ])
-
-
-
-    # Save CSV
-
-    with open(CSV_PATH, "w", newline="") as f:
-        w = csv.writer(f)
-    
-
-        w.writerow([
-            "sequence", "method",
-            "ATE_RMSE",
-            "RPE1_trans_RMSE",
-            "RPE1_rot_RMSE",
-            "RPE10_trans_RMSE",
-            "RPE10_rot_RMSE",
-            "PnP_inliers_mean",
-            "temporal_matches_mean",
-            "stereo_matches_mean",
-            "triangulated_mean",
-            "failures"
-        ])
-        w.writerows(results)
-
+            write_header = not CSV_PATH.exists()
+            df.to_csv(
+                CSV_PATH,
+                mode="a",
+                header=write_header,
+                index=False,
+            )
 
 
     print(f"\nSaved results to {CSV_PATH}")

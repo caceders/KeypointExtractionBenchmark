@@ -7,7 +7,7 @@ from pathlib import Path
 # =============== CONFIG ==================
 ###########################################
 
-RUN_DIR = Path("KITTI/results/test")
+RUN_DIR = Path("KITTI/results/test_4_1.2")
 DATA_ROOT = Path("./KITTI/data_odometry_gray/dataset")
 
 ###########################################
