@@ -1,211 +1,247 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from pathlib import Path
+import re
 
 ###########################################
 # =============== CONFIG ==================
 ###########################################
 
 RUN_DIR = Path("KITTI/results/test_4_1.2")
-DATA_ROOT = Path("./KITTI/data_odometry_gray/dataset")
+CSV_PATH = RUN_DIR / "results.csv"
+
+FILTER_WHITELIST_MODE = False
+
+SUFFIX_FILTER = [
+    #"PNP0.5",
+    # "PNP1",
+    # "PNP2",
+    # "PNP3",
+    # "PNP4",
+    # "PNP6",
+    # "PNP10",
+]
+
+DOWNSAMPLE_FILTER = [
+    # 0,
+    # # 1,
+    # # 2,
+    # # 4,
+    0,
+]
+
+METHOD_FILTER = [
+    "ORB+ORB"
+]
+
+
+
+ENABLE_SUFFIX_FILTER = True
+ENABLE_DOWNSAMPLE_FILTER = True
+ENABLE_METHOD_FILTER = True
+
+SORT_BY = "method"        # or "metric"
+METRIC_ASCENDING = True  # lower is better for errors
+GROUP_BY = "method"
+SHADE_SECTIONS = True
+
+FIG_WIDTH = 10
+ROW_HEIGHT = 0.35
+FONT_FAMILY_YTICKS = "monospace"
 
 ###########################################
-
-
-def read_poses_kitti(path: Path):
-    poses = []
-    with open(path, "r") as f:
-        for line in f:
-            vals = list(map(float, line.split()))
-            T = np.eye(4)
-            T[:3, :4] = np.array(vals).reshape(3, 4)
-            poses.append(T)
-    return poses
-
-
-def positions(poses):
-    P = np.zeros((len(poses), 3))
-    for i, T in enumerate(poses):
-        P[i] = T[:3, 3]
-    return P
-
-
-def align_se3(Pe, Pg):
-    muE, muG = Pe.mean(0), Pg.mean(0)
-    E0, G0 = Pe - muE, Pg - muG
-
-    U, _, Vt = np.linalg.svd(E0.T @ G0)
-    R = Vt.T @ U.T
-    if np.linalg.det(R) < 0:
-        Vt[-1] *= -1
-        R = Vt.T @ U.T
-
-    t = muG - R @ muE
-    return R, t
-
-
-def strict_align_from_start(est_poses, gt_poses):
-    T_align = gt_poses[0] @ np.linalg.inv(est_poses[0])
-    return [T_align @ T for T in est_poses]
-
-
-###########################################
-# ============== LOAD RESULTS =============
+# ============ PARSING HELPERS ============
 ###########################################
 
-csv_path = RUN_DIR / "results.csv"
-traj_dir = RUN_DIR / "trajectories"
+def parse_method(method_name):
+    """
+    BASE_SUFFIX_DOWNSAMPLE
+    """
+    parts = method_name.split("_")
+    method = "_".join(parts[0:-2])
+    print(method)
 
-if not csv_path.exists():
-    raise FileNotFoundError(csv_path)
+    if len(parts) < 3:
+        return method, None, None
 
-df = pd.read_csv(csv_path)
+    suffix = parts[-2]
 
+    try:
+        downsample = int(parts[-1])
+    except ValueError:
+        downsample = None
 
-sequences = sorted(df["sequence"].unique())
-methods = sorted(df["method"].unique())
-multi_seq = len(sequences) > 1
-
-###########################################
-# ============ TRAJECTORY PLOTS ===========
-###########################################
-
-for seq in sequences:
-    seq_str = f"{int(seq):02d}"
-    gt_path = DATA_ROOT / "poses" / f"{seq_str}.txt"
-    if not gt_path.exists():
-        continue
-
-    gt_poses = read_poses_kitti(gt_path)
-    P_gt = positions(gt_poses)
-
-    # -------- FREE ALIGNMENT --------
-    plt.figure(figsize=(10, 7))
-    plt.title(f"FREE alignment – sequence {seq_str}")
-    plt.plot(P_gt[:, 0], P_gt[:, 2], "k-", lw=2.5, label="GT")
-    plt.scatter(
-        P_gt[0, 0], P_gt[0, 2],
-        c="green", s=140, marker="o",
-        edgecolors="black", zorder=6,
-        label="GT start"
-    )
-
-    plt.scatter(
-        P_gt[-1, 0], P_gt[-1, 2],
-        c="red", s=180, marker="X",
-        edgecolors="black", zorder=6,
-        label="GT end"
-)
+    return method, suffix, downsample
 
 
-    for method in methods:
-        traj_path = traj_dir / f"traj_{seq_str}_{method.replace('+','-')}.txt"
-        if not traj_path.exists():
-            continue
+def natural_key(text):
+    """
+    Splits a string into text and integer chunks so that
+    'PNP25' > 'PNP6'.
+    """
+    return [
+        int(tok) if tok.isdigit() else tok
+        for tok in re.split(r"(\d+)", text)
+    ]
 
-        est_poses = read_poses_kitti(traj_path)
-        n = min(len(est_poses), len(gt_poses))
 
-        Pe = positions(est_poses[:n])
-        Pg = P_gt[:n]
+def method_natural_sort_key(method_name):
+    """
+    Natural-sort key for full method strings:
+      - base (string)
+      - suffix (natural sorted: text + numbers)
+      - downsample (int)
+    """
 
-        R, t = align_se3(Pe, Pg)
-        Pe_free = (R @ Pe.T).T + t
+    _, suffix, downsample = parse_method(method_name)
 
-        plt.plot(Pe_free[:, 0], Pe_free[:, 2], lw=1.4, label=method)
-        plt.scatter(Pe_free[0, 0], Pe_free[0, 2], c="green", s=60)
-        plt.scatter(Pe_free[-1, 0], Pe_free[-1, 2], c="red", s=80)
+    parts = method_name.split("_")
+    base = "_".join(parts[:-2]) if len(parts) >= 3 else method_name
 
-    plt.axis("equal")
-    plt.grid(True)
-    plt.legend(fontsize=8)
-    plt.show(block=False)
+    downsample = downsample if downsample is not None else float("inf")
 
-    # -------- STRICT ALIGNMENT --------
-    plt.figure(figsize=(10, 7))
-    plt.title(f"STRICT alignment – sequence {seq_str}")
-    plt.plot(P_gt[:, 0], P_gt[:, 2], "k-", lw=2.5, label="GT")
-    plt.scatter(
-        P_gt[0, 0], P_gt[0, 2],
-        c="green", s=140, marker="o",
-        edgecolors="black", zorder=6,
-        label="GT start"
-    )
-
-    plt.scatter(
-        P_gt[-1, 0], P_gt[-1, 2],
-        c="red", s=180, marker="X",
-        edgecolors="black", zorder=6,
-        label="GT end"
+    return (
+        base,
+        natural_key(suffix) if suffix is not None else [],
+        downsample,
     )
 
 
-    for method in methods:
-        traj_path = traj_dir / f"traj_{seq_str}_{method.replace('+','-')}.txt"
-        if not traj_path.exists():
-            continue
+def passes_filter(method_name):
+    method, suffix, downsample = parse_method(method_name)
 
-        est_poses = read_poses_kitti(traj_path)
-        n = min(len(est_poses), len(gt_poses))
+    checks = []
 
-        strict_poses = strict_align_from_start(est_poses[:n], gt_poses[:n])
-        Pe_strict = positions(strict_poses)
+    if ENABLE_SUFFIX_FILTER:
+        if FILTER_WHITELIST_MODE:
+            checks.append(suffix in SUFFIX_FILTER)
+        else:
+            checks.append(suffix not in SUFFIX_FILTER)
 
-        plt.plot(Pe_strict[:, 0], Pe_strict[:, 2], lw=1.4, label=method)
-        plt.scatter(Pe_strict[0, 0], Pe_strict[0, 2], c="green", s=60)
-        plt.scatter(Pe_strict[-1, 0], Pe_strict[-1, 2], c="red", s=80)
+    if ENABLE_DOWNSAMPLE_FILTER:
+        if FILTER_WHITELIST_MODE:
+            checks.append(downsample in DOWNSAMPLE_FILTER)
+        else:
+            checks.append(downsample not in DOWNSAMPLE_FILTER)
 
-    plt.axis("equal")
-    plt.grid(True)
-    plt.legend(fontsize=8)
-    plt.show(block=False)
+    if ENABLE_METHOD_FILTER:
+        if FILTER_WHITELIST_MODE:
+            checks.append(method in METHOD_FILTER)
+        else:
+            checks.append(method not in METHOD_FILTER)
+
+    return all(checks) if checks else True
 
 ###########################################
-# ============ METRIC PLOTS ===============
+# ============== LOAD DATA ===============
 ###########################################
 
-# Automatically detect numeric metrics
+df = pd.read_csv(CSV_PATH)
+
+df = df[df["method"].apply(passes_filter)].reset_index(drop=True)
+
+if df.empty:
+    raise RuntimeError("All data filtered out — check filter configuration.")
+
 metric_cols = [
     c for c in df.columns
-    if c not in ("sequence", "method")
+    if c not in ("sequence", "method", "max_frames")
     and np.issubdtype(df[c].dtype, np.number)
 ]
 
+###########################################
+# ============ COLOR MAP ==================
+###########################################
+
+groups = sorted(df[GROUP_BY].unique(), key=method_natural_sort_key)
+cmap = plt.cm.tab20
+group_color = {g: cmap(i % 20) for i, g in enumerate(groups)}
+
+
+def set_fig_window_title(fig, title):
+    try:
+        fig.canvas.manager.set_window_title(title)
+    except Exception:
+        try:
+            fig.canvas.set_window_title(title)
+        except Exception:
+            pass
+
+###########################################
+# ============ MAIN PLOTS =================
+###########################################
+
 for metric in metric_cols:
-    # ---- averaged over sequences ----
-    plt.figure(figsize=(10, 5))
-    means = df.groupby("method")[metric].mean()
-    plt.bar(means.index, means.values)
-    plt.title(f"{metric} (averaged over sequences)" if multi_seq else metric)
-    plt.xticks(rotation=45)
-    plt.grid(True, axis="y")
+
+    dfm = (
+        df.groupby("method", as_index=False)[metric]
+        .mean()
+        .rename(columns={metric: "value"})
+    )
+
+    if SORT_BY == "metric":
+        dfm = dfm.sort_values(
+            "value", ascending=METRIC_ASCENDING, kind="mergesort"
+        )
+    else:
+        dfm = dfm.sort_values(
+            by="method",
+            key=lambda s: s.map(method_natural_sort_key),
+            kind="mergesort",
+        )
+
+    dfm = dfm.reset_index(drop=True)
+
+    y_labels = dfm["method"].tolist()
+    y_pos = np.arange(len(dfm))
+
+    bar_colors = [group_color[m] for m in dfm["method"]]
+
+    fig_h = max(5, len(dfm) * ROW_HEIGHT)
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH, fig_h))
+    set_fig_window_title(fig, metric)
+
+    ax.barh(y_pos, dfm["value"], color=bar_colors)
+
+    if SHADE_SECTIONS:
+        seq = dfm[GROUP_BY].tolist()
+        runs = []
+        start = 0
+        curr = seq[0]
+
+        for i, v in enumerate(seq[1:], 1):
+            if v != curr:
+                runs.append((start, i, curr))
+                start = i
+                curr = v
+        runs.append((start, len(seq), curr))
+
+        xmax = ax.get_xlim()[1]
+
+        for i, (a, b, g) in enumerate(runs):
+            ax.axhspan(a - 0.5, b - 0.5,
+                       color=group_color[g], alpha=0.08, lw=0)
+            if i > 0:
+                ax.axhline(a - 0.5, color="gray", ls="--", alpha=0.6)
+
+            mid = (a + b - 1) / 2
+            ax.text(
+                xmax * 1.01, mid, g,
+                ha="left", va="center",
+                fontweight="bold",
+                color=group_color[g]
+            )
+
+    ax.set_title(metric, fontweight="bold")
+    ax.set_xlabel(metric)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(y_labels, fontfamily=FONT_FAMILY_YTICKS)
+    ax.invert_yaxis()
+    ax.grid(True, axis="x", linestyle=":", alpha=0.5)
+
     plt.tight_layout()
-    plt.show(block=False)
-
-    # ---- big per-sequence plot ----
-    if multi_seq:
-        plt.figure(figsize=(12, 5))
-        width = 0.8 / len(sequences)
-        x = np.arange(len(methods))
-
-        for i, seq in enumerate(sequences):
-            vals = []
-            for m in methods:
-                row = df[(df["sequence"] == seq) & (df["method"] == m)]
-                vals.append(row[metric].values[0] if len(row) else np.nan)
-
-            plt.bar(x + i * width, vals, width, label=f"seq {seq}")
-
-        plt.xticks(x + width * (len(sequences) - 1) / 2, methods, rotation=45)
-        plt.title(f"{metric} (per sequence)")
-        plt.legend()
-        plt.grid(True, axis="y")
-        plt.tight_layout()
-        plt.show(block=False)
 
 ###########################################
-# ============== SHOW ALL ================
-###########################################
-
 plt.show()
