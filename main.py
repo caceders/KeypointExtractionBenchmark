@@ -32,15 +32,15 @@ if APPLY_NOISE:
 features2d = {
     #"AGAST" : cv2.AgastFeatureDetector_create(),
     #"AKAZE" : cv2.AKAZE_create(),
-    #"BRISK" : cv2.BRISK_create(),
+    "BRISK" : cv2.BRISK_create(),
     #"FAST" : cv2.FastFeatureDetector_create(),
     #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
-    #"GFTT" : cv2.GFTTDetector_create(),
+    "GFTT" : cv2.GFTTDetector_create(),
     #"GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
     #"KAZE" : cv2.KAZE_create(),
-    "ORB" : cv2.ORB_create(nlevels = 1),
+    "ORB" : cv2.ORB_create(),
     #"ORB_NO_PYRAMID" : cv2.ORB_create(nlevels = 1),
-    #"SIFT" : cv2.SIFT_create(),
+    "SIFT" : cv2.SIFT_create(),
     #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
     #"SIFT_FAST2" : cv2.SIFT_create(sigma = 2.25),
     #"SIFT_GFTT2" : SIFT_GFTT2 = cv2.SIFT_create(),
@@ -53,7 +53,8 @@ features2d = {
 GFTT2_SCALE = 2
 FAST2_SCALE = 1.5
 
-ONLY_SELF = False #Forces no mixing
+ONLY_SELF = True #Forces no mixing
+ONLY_SELF_EXCEPTIONS = [("GFTT", "SIFT"), ("GFTT2", "SIFT")]
 ONLY_USED_AS_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
 ONLY_USED_AS_DESCRIPTOR = ["FREAK", "SIFT_FAST2", "SIFT_GFTT2"]                     
 BLACKLIST = []                                 
@@ -76,7 +77,7 @@ test_combinations: dict[str, FeatureExtractor] = {}
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
 
-        if ONLY_SELF and detector_key != descriptor_key:
+        if ONLY_SELF and detector_key != descriptor_key and (detector_key, descriptor_key) not in ONLY_SELF_EXCEPTIONS:
             continue
         if (detector_key, descriptor_key) in BLACKLIST:
             continue
@@ -137,7 +138,7 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
         if "speedtest" not in SKIP:
             speed = speed_test(feature_extractor, dataset_image_sequences)
         
-        find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_iteration_num, DOWNSCALE_FACTOR, DOWNSAMPLE_INTERPOLATION_TYPE)
+        find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_iteration_num, DOWNSAMPLE_FACTOR, DOWNSAMPLE_SIGMA, DOWNSAMPLE_INTERPOLATION_TYPE)
         set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
 
         if "matching" not in SKIP:
@@ -314,7 +315,7 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
 
         results = {
             #"combination": f"{feature_extractor_key}" if (len(KEYPOINT_SIZE_SCALINGS) == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
-            "combination": f"{feature_extractor_key}" if (len(DOWNSAMPLE_ITERATIONS_NUMS) == 1) else f"{feature_extractor_key} {downsample_iteration_num}",
+            "combination": f"{feature_extractor_key}{SUFFIX}" if (len(DOWNSAMPLE_ITERATIONS_NUMS) == 1) else f"{feature_extractor_key}{SUFFIX} {downsample_iteration_num}",
             "speed": speed,
             "repeatability mean": np.mean(set_repeatabilities),
             
@@ -410,7 +411,7 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
         for metric, result in results.items():
             print(metric, result)
         df = pd.DataFrame(results, index=[0])
-        if not os.path.isfile(FILE_NAME):
+        if not os.path.isfile("results/" +FILE_NAME):
             df.to_csv("results/" + FILE_NAME, index = False, header = True, mode='a') # Create header if file does not exist
         else:
             df.to_csv("results/" + FILE_NAME, index = False, header = False, mode='a') # If exists skip header

@@ -27,13 +27,16 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
     return speed
 
 #@beartype
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool, DOWNSAMPLE_ITERATIONS: int, DOWNSCALE_FACTOR: float, DOWNSAMPLE_INTERPOLATION_TYPE):  
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool, DOWNSAMPLE_ITERATIONS: int, DOWNSAMPLE_FACTOR: float, DOWNSAMPLE_SIGMA: float, DOWNSAMPLE_INTERPOLATION_TYPE):  
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
             
-            for i in range(DOWNSAMPLE_ITERATIONS):
-                image = downsample(image,DOWNSCALE_FACTOR,1.2, DOWNSAMPLE_INTERPOLATION_TYPE)
+            # for i in range(DOWNSAMPLE_ITERATIONS):
+            #     image = downsample(image,DOWNSAMPLE_FACTOR,1.2, DOWNSAMPLE_INTERPOLATION_TYPE)
+
+            effective_downsample_factor = DOWNSAMPLE_FACTOR**DOWNSAMPLE_ITERATIONS
+            image = downsample(image,effective_downsample_factor, DOWNSAMPLE_SIGMA, DOWNSAMPLE_INTERPOLATION_TYPE)
 
             keypoints = feature_extractor.detect_keypoints(image)
             num_keypoints = len(keypoints)
@@ -49,10 +52,12 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
 
             if (len(keypoints) == 0):
                 continue
+            # if len(keypoints) > 250:
+            #     keypoints = keypoints[250:500]
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
 
             for keypoint in keypoints:
-                keypoint.pt = (keypoint.pt[0] * DOWNSCALE_FACTOR ** DOWNSAMPLE_ITERATIONS, keypoint.pt[1] * DOWNSCALE_FACTOR ** DOWNSAMPLE_ITERATIONS)
+                keypoint.pt = (keypoint.pt[0] * DOWNSAMPLE_FACTOR ** DOWNSAMPLE_ITERATIONS, keypoint.pt[1] * DOWNSAMPLE_FACTOR ** DOWNSAMPLE_ITERATIONS)
 
             if num_keypoints > min_required_keypoints and len(keypoints) < max_features:
                 print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")

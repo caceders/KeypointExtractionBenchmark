@@ -1,9 +1,10 @@
 from cv2 import INTER_LINEAR, INTER_NEAREST
 SKIP = ["speedtest", "verification", "retrieval"]
 #SKIP = ["speedtest"]
-FILE_NAME = "test.csv"
+FILE_NAME = "keypoint_selection_test.csv"
+SUFFIX = "_"+"250-499"
 # Rotation, scale, gaussian blur, motion blur
-APPLY_NOISE = True
+APPLY_NOISE = False
 NOISE_RANGES =[(-60,60), (0.5,2), (0,0), (0,0)] #FIKS SLIK AT 0.5 og 2 er like sannsynlig
 #NOISE_RANGES = [(-60,60)]
 #NOISE_RANGES = []
@@ -12,11 +13,12 @@ NOISE_FILE_NAME = "noise_6060_052.json"
 FORCE_CONSTANT_ANGLE = False
 KEYPOINT_SIZE_SCALINGS = [1]
 REGISTER_OCTAVE_DATA = True
-DOWNSAMPLE_ITERATIONS_NUMS = [1,2]
-DOWNSCALE_FACTOR = 2
+DOWNSAMPLE_ITERATIONS_NUMS = [0]
+DOWNSAMPLE_FACTOR = 2
+DOWNSAMPLE_SIGMA = -1
 DOWNSAMPLE_INTERPOLATION_TYPE = INTER_NEAREST
 
-MAX_FEATURES = 250
+MAX_FEATURES = 500
 VISUALIZE = False
 SEQUENCE_TO_VISUALIZE = [i for i in range(5)]
 

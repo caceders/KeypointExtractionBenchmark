@@ -9,6 +9,7 @@ from shi_tomasi_sift import ShiTomasiSift
 from benchmark.utils import downsample
 import os
 import pandas as pd
+from scipy.optimize import least_squares
 
 #########################################################
 # ================= USER CONFIG =========================
@@ -17,18 +18,21 @@ import pandas as pd
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "BIG_TEST_8"
+RUN_NAME = "FRAME_TEST_LEFT_BA"
+METHOD_SUFFIX = ""
 BASE_OUT = Path("KITTI/results") / RUN_NAME
 CSV_PATH = BASE_OUT / "results.csv"
 TRAJ_DIR = BASE_OUT / "trajectories"
 BASE_OUT.mkdir(parents=True, exist_ok=True)
 TRAJ_DIR.mkdir(parents=True, exist_ok=True)
+ACTIVE_FRAMES = (2000,3000)  # or e.g. 500, 1000
 MAX_FEATURES = 500
 LOWE_RATIO = 0.75
-PNP_REPROJ_THRESH = 2.0
-EPIPOLAR_TOL = 1.0
+PNP_REPROJ_THRESH = 2
+EPIPOLAR_TOL = 1
 RPE_DELTA = 1
-downsample_iterations = 8
+initial_gaussian_blur_sigma = 1
+downsample_iterations_nums = [0]
 downsample_factor = 1.2
 downsample_interpolation_type = cv2.INTER_LINEAR
 downsample_gaussian_sigma = -1
@@ -43,24 +47,23 @@ features2d = {
     "BRISK" : cv2.BRISK_create(),
     #"FAST" : cv2.FastFeatureDetector_create(),
     #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
-    "GFTT" : cv2.GFTTDetector_create(),
-    "GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
-    "ORB" : cv2.ORB_create(),
+    #"GFTT" : cv2.GFTTDetector_create(),
+    #"GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
+    #"ORB" : cv2.ORB_create(),
     "ORB_NO_PYRAMID" : cv2.ORB_create(nlevels=1),
-    "ORB_4_LAYERS" : cv2.ORB_create(nlevels=4),
-    "SIFT" : cv2.SIFT_create(),
+    #"ORB_4_LAYERS" : cv2.ORB_create(nlevels=4),
+    #"SIFT" : cv2.SIFT_create(),
     #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
     #"SIFT_FAST2" : cv2.SIFT_create(sigma = 2.25),
     #"SIFT_GFTT2" : SIFT_GFTT2 = cv2.SIFT_create(),
     #"SIFT_SIG_3.5" : cv2.SIFT_create(sigma = 3.5),
     #"BRIEF" : cv2.xfeatures2d.BriefDescriptorExtractor_create(),
-    "SHIFT_3_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=3),
-    "SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
+    #"SHIFT_3_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=3),
+    #"SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
 }
 
 GFTT2_SCALE = 2
 FAST2_SCALE = 1.5
-
 
 
 ONLY_SELF = True #Forces no mixing
@@ -104,8 +107,6 @@ class FeatureExtractor:
         return self.compute_fn(img, kps)
     
 
-
-
 test_combinations: dict[str, FeatureExtractor] = {}
 for detector_key in features2d.keys():
     for descriptor_key in features2d.keys():
@@ -141,9 +142,287 @@ for detector_key in features2d.keys():
         test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
 
 
+#########################################################
+# ==================== MAIN VO LOOP =====================
+#########################################################
+
+def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
+
+    # Load calibration
+    P0,P1 = read_kitti_P0P1(seq_root/"calib.txt")
+    K = P0[:,:3]
+
+    left,right = load_stereo_images(seq_root)
+    left = left[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
+    right = right[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
+
+    # Extract first frame
+    L0=cv2.imread(str(left[0]),0)
+    R0=cv2.imread(str(right[0]),0)
+
+    effective_downsample_factor = downsample_factor**downsample_iterations
+    L0 = downsample(L0, effective_downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
+    R0 = downsample(R0, effective_downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
+    
+    # for i in range(downsample_iterations):
+    #     L0 = downsample(L0, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
+    #     R0 = downsample(R0, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
+
+    kL0 = extractor.detect(L0)
+    kR0 = extractor.detect(R0)
+
+    if name == "FAST2+SIFT_FAST2":
+        for keypoint in kL0:
+                keypoint.size = keypoint.size * FAST2_SCALE
+        for keypoint in kR0:
+                keypoint.size = keypoint.size * FAST2_SCALE
+    if name == "GFTT2+SIFT_GFTT2":
+        for keypoint in kL0:
+                keypoint.size = keypoint.size * GFTT2_SCALE
+        for keypoint in kR0:
+                keypoint.size = keypoint.size * GFTT2_SCALE
+
+    kL0 = sorted(kL0, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
+    kR0 = sorted(kR0, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
+    kL0, dL0 = extractor.compute(L0,kL0)
+    kR0, dR0 = extractor.compute(R0,kR0)
+
+    for keypoint in kL0:
+        keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
+    for keypoint in kR0:
+        keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
 
 
+    matcher = cv2.BFMatcher(extractor.norm)
 
+    matchesLR0 = matcher.knnMatch(dL0, dR0, 2)
+    good = [m for m,n in matchesLR0 if m.distance < LOWE_RATIO*n.distance]
+
+    tri_prev = triangulate_stereo(kL0,kR0,good,P0,P1,EPIPOLAR_TOL)
+
+    poses=[np.eye(4)]  # world_T_cam
+    stats = {
+        "keypoints" : [],
+        "temporal_matches": [],
+        "stereo_matches": [],
+        "triangulated": [],
+        "temporal_tri_map_overlap": [],
+        "pnp_inliers": [],
+        "failures": 0
+    }
+
+    kLp, dLp = kL0, dL0
+    tri_map = tri_prev
+
+    # store keypoints & tri maps for BA
+    kpL_hist = []
+    tri_hist = []
+    kpL_hist.append(kL0)
+    tri_hist.append(tri_map)
+
+
+    for i in range(1,len(left)):
+        L=cv2.imread(str(left[i]),0)
+        R=cv2.imread(str(right[i]),0)
+
+        effective_downsample_factor = downsample_factor**downsample_iterations
+        L = downsample(L, effective_downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
+        R = downsample(R, effective_downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
+
+        # for i in range(downsample_iterations):
+        #     L = downsample(L, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
+        #     R = downsample(R, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
+
+
+        kpL = extractor.detect(L)
+        kpL = sorted(kpL, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
+        kpR = extractor.detect(R)
+        kpR = sorted(kpR, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
+
+
+        if name == "FAST2+SIFT_FAST2":
+            for keypoint in kpL:
+                    keypoint.size = keypoint.size * FAST2_SCALE
+            for keypoint in kpR:
+                    keypoint.size = keypoint.size * FAST2_SCALE
+        if name == "GFTT2+SIFT_GFTT2":
+            for keypoint in kpL:
+                    keypoint.size = keypoint.size * GFTT2_SCALE
+            for keypoint in kpR:
+                    keypoint.size = keypoint.size * GFTT2_SCALE
+
+        kpL, dL = extractor.compute(L,kpL)
+        kpR, dR = extractor.compute(R,kpR)
+
+        for keypoint in kpL:
+            keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
+        for keypoint in kpR:
+            keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
+
+        # temporal matches
+        ml = matcher.knnMatch(dLp, dL, 2)
+        good_temporal = [m for m,n in ml if m.distance < LOWE_RATIO*n.distance]
+
+        stats["keypoints"].append((len(kpL)+len(kpR))/2)
+        stats["temporal_matches"].append(len(good_temporal))
+        stats["stereo_matches"].append(len(good))
+
+        # Build 3D-2D pairs
+
+        num_temporal_in_tri_map = 0
+        pts3d=[]; pts2d=[]
+        for m in good_temporal:
+            if m.queryIdx in tri_map:
+                pts3d.append(tri_map[m.queryIdx])
+                pts2d.append(kpL[m.trainIdx].pt)
+                num_temporal_in_tri_map += 1
+
+        stats["temporal_tri_map_overlap"].append(num_temporal_in_tri_map)
+
+        # Solve PnP
+        effective_PNP_thresh = PNP_REPROJ_THRESH
+        #effective_PNP_thresh = PNP_REPROJ_THRESH * (downsample_factor ** downsample_iterations)
+        res = solve_pnp(pts3d, pts2d, K, effective_PNP_thresh)
+        if res is None:
+            stats["pnp_inliers"].append(0)
+            stats["failures"]+=1
+            poses.append(poses[-1].copy())
+        else:
+            Rot,t,inl = res
+            stats["pnp_inliers"].append(len(inl))
+
+            T = build_T(Rot, t)
+            poses.append(poses[-1] @ T_inv(T))
+
+
+        # recompute stereo for next step
+        matchesLR = matcher.knnMatch(dL, dR, 2)
+        good = [m for m,n in matchesLR if m.distance < LOWE_RATIO*n.distance]
+        tri_map = triangulate_stereo(kpL,kpR,good,P0,P1,EPIPOLAR_TOL)
+        stats["triangulated"].append(len(tri_map))
+
+        kpL_hist.append(kpL)
+        tri_hist.append(tri_map)
+
+        kLp, dLp = kpL, dL
+
+        # ====================================================
+        #               5-FRAME SLIDING BA
+        # ====================================================
+
+        if len(poses) >= 5:
+            obs = []
+
+            # window: frames i-4 ... i
+            for k in range(5):
+                frame_idx = len(poses) - 5 + k
+                kpL_k = kpL_hist[frame_idx]
+                tri_k = tri_hist[frame_idx]
+
+                # reuse temporal matches linking map to image
+                for m in good_temporal:
+                    if m.queryIdx in tri_k:
+                        X = tri_k[m.queryIdx]
+                        pt = kpL_k[m.trainIdx].pt
+                        obs.append((k, X, pt))
+
+            if len(obs) >= 30:  # minimum constraint check
+                x0 = np.zeros(6 * 5)
+                for k in range(5):
+                    x0[6*k:6*(k+1)] = T_to_se3(poses[len(poses)-5+k])
+
+                res = least_squares(
+                    ba_5frame_residuals,
+                    x0,
+                    args=(obs, K),
+                    loss="huber",
+                    f_scale=1.0,
+                    max_nfev=20
+                )
+
+                # update ALL 5 poses in window
+                for k in range(5):
+                    poses[len(poses)-5+k] = se3_to_T(
+                        res.x[6*k:6*(k+1)]
+                    )
+
+    return poses, stats
+
+
+#########################################################
+# ===================== MAIN RUN ========================
+#########################################################
+
+def main():
+    for seq in SEQUENCES:
+        seq_root = Path(DATA_ROOT) / "sequences" / seq
+        gt_path = Path(DATA_ROOT) / "poses" / f"{seq}.txt"
+        gt_poses = read_gt_poses(gt_path)
+        print(f"=== Running sequence {seq} ===")
+        for downsample_iterations in downsample_iterations_nums:
+            print(f"Running test with {downsample_iterations} downsample iterations")
+            for name, extractor in test_combinations.items():
+                print(f" -> Testing {name}")
+
+                poses, stats = run_stereo_vo(seq_root, name, extractor, downsample_iterations)
+                gt_poses_trunc = gt_poses[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
+
+                traj_path = TRAJ_DIR / f"traj_{seq}_{name}_{METHOD_SUFFIX}_{downsample_iterations}.txt"
+                save_trajectory_kitti(traj_path, poses)
+
+                if gt_poses is None:
+                    ate = float("nan")
+                    rpe1_trans = rpe1_rot = float("nan")
+                    rpe10_trans = rpe10_rot = float("nan")
+                else:
+                    ate = compute_ate(poses, gt_poses_trunc)
+
+                    rpe1_trans, rpe1_rot, rpe1_trans_max, rpe1_rot_max = compute_rpe(poses, gt_poses_trunc, delta=1)
+                    rpe10_trans, rpe10_rot, rpe10_trans_max, rpe10_rot_max = compute_rpe(poses, gt_poses_trunc, delta=10)
+
+
+                # ---- build per-method result dict ----
+                results = {
+                    "sequence": seq,
+                    "method": name + f"_{METHOD_SUFFIX}_{downsample_iterations}",
+                    "active_frames" : f"{ACTIVE_FRAMES[0]}-{ACTIVE_FRAMES[1]}",
+                    "ATE_RMSE": ate,
+                    "RPE1_trans_RMSE": rpe1_trans,
+                    "RPE1_rot_RMSE": rpe1_rot,
+                    "RPE1_trans_max": rpe1_trans_max,
+                    "RPE1_rot_max": rpe1_rot_max,
+                    "RPE10_trans_RMSE": rpe10_trans,
+                    "RPE10_rot_RMSE": rpe10_rot,
+                    "RPE10_trans_max": rpe10_trans_max,
+                    "RPE10_rot_max": rpe10_rot_max,
+                    "keypoints": float(np.mean(stats["keypoints"])),
+                    "temporal_matches_mean": float(np.mean(stats["temporal_matches"])),
+                    "stereo_matches_mean": float(np.mean(stats["stereo_matches"])),
+                    "triangulated_mean": float(np.mean(stats["triangulated"])),
+                    "temporal_tri_map_overlap_mean": float(np.mean(stats["temporal_tri_map_overlap"])),
+                    "PnP_inliers_mean": float(np.mean(stats["pnp_inliers"])),
+                    "dropped_temporal": float(np.mean(stats["keypoints"]))- float(np.mean(stats["temporal_matches"])),
+                    "dropped_stereo": float(np.mean(stats["keypoints"]))- float(np.mean(stats["stereo_matches"])),
+                    "dropped_stereo->tri": float(np.mean(stats["stereo_matches"]))- float(np.mean(stats["triangulated"])),
+                    "dropped_temporal->tri_map_overlap": float(np.mean(stats["temporal_matches"]))- float(np.mean(stats["temporal_tri_map_overlap"])),
+                    "dropped_tri_map_overlap->PNP_inliers": float(np.mean(stats["temporal_tri_map_overlap"]))- float(np.mean(stats["pnp_inliers"])),
+                    "failures": int(stats["failures"]),
+                }
+
+                # ---- print results immediately ----
+                for k, v in results.items():
+                    print(f"    {k}: {v}")
+
+                # ---- append to CSV safely ----
+                df = pd.DataFrame(results, index=[0])
+
+                write_header = not CSV_PATH.exists()
+                df.to_csv(
+                    CSV_PATH,
+                    mode="a",
+                    header=write_header,
+                    index=False,
+                )
 
 
 #########################################################
@@ -304,212 +583,60 @@ def compute_rpe(est_poses, gt_poses, delta=1):
     trans_rmse = np.sqrt(np.mean(np.square(trans_err)))
     rot_rmse   = np.sqrt(np.mean(np.square(rot_err)))
 
-    return trans_rmse, rot_rmse
+    return trans_rmse, rot_rmse, max(trans_err), max(rot_err)
+
+##############################################
+# ============ 5-FRAME BA HELPERS ============
+##############################################
+
+def T_to_se3(T):
+    """4x4 -> 6D (rvec, t)"""
+    rvec, _ = cv2.Rodrigues(T[:3, :3])
+    x = np.zeros(6)
+    x[:3] = rvec.ravel()
+    x[3:] = T[:3, 3]
+    return x
 
 
-#########################################################
-# ==================== MAIN VO LOOP =====================
-#########################################################
-
-def run_stereo_vo(seq_root, name, extractor):
-
-    # Load calibration
-    P0,P1 = read_kitti_P0P1(seq_root/"calib.txt")
-    K = P0[:,:3]
-
-    left,right = load_stereo_images(seq_root)
-
-    # Extract first frame
-    L0=cv2.imread(str(left[0]),0)
-    R0=cv2.imread(str(right[0]),0)
-
-    for i in range(downsample_iterations):
-        L0 = downsample(L0,downsample_factor,downsample_gaussian_sigma, downsample_interpolation_type)
-        R0 = downsample(R0,downsample_factor,downsample_gaussian_sigma, downsample_interpolation_type)
+def se3_to_T(x):
+    """6D (rvec, t) -> 4x4"""
+    rvec = x[:3]
+    t = x[3:].reshape(3, 1)
+    R, _ = cv2.Rodrigues(rvec)
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3:4] = t
+    return T
 
 
+def ba_5frame_residuals(x, observations, K):
+    """
+    x: stacked poses [T_{i-4}, ..., T_i] each as 6D
+    observations: list of (frame_offset, X_3d, pt_2d)
+    """
+    residuals = []
+
+    # decode poses
+    Ts = []
+    for k in range(5):
+        Ts.append(se3_to_T(x[6*k:6*(k+1)]))
+
+    for frame_id, X, pt in observations:
+        T = Ts[frame_id]
+        Pc = T[:3, :3] @ X.reshape(3, 1) + T[:3, 3:4]
+        if Pc[2] <= 0:
+            continue
+
+        uv = K @ Pc
+        
+        u = float(uv[0] / uv[2])
+        v = float(uv[1] / uv[2])
 
 
-    kL0 = extractor.detect(L0)
-    kR0 = extractor.detect(R0)
+        residuals.append(u - pt[0])
+        residuals.append(v - pt[1])
 
-    if name == "FAST2+SIFT_FAST2":
-        for keypoint in kL0:
-                keypoint.size = keypoint.size * FAST2_SCALE
-        for keypoint in kR0:
-                keypoint.size = keypoint.size * FAST2_SCALE
-    if name == "GFTT2+SIFT_GFTT2":
-        for keypoint in kL0:
-                keypoint.size = keypoint.size * GFTT2_SCALE
-        for keypoint in kR0:
-                keypoint.size = keypoint.size * GFTT2_SCALE
-
-    kL0 = sorted(kL0, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
-    kR0 = sorted(kR0, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
-    kL0, dL0 = extractor.compute(L0,kL0)
-    kR0, dR0 = extractor.compute(R0,kR0)
-
-    for keypoint in kL0:
-        keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
-    for keypoint in kR0:
-        keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
-
-
-    matcher = cv2.BFMatcher(extractor.norm)
-
-    matchesLR0 = matcher.knnMatch(dL0, dR0, 2)
-    good = [m for m,n in matchesLR0 if m.distance < LOWE_RATIO*n.distance]
-
-    tri_prev = triangulate_stereo(kL0,kR0,good,P0,P1,EPIPOLAR_TOL)
-
-    poses=[np.eye(4)]  # world_T_cam
-    stats = {
-        "stereo_matches": [],
-        "triangulated": [],
-        "temporal_matches": [],
-        "pnp_inliers": [],
-        "failures": 0
-    }
-
-    prevL, prevR = L0, R0
-    kLp, dLp = kL0, dL0
-    tri_map = tri_prev
-
-
-    for i in range(1,len(left)):
-        L=cv2.imread(str(left[i]),0)
-        R=cv2.imread(str(right[i]),0)
-        for i in range(downsample_iterations):
-            L = downsample(L,downsample_factor,downsample_gaussian_sigma, downsample_interpolation_type)
-            R = downsample(R,downsample_factor,downsample_gaussian_sigma, downsample_interpolation_type)
-
-        kpL = extractor.detect(L)
-        kpL = sorted(kpL, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
-        kpR = extractor.detect(R)
-        kpR = sorted(kpR, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
-
-
-        if name == "FAST2+SIFT_FAST2":
-            for keypoint in kpL:
-                    keypoint.size = keypoint.size * FAST2_SCALE
-            for keypoint in kpR:
-                    keypoint.size = keypoint.size * FAST2_SCALE
-        if name == "GFTT2+SIFT_GFTT2":
-            for keypoint in kpL:
-                    keypoint.size = keypoint.size * GFTT2_SCALE
-            for keypoint in kpR:
-                    keypoint.size = keypoint.size * GFTT2_SCALE
-
-        kpL, dL = extractor.compute(L,kpL)
-        kpR, dR = extractor.compute(R,kpR)
-
-        for keypoint in kpL:
-            keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
-        for keypoint in kpR:
-            keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
-
-        # temporal matches
-        ml = matcher.knnMatch(dLp, dL, 2)
-        good_temporal = [m for m,n in ml if m.distance < LOWE_RATIO*n.distance]
-
-        stats["temporal_matches"].append(len(good_temporal))
-        stats["stereo_matches"].append(len(good))
-
-        # Build 3D-2D pairs
-        pts3d=[]; pts2d=[]
-        for m in good_temporal:
-            if m.queryIdx in tri_map:
-                pts3d.append(tri_map[m.queryIdx])
-                pts2d.append(kpL[m.trainIdx].pt)
-
-        # Solve PnP
-        res = solve_pnp(pts3d, pts2d, K, PNP_REPROJ_THRESH)
-        if res is None:
-            stats["pnp_inliers"].append(0)
-            stats["failures"]+=1
-            poses.append(poses[-1].copy())
-        else:
-            R,t,inl = res
-            stats["pnp_inliers"].append(len(inl))
-
-            T = build_T(R,t)
-            # world_T_cam_next = world_T_cam * inv(T_cam_next_cam)
-            poses.append(poses[-1] @ T_inv(T))
-
-        # recompute stereo for next step
-        matchesLR = matcher.knnMatch(dL, dR, 2)
-        good = [m for m,n in matchesLR if m.distance < LOWE_RATIO*n.distance]
-        tri_map = triangulate_stereo(kpL,kpR,good,P0,P1,EPIPOLAR_TOL)
-        stats["triangulated"].append(len(tri_map))
-
-        kLp, dLp = kpL, dL
-
-    return poses, stats
-
-
-#########################################################
-# ===================== MAIN RUN ========================
-#########################################################
-
-def main():
-    for seq in SEQUENCES:
-        seq_root = Path(DATA_ROOT) / "sequences" / seq
-        gt_path = Path(DATA_ROOT) / "poses" / f"{seq}.txt"
-        gt_poses = read_gt_poses(gt_path)
-
-        print(f"=== Running sequence {seq} ===")
-
-        for name, extractor in test_combinations.items():
-            print(f" -> Testing {name}")
-
-            poses, stats = run_stereo_vo(seq_root, name, extractor)
-
-            traj_path = TRAJ_DIR / f"traj_{seq}_{name.replace('+','-')}.txt"
-            save_trajectory_kitti(traj_path, poses)
-
-            if gt_poses is None:
-                ate = float("nan")
-                rpe1_trans = rpe1_rot = float("nan")
-                rpe10_trans = rpe10_rot = float("nan")
-            else:
-                ate = compute_ate(poses, gt_poses)
-
-                rpe1_trans, rpe1_rot = compute_rpe(poses, gt_poses, delta=1)
-                rpe10_trans, rpe10_rot = compute_rpe(poses, gt_poses, delta=10)
-
-            # ---- build per-method result dict ----
-            results = {
-                "sequence": seq,
-                "method": name,
-                "ATE_RMSE": ate,
-                "RPE1_trans_RMSE": rpe1_trans,
-                "RPE1_rot_RMSE": rpe1_rot,
-                "RPE10_trans_RMSE": rpe10_trans,
-                "RPE10_rot_RMSE": rpe10_rot,
-                "PnP_inliers_mean": float(np.mean(stats["pnp_inliers"])),
-                "temporal_matches_mean": float(np.mean(stats["temporal_matches"])),
-                "stereo_matches_mean": float(np.mean(stats["stereo_matches"])),
-                "triangulated_mean": float(np.mean(stats["triangulated"])),
-                "failures": int(stats["failures"]),
-            }
-
-            # ---- print results immediately ----
-            for k, v in results.items():
-                print(f"    {k}: {v}")
-
-            # ---- append to CSV safely ----
-            df = pd.DataFrame(results, index=[0])
-
-            write_header = not CSV_PATH.exists()
-            df.to_csv(
-                CSV_PATH,
-                mode="a",
-                header=write_header,
-                index=False,
-            )
-
-
-    print(f"\nSaved results to {CSV_PATH}")
+    return np.array(residuals)
 
 
 if __name__ == "__main__":
