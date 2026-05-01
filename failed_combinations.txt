@@ -1,0 +1,60 @@
+ORB_NO_PYRAMID+ORB_NO_PYRAMID
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 405, in <module>
+    spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\utils.py", line 229, in compare_rankings_and_visualize_across_sets
+    raise ValueError("No valid sets with sufficient common universe across properties to compute correlations.")
+ValueError: No valid sets with sufficient common universe across properties to compute correlations.
+
+
+ORB_NO_PYRAMID+ORB_NO_PYRAMID
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 405, in <module>
+    spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\utils.py", line 229, in compare_rankings_and_visualize_across_sets
+    raise ValueError("No valid sets with sufficient common universe across properties to compute correlations.")
+ValueError: No valid sets with sufficient common universe across properties to compute correlations.
+
+
+ORB_NO_PYRAMID+ORB_NO_PYRAMID
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 405, in <module>
+    spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\utils.py", line 229, in compare_rankings_and_visualize_across_sets
+    raise ValueError("No valid sets with sufficient common universe across properties to compute correlations.")
+ValueError: No valid sets with sufficient common universe across properties to compute correlations.
+
+
+ORB_NO_PYRAMID+ORB_NO_PYRAMID
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 405, in <module>
+    spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\utils.py", line 229, in compare_rankings_and_visualize_across_sets
+    raise ValueError("No valid sets with sufficient common universe across properties to compute correlations.")
+ValueError: No valid sets with sufficient common universe across properties to compute correlations.
+
+
+ORB_NO_PYRAMID+ORB_NO_PYRAMID
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 405, in <module>
+    spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\utils.py", line 229, in compare_rankings_and_visualize_across_sets
+    raise ValueError("No valid sets with sufficient common universe across properties to compute correlations.")
+ValueError: No valid sets with sufficient common universe across properties to compute correlations.
+
+
+ORB_NO_PYRAMID+ORB_NO_PYRAMID
+Traceback (most recent call last):
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\main.py", line 405, in <module>
+    spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\håvard\OneDrive\NTNU\ELSYS\Boksen\KeypointExtractionBenchmark\benchmark\utils.py", line 229, in compare_rankings_and_visualize_across_sets
+    raise ValueError("No valid sets with sufficient common universe across properties to compute correlations.")
+ValueError: No valid sets with sufficient common universe across properties to compute correlations.
+
+

@@ -31,23 +31,23 @@ if APPLY_NOISE:
 
 features2d = {
     #"AGAST" : cv2.AgastFeatureDetector_create(),
-    #"AKAZE" : cv2.AKAZE_create(),
-    "BRISK" : cv2.BRISK_create(),
+    "AKAZE" : cv2.AKAZE_create(),
+    #"BRISK" : cv2.BRISK_create(),
     #"FAST" : cv2.FastFeatureDetector_create(),
     #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
-    "GFTT" : cv2.GFTTDetector_create(),
+    #"GFTT" : cv2.GFTTDetector_create(),
     #"GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
     #"KAZE" : cv2.KAZE_create(),
-    "ORB" : cv2.ORB_create(),
+    #"ORB" : cv2.ORB_create(),
     #"ORB_NO_PYRAMID" : cv2.ORB_create(nlevels = 1),
-    "SIFT" : cv2.SIFT_create(),
+    #"SIFT" : cv2.SIFT_create(),
     #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
     #"SIFT_FAST2" : cv2.SIFT_create(sigma = 2.25),
     #"SIFT_GFTT2" : SIFT_GFTT2 = cv2.SIFT_create(),
     #"SIFT_SIG_3.5" : cv2.SIFT_create(sigma = 3.5),
     #"BRIEF" : cv2.xfeatures2d.BriefDescriptorExtractor_create(),
     #"SHIFT_5_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
-    #"SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
+    "SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
 }
 
 GFTT2_SCALE = 2
@@ -117,7 +117,7 @@ matching_approach = greedy_maximum_bipartite_matching_descriptor_distance
 all_results = []
 
 warnings.filterwarnings("once", category=UserWarning)
-image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
+
 
 
 #for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Calculating for all sizes"):
@@ -126,302 +126,305 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
     for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="Calculating for all combinations"):
         print(f"Calculating for {feature_extractor_key}")   
         
-        #try:
-        feature_extractor: FeatureExtractor = test_combinations[feature_extractor_key]
+        try:
+            feature_extractor: FeatureExtractor = test_combinations[feature_extractor_key]
+            image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
 
-        if (feature_extractor_key == "FAST2+SIFT_FAST2"):
-            keypoint_size_scaling = FAST2_SCALE
-        elif (feature_extractor_key == "GFTT2+SIFT_GFTT2"):
-            keypoint_size_scaling = GFTT2_SCALE
+            if (feature_extractor_key == "FAST2+SIFT_FAST2"):
+                keypoint_size_scaling = FAST2_SCALE
+            elif (feature_extractor_key == "GFTT2+SIFT_GFTT2"):
+                keypoint_size_scaling = GFTT2_SCALE
 
-        speed = 0
-        if "speedtest" not in SKIP:
-            speed = speed_test(feature_extractor, dataset_image_sequences)
-        
-        find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_iteration_num, DOWNSAMPLE_FACTOR, DOWNSAMPLE_SIGMA, DOWNSAMPLE_INTERPOLATION_TYPE)
-        set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
+            speed = 0
+            if "speedtest" not in SKIP:
+                speed = speed_test(feature_extractor, dataset_image_sequences)
+            
+            find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_iteration_num, DOWNSAMPLE_FACTOR, DOWNSAMPLE_SIGMA, DOWNSAMPLE_INTERPOLATION_TYPE)
+            set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
 
-        if "matching" not in SKIP:
-            matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach, dataset_image_sequences, dataset_homography_sequence, VISUALIZE, SEQUENCE_TO_VISUALIZE)
-        else:
-            matching_match_sets: list[MatchSet] = [MatchSet()]
-        
-        if "verification" not in SKIP:
-            verification_match_sets: list [MatchSet] = calculate_verification_evaluation(feature_extractor, image_feature_set, VERIFICATION_CORRECT_TO_RANDOM_RATIO, matching_approach)
-        else:
-            verification_match_sets: list [MatchSet] = [MatchSet()]
-        
-        if "retrieval" not in SKIP:
-            retrieval_match_sets : list[MatchSet] = calculate_retrieval_evaluation(feature_extractor, image_feature_set, RETRIEVAL_CORRECT_TO_RANDOM_RATIO, MAX_NUM_RETRIEVAL_FEATURES, matching_approach)
-        else:
-            retrieval_match_sets : list [MatchSet] = [MatchSet()]        
-
-        ## Store results
-        # Flatten matching matches once
-        all_matches = [m for s in matching_match_sets for m in s]
-        num_matches = len(all_matches)
-
-        # Pre-extract fields (vectorized)
-        is_correct = np.fromiter((m.is_correct for m in all_matches), bool, count=num_matches)
-        match_rank = np.fromiter((m.match_properties["match rank"] for m in all_matches), int, count=num_matches)
-        distances = np.fromiter((m.match_properties["distance"] for m in all_matches), float, count=num_matches)
-        distinctiveness = np.fromiter((m.match_properties["distinctiveness"] for m in all_matches), float, count=num_matches)
-        sizes = np.fromiter(((m.reference_feature.keypoint.size + m.related_feature.keypoint.size) / 2 for m in all_matches), float, count=num_matches)
-        responses = np.fromiter(((m.reference_feature.keypoint.response + m.related_feature.keypoint.response) / 2 for m in all_matches), float, count=num_matches)
-        octaves = np.fromiter((feature.keypoint.octave for sequence in image_feature_set for image in sequence for feature in image), float)
-
-        # Precompute masks
-        correct_mask = is_correct
-        incorrect_mask = ~is_correct
-
-        # Total possible matches (vectorized)
-        set_numbers_of_possible_correct_matches = np.array(set_numbers_of_possible_correct_matches, dtype=object)
-        total_possible_correct_matches = set_numbers_of_possible_correct_matches.sum()
-
-        # Totals
-        total_correct_matches = is_correct.sum()
-        ratio_correct = total_correct_matches / num_matches
-        ratio_possible_found = total_correct_matches / total_possible_correct_matches 
-
-        # --- Rank-based stats ---
-        max_rank = NUM_BEST_MATCHES
-        match_rank_totals = np.bincount(match_rank, minlength=max_rank)
-        match_rank_correct = np.bincount(match_rank[correct_mask], minlength=max_rank)
-
-        match_rank_ratios = np.divide(
-            match_rank_correct.astype(float),
-            match_rank_totals.astype(float),
-            out=np.zeros_like(match_rank_correct, dtype=float),
-            where=match_rank_totals != 0
-        )
-
-        # --- Size, distance, response, distinctiveness stats ---
-        def safe_mean(x):
-            return float(np.mean(x)) if len(x) else 0.0
-
-        avg_size = sizes.mean()
-
-        # Correct-only subsets
-        sizes_correct = sizes[correct_mask]
-        distances_correct = distances[correct_mask]
-        responses_correct = responses[correct_mask]
-        distinctiveness_correct = distinctiveness[correct_mask]
-
-        total_num_features = sum(len(image) for sequence in image_feature_set for image in sequence)
-
-        # Per-image metrics
-        correct_per_sequence = np.array([sum(m.is_correct for m in s) for s in matching_match_sets])
-        avg_correct_per_sequence = correct_per_sequence.mean()
-
-        avg_size_correct = safe_mean(sizes_correct)
-        ratio_size_correct = avg_size_correct / avg_size if avg_size != 0 else 0
-
-        avg_dist = distances.mean()
-        avg_dist_correct = safe_mean(distances_correct)
-        ratio_dist_correct = avg_dist_correct / avg_dist if avg_dist != 0 else 0
-
-        avg_resp = responses.mean()
-        avg_resp_correct = safe_mean(responses_correct)
-        ratio_resp_correct = avg_resp_correct / avg_resp if avg_resp != 0 else 0
-
-        avg_distinct = distinctiveness.mean()
-        avg_distinct_correct = safe_mean(distinctiveness_correct)
-        ratio_distinct_correct = avg_distinct_correct / avg_distinct if avg_distinct != 0 else 0
-
-        # Rank stats: all + correct
-        avg_rank_all = match_rank.mean()
-        if (REGISTER_OCTAVE_DATA and feature_extractor_key != "SIFT+SIFT" and feature_extractor_key != "AKAZE+AKAZE"):
-            avg_octave = np.average(octaves)
-            octave_discrepancy_count = np.sum([1 for m in all_matches if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave])
-            if (octave_discrepancy_count != 0):
-                octave_avg_discrepancy = np.average([abs(m.reference_feature.keypoint.octave - m.related_feature.keypoint.octave) for m in all_matches if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave])
+            if "matching" not in SKIP:
+                matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach, dataset_image_sequences, dataset_homography_sequence, VISUALIZE, SEQUENCE_TO_VISUALIZE, downsample_iteration_num, DOWNSAMPLE_FACTOR, DOWNSAMPLE_SIGMA, DOWNSAMPLE_INTERPOLATION_TYPE)
             else:
+                matching_match_sets: list[MatchSet] = [MatchSet()]
+            
+            if "verification" not in SKIP:
+                verification_match_sets: list [MatchSet] = calculate_verification_evaluation(feature_extractor, image_feature_set, VERIFICATION_CORRECT_TO_RANDOM_RATIO, matching_approach)
+            else:
+                verification_match_sets: list [MatchSet] = [MatchSet()]
+            
+            if "retrieval" not in SKIP:
+                retrieval_match_sets : list[MatchSet] = calculate_retrieval_evaluation(feature_extractor, image_feature_set, RETRIEVAL_CORRECT_TO_RANDOM_RATIO, MAX_NUM_RETRIEVAL_FEATURES, matching_approach)
+            else:
+                retrieval_match_sets : list [MatchSet] = [MatchSet()]        
+
+            ## Store results
+            # Flatten matching matches once
+            all_matches = [m for s in matching_match_sets for m in s]
+            num_matches = len(all_matches)
+
+            # Pre-extract fields (vectorized)
+            is_correct = np.fromiter((m.is_correct for m in all_matches), bool, count=num_matches)
+            match_rank = np.fromiter((m.match_properties["match rank"] for m in all_matches), int, count=num_matches)
+            distances = np.fromiter((m.match_properties["distance"] for m in all_matches), float, count=num_matches)
+            distinctiveness = np.fromiter((m.match_properties["distinctiveness"] for m in all_matches), float, count=num_matches)
+            sizes = np.fromiter(((m.reference_feature.keypoint.size + m.related_feature.keypoint.size) / 2 for m in all_matches), float, count=num_matches)
+            responses = np.fromiter(((m.reference_feature.keypoint.response + m.related_feature.keypoint.response) / 2 for m in all_matches), float, count=num_matches)
+            octaves = np.fromiter((feature.keypoint.octave for sequence in image_feature_set for image in sequence for feature in image), float)
+
+            # Precompute masks
+            correct_mask = is_correct
+            incorrect_mask = ~is_correct
+
+            # Total possible matches (vectorized)
+            set_numbers_of_possible_correct_matches = np.array(set_numbers_of_possible_correct_matches, dtype=object)
+            total_possible_correct_matches = set_numbers_of_possible_correct_matches.sum()
+
+            # Totals
+            total_correct_matches = is_correct.sum()
+            ratio_correct = total_correct_matches / num_matches
+            ratio_possible_found = total_correct_matches / total_possible_correct_matches 
+
+            # --- Rank-based stats ---
+            max_rank = NUM_BEST_MATCHES
+            match_rank_totals = np.bincount(match_rank, minlength=max_rank)
+            match_rank_correct = np.bincount(match_rank[correct_mask], minlength=max_rank)
+
+            match_rank_ratios = np.divide(
+                match_rank_correct.astype(float),
+                match_rank_totals.astype(float),
+                out=np.zeros_like(match_rank_correct, dtype=float),
+                where=match_rank_totals != 0
+            )
+
+            # --- Size, distance, response, distinctiveness stats ---
+            def safe_mean(x):
+                return float(np.mean(x)) if len(x) else 0.0
+
+            avg_size = sizes.mean()
+
+            # Correct-only subsets
+            sizes_correct = sizes[correct_mask]
+            distances_correct = distances[correct_mask]
+            responses_correct = responses[correct_mask]
+            distinctiveness_correct = distinctiveness[correct_mask]
+
+            total_num_features = sum(len(image) for sequence in image_feature_set for image in sequence)
+
+            # Per-image metrics
+            correct_per_sequence = np.array([sum(m.is_correct for m in s) for s in matching_match_sets])
+            avg_correct_per_sequence = correct_per_sequence.mean()
+
+            avg_size_correct = safe_mean(sizes_correct)
+            ratio_size_correct = avg_size_correct / avg_size if avg_size != 0 else 0
+
+            avg_dist = distances.mean()
+            avg_dist_correct = safe_mean(distances_correct)
+            ratio_dist_correct = avg_dist_correct / avg_dist if avg_dist != 0 else 0
+
+            avg_resp = responses.mean()
+            avg_resp_correct = safe_mean(responses_correct)
+            ratio_resp_correct = avg_resp_correct / avg_resp if avg_resp != 0 else 0
+
+            avg_distinct = distinctiveness.mean()
+            avg_distinct_correct = safe_mean(distinctiveness_correct)
+            ratio_distinct_correct = avg_distinct_correct / avg_distinct if avg_distinct != 0 else 0
+
+            # Rank stats: all + correct
+            avg_rank_all = match_rank.mean()
+            if (REGISTER_OCTAVE_DATA and feature_extractor_key != "SIFT+SIFT" and feature_extractor_key != "AKAZE+AKAZE"):
+                avg_octave = np.average(octaves)
+                octave_discrepancy_count = np.sum([1 for m in all_matches if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave])
+                if (octave_discrepancy_count != 0):
+                    octave_avg_discrepancy = np.average([abs(m.reference_feature.keypoint.octave - m.related_feature.keypoint.octave) for m in all_matches if m.reference_feature.keypoint.octave != m.related_feature.keypoint.octave])
+                else:
+                    octave_avg_discrepancy = 0
+
+                octave_stats = {}
+
+                for i in set(octaves):
+                    keypoints = sum(1 for octave in octaves if octave == i)
+                    responses = [
+                        feature.keypoint.response
+                        for sequence in image_feature_set
+                        for image in sequence
+                        for feature in image
+                        if feature.keypoint.octave == i
+                    ]
+                    # ADD RATIO CORRECT
+                    octave_stats[int(i)] = {
+                        "keypoints": keypoints,
+                        "response": float(np.average(responses)) if len(responses) > 0 else None,
+                        "correct matches" : int(np.sum([match.is_correct for match in all_matches if match.reference_feature.keypoint.octave == i or match.related_feature.keypoint.octave == i])),
+
+                    }
+            else:
+                avg_octave = 0
+                octave_discrepancy_count = 0
                 octave_avg_discrepancy = 0
+                octave_stats = {}
 
-            octave_stats = {}
+            # Average distances between descriptors:
+            distances_incorrect = distances[incorrect_mask]
+            avg_dist_incorrect = safe_mean(distances_incorrect)
 
-            for i in set(octaves):
-                keypoints = sum(1 for octave in octaves if octave == i)
-                responses = [
-                    feature.keypoint.response
-                    for sequence in image_feature_set
-                    for image in sequence
-                    for feature in image
-                    if feature.keypoint.octave == i
-                ]
+            # Descriptor distinctions and use of the descriptor space
 
-                octave_stats[int(i)] = {
-                    "keypoints": keypoints,
-                    "response": float(np.average(responses)) if len(responses) > 0 else None,
-                    "correct matches" : int(np.sum([match.is_correct for match in all_matches if match.reference_feature.keypoint.octave == i or match.related_feature.keypoint.octave == i]))
-                }
-        else:
-            avg_octave = 0
-            octave_discrepancy_count = 0
-            octave_avg_discrepancy = 0
-            octave_stats = {}
+            mean_pairwise_distances = []
+            mean_pairwise_distances_normalized = []
+            normalized_effective_ranks = []
 
-        # Average distances between descriptors:
-        distances_incorrect = distances[incorrect_mask]
-        avg_dist_incorrect = safe_mean(distances_incorrect)
+            for image_feature_sequence in image_feature_set:
+                sequence_descriptor = [feature.description for image_feature in image_feature_sequence
+                                for feature in image_feature]
+                descriptors = np.array(sequence_descriptor)
+                if len(descriptors) < 10:
+                    continue
+                if feature_extractor.distance_type == cv2.NORM_L2:
+                    pairwise = pdist(descriptors, metric='euclidean')
+                    mean_pairwise_distance = float(pairwise.mean())
+                    mean_pairwise_distances.append(mean_pairwise_distance)
 
-        # Descriptor distinctions and use of the descriptor space
+                    norms = np.linalg.norm(descriptors, axis=1, keepdims=True)
+                    normalized = descriptors / np.where(norms == 0, 1, norms)
+                    mean_pairwise_distance_normalized = float(pdist(normalized, metric='euclidean').mean())
+                    mean_pairwise_distances_normalized.append(mean_pairwise_distance_normalized)
 
-        mean_pairwise_distances = []
-        mean_pairwise_distances_normalized = []
-        normalized_effective_ranks = []
+                    cov = np.cov(descriptors, rowvar=False)
 
-        for image_feature_sequence in image_feature_set:
-            sequence_descriptor = [feature.description for image_feature in image_feature_sequence
-                            for feature in image_feature]
-            descriptors = np.array(sequence_descriptor)
+                elif feature_extractor.distance_type == cv2.NORM_HAMMING:
+                    bit_matrix = np.unpackbits(descriptors, axis=1).astype(float)
+                    mean_pairwise_distance = float(pdist(bit_matrix, metric='hamming').mean())
+                    mean_pairwise_distances.append(mean_pairwise_distance)
 
-            if feature_extractor.distance_type == cv2.NORM_L2:
-                pairwise = pdist(descriptors, metric='euclidean')
-                mean_pairwise_distance = float(pairwise.mean())
-                mean_pairwise_distances.append(mean_pairwise_distance)
+                    mean_pairwise_distance_normalized = mean_pairwise_distances  # magnitude meaningless for binary
+                    mean_pairwise_distances_normalized.append(mean_pairwise_distance_normalized)
 
-                norms = np.linalg.norm(descriptors, axis=1, keepdims=True)
-                normalized = descriptors / np.where(norms == 0, 1, norms)
-                mean_pairwise_distance_normalized = float(pdist(normalized, metric='euclidean').mean())
-                mean_pairwise_distances_normalized.append(mean_pairwise_distance_normalized)
+                    cov = np.cov(bit_matrix, rowvar=False)
 
-                cov = np.cov(descriptors, rowvar=False)
+                eigenvalues = np.linalg.eigvalsh(cov)
+                eigenvalues = eigenvalues[eigenvalues > 0]
+                p = eigenvalues / eigenvalues.sum()
+                normalized_effective_rank = float(np.exp(-np.sum(p * np.log(p))) / cov.shape[0])
+                normalized_effective_ranks.append(normalized_effective_rank)
 
-            elif feature_extractor.distance_type == cv2.NORM_HAMMING:
-                bit_matrix = np.unpackbits(descriptors, axis=1).astype(float)
-                mean_pairwise_distance = float(pdist(bit_matrix, metric='hamming').mean())
-                mean_pairwise_distances.append(mean_pairwise_distance)
-
-                mean_pairwise_distance_normalized = mean_pairwise_distances  # magnitude meaningless for binary
-                mean_pairwise_distances_normalized.append(mean_pairwise_distance_normalized)
-
-                cov = np.cov(bit_matrix, rowvar=False)
-
-            eigenvalues = np.linalg.eigvalsh(cov)
-            eigenvalues = eigenvalues[eigenvalues > 0]
-            p = eigenvalues / eigenvalues.sum()
-            normalized_effective_rank = float(np.exp(-np.sum(p * np.log(p))) / cov.shape[0])
-            normalized_effective_ranks.append(normalized_effective_rank)
-
-        mean_pairwise_distances = np.mean(mean_pairwise_distances)
-        mean_pairwise_distances_normalized = np.mean(mean_pairwise_distances_normalized)
-        normalized_effective_ranks = np.mean(normalized_effective_ranks)
+            mean_pairwise_distances = np.mean(mean_pairwise_distances)
+            mean_pairwise_distances_normalized = np.mean(mean_pairwise_distances_normalized)
+            normalized_effective_ranks = np.mean(normalized_effective_ranks)
 
 
-        # ========================
-        # STORE RESULTS
-        # ========================
+            # ========================
+            # STORE RESULTS
+            # ========================
 
-        results = {
-            #"combination": f"{feature_extractor_key}" if (len(KEYPOINT_SIZE_SCALINGS) == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
-            "combination": f"{feature_extractor_key}{SUFFIX}" if (len(DOWNSAMPLE_ITERATIONS_NUMS) == 1) else f"{feature_extractor_key}{SUFFIX} {downsample_iteration_num}",
-            "speed": speed,
-            "repeatability mean": np.mean(set_repeatabilities),
-            
-            "total num keypoints": total_num_features,
-            "total num matches": num_matches,
-            "num dropped keypoints" : NUM_SEQUENCES * 6 * MAX_FEATURES - total_num_features,
-            "num dropped matches" : NUM_SEQUENCES * 5 * MAX_FEATURES - num_matches,
-            "number possible correct matches": total_possible_correct_matches,
-            "total correct matches": total_correct_matches,
-            "ratio correct/total matches": ratio_correct,
-            "ratio correct/possible correct matches": ratio_possible_found,
-            "correct matches per sequence: avg": avg_correct_per_sequence,
+            results = {
+                #"combination": f"{feature_extractor_key}" if (len(KEYPOINT_SIZE_SCALINGS) == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
+                "combination": f"{feature_extractor_key}{SUFFIX}" if (len(DOWNSAMPLE_ITERATIONS_NUMS) == 1) else f"{feature_extractor_key}{SUFFIX}_{downsample_iteration_num}",
+                "speed": speed,
+                "repeatability mean": np.mean(set_repeatabilities),
+                
+                "total num keypoints": total_num_features,
+                "total num matches": num_matches,
+                "num dropped keypoints" : NUM_SEQUENCES * 6 * MAX_FEATURES - total_num_features,
+                "num dropped matches" : NUM_SEQUENCES * 5 * MAX_FEATURES - num_matches,
+                "number possible correct matches": total_possible_correct_matches,
+                "total correct matches": total_correct_matches,
+                "ratio correct/total matches": ratio_correct,
+                "ratio correct/possible correct matches": ratio_possible_found,
+                "correct matches per sequence: avg": avg_correct_per_sequence,
 
-            # Size metrics
-            "size mean": avg_size,
-            "size correct: avg": avg_size_correct,
-            "size correct/all ratio": ratio_size_correct,
+                # Size metrics
+                "size mean": avg_size,
+                "size correct: avg": avg_size_correct,
+                "size correct/all ratio": ratio_size_correct,
 
-            # Distance metrics
-            "descriptor distance correct: avg": avg_dist_correct,
-            "descriptor distance incorrect: avg": avg_dist_incorrect,
+                # Distance metrics
+                "descriptor distance correct: avg": avg_dist_correct,
+                "descriptor distance incorrect: avg": avg_dist_incorrect,
 
-            "distance correct/all ratio": ratio_dist_correct,
-            "response correct/all ratio": ratio_resp_correct,
-            "distinctiveness correct/all ratio": ratio_distinct_correct,
+                "distance correct/all ratio": ratio_dist_correct,
+                "response correct/all ratio": ratio_resp_correct,
+                "distinctiveness correct/all ratio": ratio_distinct_correct,
 
-            # Descriptor distance metrics:
-            "mean pairwise_distances" : mean_pairwise_distances,
-            "mean pairwise_distances_normalized" : mean_pairwise_distances_normalized,
-            "normalized_effective_ranks" : normalized_effective_ranks,
+                # Descriptor distance metrics:
+                "mean pairwise_distances" : mean_pairwise_distances,
+                "mean pairwise_distances_normalized" : mean_pairwise_distances_normalized,
+                "normalized_effective_ranks" : normalized_effective_ranks,
 
 
-            # Rank metrics
-            "match rank: avg": avg_rank_all,
+                # Rank metrics
+                "match rank: avg": avg_rank_all,
 
-            f"avg octave " : avg_octave,
-            f"octave discrepancies" : octave_discrepancy_count,
-            f"avg octave discrepancy" : octave_avg_discrepancy,
-            "octave_stats" : json.dumps(octave_stats)
-        }
-
-        for match_ranking_property in match_properties:
-            APs = [match_set.get_average_precision_score(match_ranking_property) for match_set in matching_match_sets]
-            APs_illumination = APs[:NUM_ILLUMINATION_SEQUENCES]
-            APs_viewpoint = APs[NUM_ILLUMINATION_SEQUENCES:]
-            mAP_illumination = np.average(APs_illumination)
-            mAP_viewpoint = np.average(APs_viewpoint)
-
-            results[f"Matching {match_ranking_property.name} mAP illumination"] =  mAP_illumination
-            results[f"Matching {match_ranking_property.name} mAP viewpoint"] =  mAP_viewpoint
-
-        if "verification" not in SKIP:
-            verification_match_sets_illumination = verification_match_sets[:NUM_ILLUMINATION_SEQUENCES]
-            verification_match_sets_viewpoint = verification_match_sets[NUM_ILLUMINATION_SEQUENCES:]
-
-            total_verification_set_illumination = MatchSet()
-            total_verification_set_viewpoint = MatchSet()
-            
-            for match_set in verification_match_sets_illumination:
-                for match in match_set:
-                    total_verification_set_illumination.add_match(match)
-
-            for match_set in verification_match_sets_viewpoint:
-                for match in match_set:
-                    total_verification_set_viewpoint.add_match(match)
+                f"avg octave " : avg_octave,
+                f"octave discrepancies" : octave_discrepancy_count,
+                f"avg octave discrepancy" : octave_avg_discrepancy,
+                "octave_stats" : json.dumps(octave_stats)
+            }
 
             for match_ranking_property in match_properties:
-                AP_illumination = total_verification_set_illumination.get_average_precision_score(match_ranking_property)
-                AP_viewpoint = total_verification_set_viewpoint.get_average_precision_score(match_ranking_property)
-                results[f"Verification {match_ranking_property.name} AP illumination"] = AP_illumination
-                results[f"Verification {match_ranking_property.name} AP viewpoint"] = AP_viewpoint
-
-        if "retrieval" not in SKIP:
-            for match_ranking_property in match_properties:
-                APs = [match_set.get_average_precision_score(match_ranking_property, True) for match_set in retrieval_match_sets]
+                APs = [match_set.get_average_precision_score(match_ranking_property) for match_set in matching_match_sets]
                 APs_illumination = APs[:NUM_ILLUMINATION_SEQUENCES]
                 APs_viewpoint = APs[NUM_ILLUMINATION_SEQUENCES:]
                 mAP_illumination = np.average(APs_illumination)
                 mAP_viewpoint = np.average(APs_viewpoint)
 
-                results[f"Retrieval {match_ranking_property.name} mAP illumination"] =  mAP_illumination
-                results[f"Retrieval {match_ranking_property.name} mAP viewpoint"] =  mAP_viewpoint
+                results[f"Matching {match_ranking_property.name} mAP illumination"] =  mAP_illumination
+                results[f"Matching {match_ranking_property.name} mAP viewpoint"] =  mAP_viewpoint
 
-        spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
-        spearman_rank_correlation_distance_distinctiveness = spearman_rank_correlations[0][2]
-        spearman_rank_correlation_distance_average_response = spearman_rank_correlations[0][1]
-        results["distance-distinctiveness correlation"] = spearman_rank_correlation_distance_distinctiveness
-        results["distance-average response correlation"] = spearman_rank_correlation_distance_average_response
+            if "verification" not in SKIP:
+                verification_match_sets_illumination = verification_match_sets[:NUM_ILLUMINATION_SEQUENCES]
+                verification_match_sets_viewpoint = verification_match_sets[NUM_ILLUMINATION_SEQUENCES:]
 
-        all_results.append(results)
+                total_verification_set_illumination = MatchSet()
+                total_verification_set_viewpoint = MatchSet()
+                
+                for match_set in verification_match_sets_illumination:
+                    for match in match_set:
+                        total_verification_set_illumination.add_match(match)
 
-        ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
-        for metric, result in results.items():
-            print(metric, result)
-        df = pd.DataFrame(results, index=[0])
-        if not os.path.isfile("results/" +FILE_NAME):
-            df.to_csv("results/" + FILE_NAME, index = False, header = True, mode='a') # Create header if file does not exist
-        else:
-            df.to_csv("results/" + FILE_NAME, index = False, header = False, mode='a') # If exists skip header
+                for match_set in verification_match_sets_viewpoint:
+                    for match in match_set:
+                        total_verification_set_viewpoint.add_match(match)
 
-        # except Exception as e:
-        #     error_message = traceback.format_exc()
-        #     with open("failed_combinations.txt", "a") as f:
-        #         f.write(f"{feature_extractor_key}\n")
-        #         f.write(f"{error_message}\n")
-        #         f.write("\n")
+                for match_ranking_property in match_properties:
+                    AP_illumination = total_verification_set_illumination.get_average_precision_score(match_ranking_property)
+                    AP_viewpoint = total_verification_set_viewpoint.get_average_precision_score(match_ranking_property)
+                    results[f"Verification {match_ranking_property.name} AP illumination"] = AP_illumination
+                    results[f"Verification {match_ranking_property.name} AP viewpoint"] = AP_viewpoint
+
+            if "retrieval" not in SKIP:
+                for match_ranking_property in match_properties:
+                    APs = [match_set.get_average_precision_score(match_ranking_property, True) for match_set in retrieval_match_sets]
+                    APs_illumination = APs[:NUM_ILLUMINATION_SEQUENCES]
+                    APs_viewpoint = APs[NUM_ILLUMINATION_SEQUENCES:]
+                    mAP_illumination = np.average(APs_illumination)
+                    mAP_viewpoint = np.average(APs_viewpoint)
+
+                    results[f"Retrieval {match_ranking_property.name} mAP illumination"] =  mAP_illumination
+                    results[f"Retrieval {match_ranking_property.name} mAP viewpoint"] =  mAP_viewpoint
+
+            spearman_rank_correlations = compare_rankings_and_visualize_across_sets(matching_match_sets, match_properties)
+            spearman_rank_correlation_distance_distinctiveness = spearman_rank_correlations[0][2]
+            spearman_rank_correlation_distance_average_response = spearman_rank_correlations[0][1]
+            results["distance-distinctiveness correlation"] = spearman_rank_correlation_distance_distinctiveness
+            results["distance-average response correlation"] = spearman_rank_correlation_distance_average_response
+
+            all_results.append(results)
+
+            ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
+            for metric, result in results.items():
+                print(metric, result)
+            df = pd.DataFrame(results, index=[0])
+            if not os.path.isfile("results/" +FILE_NAME):
+                df.to_csv("results/" + FILE_NAME, index = False, header = True, mode='a') # Create header if file does not exist
+            else:
+                df.to_csv("results/" + FILE_NAME, index = False, header = False, mode='a') # If exists skip header
+
+        except Exception as e:
+            error_message = traceback.format_exc()
+            with open("failed_combinations.txt", "a") as f:
+                f.write(f"{feature_extractor_key}\n")
+                f.write(f"{error_message}\n")
+                f.write("\n")
 
 
 

@@ -7,7 +7,7 @@ import pandas as pd
 # =============== CONFIG ==================
 ###########################################
 
-RUN_DIR = Path("KITTI/results/FRAME_TEST_LEFT")
+RUN_DIR = Path("KITTI/results/FRAME_TEST_LEFT_BA")
 if not RUN_DIR.exists():
     raise Exception("directory wrong")
 TRAJ_DIR = RUN_DIR / "trajectories"

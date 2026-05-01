@@ -6,7 +6,7 @@ import re
 import json
 
 # ---------------------------- CONFIG ----------------------------
-CSV_PATH = "results/" + "big_downsampling_test.csv"
+CSV_PATH = "results/" + "down_sample_sigma_test_share_fix.csv"
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
 #   "alphabetical_by_descriptor" -> descriptor name, then descriptor number, then detector
@@ -20,14 +20,82 @@ NUMBER_DESCENDING = True
 #   "descriptor": always color/section by descriptor name
 SECTION_COLOR_MODE = "auto"
 SHADE_SECTIONS = True
-BLACKLIST_DETECTORS   = {"MSER", "AGAST", "SIFT 3.2"}
-BLACKLIST_DESCRIPTORS = {"DAISY"}
-BLACKLIST_NUMBERS     = {64, 32, 0.030625}
-BLACKLIST_NUMBERS_EPSILON = None
-BLACKLIST_CASE_INSENSITIVE = True 
 EXCLUDE_DESCRIPTOR_NUM_FROM_PLOTS = True
 FIG_DPI = 120
 FONT_FAMILY_YTICKS = "monospace"
+
+# ---------------------------- METHOD FILTER ----------------------------
+
+FILTER_WHITELIST_MODE = False
+
+SUFFIX_FILTER = [
+
+    "sig6",
+    "sig8"
+]
+
+DOWNSAMPLE_FILTER = [
+    0,
+    1,
+    3,
+]
+
+METHOD_FILTER = [
+    "ORB_NO_PYRAMID+ORB_NO_PYRAMID"
+]
+
+ENABLE_SUFFIX_FILTER = True
+ENABLE_DOWNSAMPLE_FILTER = True
+ENABLE_METHOD_FILTER = True
+
+
+def parse_method(method_name):
+    """
+    Expected format:
+        BASE_SUFFIX_DOWNSAMPLE
+    """
+    parts = method_name.split("_")
+    method = "_".join(parts[0:-2])
+
+    if len(parts) < 3:
+        return method, None, None
+
+    suffix = parts[-2]
+
+    try:
+        downsample = int(parts[-1])
+    except ValueError:
+        downsample = None
+
+    return method, suffix, downsample
+
+
+def passes_filter(method_name):
+    method, suffix, downsample = parse_method(method_name)
+    checks = []
+
+    if ENABLE_SUFFIX_FILTER:
+        checks.append(
+            suffix in SUFFIX_FILTER
+            if FILTER_WHITELIST_MODE
+            else suffix not in SUFFIX_FILTER
+        )
+
+    if ENABLE_DOWNSAMPLE_FILTER:
+        checks.append(
+            downsample in DOWNSAMPLE_FILTER
+            if FILTER_WHITELIST_MODE
+            else downsample not in DOWNSAMPLE_FILTER
+        )
+
+    if ENABLE_METHOD_FILTER:
+        checks.append(
+            method in METHOD_FILTER
+            if FILTER_WHITELIST_MODE
+            else method not in METHOD_FILTER
+        )
+
+    return all(checks) if checks else True
  
 # ----------------------------------------------------------------
 # Helper to set figure window title robustly
@@ -44,6 +112,8 @@ def set_fig_title(fig, title):
 # Load CSV
 df = pd.read_csv(CSV_PATH)
 df["combination"] = df.get("combination", df.index).astype(str).str.strip()
+df = df[df["combination"].apply(passes_filter)].reset_index(drop=True)
+
 
 # Split combination
 parts = df["combination"].str.split("+", n=1, expand=True)
@@ -55,28 +125,7 @@ desc_ex = df["descriptor_full"].str.extract(r"^(.*?)(?:\s+(\d+(?:\.\d+)?))?$")
 df["descriptor_name"] = desc_ex[0].str.strip()
 df["descriptor_num"]  = pd.to_numeric(desc_ex[1], errors="coerce")
 
-# ----------------------------------------------------------------
-# Blacklist
-if BLACKLIST_DESCRIPTORS:
-    df = df.loc[~df["descriptor_name"].str.lower().isin({d.lower() for d in BLACKLIST_DESCRIPTORS})]
-if BLACKLIST_DETECTORS:
-    df = df.loc[~df["detector"].str.lower().isin({d.lower() for d in BLACKLIST_DETECTORS})]
-if BLACKLIST_NUMBERS:
-    if BLACKLIST_NUMBERS_EPSILON is None:
-        df = df.loc[~df["descriptor_num"].isin(list(BLACKLIST_NUMBERS))]
-    else:
-        eps = float(BLACKLIST_NUMBERS_EPSILON)
-        bad = []
-        for b in BLACKLIST_NUMBERS:
-            try: bval = float(b)
-            except: continue
-            bad.append(np.abs(df["descriptor_num"] - bval) <= eps)
-        if bad:
-            mask = bad[0]
-            for m in bad[1:]: mask |= m
-            df = df.loc[~mask]
 
-df = df.reset_index(drop=True)
 
 # ----------------------------------------------------------------
 # Detect illumination/viewpoint metric pairs

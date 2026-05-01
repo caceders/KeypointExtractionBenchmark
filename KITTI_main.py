@@ -9,7 +9,6 @@ from shi_tomasi_sift import ShiTomasiSift
 from benchmark.utils import downsample
 import os
 import pandas as pd
-from scipy.optimize import least_squares
 
 #########################################################
 # ================= USER CONFIG =========================
@@ -18,7 +17,7 @@ from scipy.optimize import least_squares
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "FRAME_TEST_LEFT_BA"
+RUN_NAME = "FRAME_TEST_LEFT_FLIP"
 METHOD_SUFFIX = ""
 BASE_OUT = Path("KITTI/results") / RUN_NAME
 CSV_PATH = BASE_OUT / "results.csv"
@@ -214,12 +213,6 @@ def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
     kLp, dLp = kL0, dL0
     tri_map = tri_prev
 
-    # store keypoints & tri maps for BA
-    kpL_hist = []
-    tri_hist = []
-    kpL_hist.append(kL0)
-    tri_hist.append(tri_map)
-
 
     for i in range(1,len(left)):
         L=cv2.imread(str(left[i]),0)
@@ -291,9 +284,9 @@ def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
             Rot,t,inl = res
             stats["pnp_inliers"].append(len(inl))
 
-            T = build_T(Rot, t)
+            T = build_T(Rot,t)
+            # world_T_cam_next = world_T_cam * inv(T_cam_next_cam)
             poses.append(poses[-1] @ T_inv(T))
-
 
         # recompute stereo for next step
         matchesLR = matcher.knnMatch(dL, dR, 2)
@@ -301,50 +294,7 @@ def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
         tri_map = triangulate_stereo(kpL,kpR,good,P0,P1,EPIPOLAR_TOL)
         stats["triangulated"].append(len(tri_map))
 
-        kpL_hist.append(kpL)
-        tri_hist.append(tri_map)
-
         kLp, dLp = kpL, dL
-
-        # ====================================================
-        #               5-FRAME SLIDING BA
-        # ====================================================
-
-        if len(poses) >= 5:
-            obs = []
-
-            # window: frames i-4 ... i
-            for k in range(5):
-                frame_idx = len(poses) - 5 + k
-                kpL_k = kpL_hist[frame_idx]
-                tri_k = tri_hist[frame_idx]
-
-                # reuse temporal matches linking map to image
-                for m in good_temporal:
-                    if m.queryIdx in tri_k:
-                        X = tri_k[m.queryIdx]
-                        pt = kpL_k[m.trainIdx].pt
-                        obs.append((k, X, pt))
-
-            if len(obs) >= 30:  # minimum constraint check
-                x0 = np.zeros(6 * 5)
-                for k in range(5):
-                    x0[6*k:6*(k+1)] = T_to_se3(poses[len(poses)-5+k])
-
-                res = least_squares(
-                    ba_5frame_residuals,
-                    x0,
-                    args=(obs, K),
-                    loss="huber",
-                    f_scale=1.0,
-                    max_nfev=20
-                )
-
-                # update ALL 5 poses in window
-                for k in range(5):
-                    poses[len(poses)-5+k] = se3_to_T(
-                        res.x[6*k:6*(k+1)]
-                    )
 
     return poses, stats
 
@@ -585,58 +535,9 @@ def compute_rpe(est_poses, gt_poses, delta=1):
 
     return trans_rmse, rot_rmse, max(trans_err), max(rot_err)
 
-##############################################
-# ============ 5-FRAME BA HELPERS ============
-##############################################
-
-def T_to_se3(T):
-    """4x4 -> 6D (rvec, t)"""
-    rvec, _ = cv2.Rodrigues(T[:3, :3])
-    x = np.zeros(6)
-    x[:3] = rvec.ravel()
-    x[3:] = T[:3, 3]
-    return x
 
 
-def se3_to_T(x):
-    """6D (rvec, t) -> 4x4"""
-    rvec = x[:3]
-    t = x[3:].reshape(3, 1)
-    R, _ = cv2.Rodrigues(rvec)
-    T = np.eye(4)
-    T[:3, :3] = R
-    T[:3, 3:4] = t
-    return T
 
-
-def ba_5frame_residuals(x, observations, K):
-    """
-    x: stacked poses [T_{i-4}, ..., T_i] each as 6D
-    observations: list of (frame_offset, X_3d, pt_2d)
-    """
-    residuals = []
-
-    # decode poses
-    Ts = []
-    for k in range(5):
-        Ts.append(se3_to_T(x[6*k:6*(k+1)]))
-
-    for frame_id, X, pt in observations:
-        T = Ts[frame_id]
-        Pc = T[:3, :3] @ X.reshape(3, 1) + T[:3, 3:4]
-        if Pc[2] <= 0:
-            continue
-
-        uv = K @ Pc
-        
-        u = float(uv[0] / uv[2])
-        v = float(uv[1] / uv[2])
-
-
-        residuals.append(u - pt[0])
-        residuals.append(v - pt[1])
-
-    return np.array(residuals)
 
 
 if __name__ == "__main__":
