@@ -7,7 +7,7 @@ import pandas as pd
 # =============== CONFIG ==================
 ###########################################
 
-RUN_DIR = Path("KITTI/results/FRAME_TEST_LEFT_BA")
+RUN_DIR = Path("KITTI/results/FRAME_TEST_LEFT")
 if not RUN_DIR.exists():
     raise Exception("directory wrong")
 TRAJ_DIR = RUN_DIR / "trajectories"
@@ -150,50 +150,73 @@ def plot_with_legend_toggle(P_gt, trajs, title, colors):
     fig, ax = plt.subplots(figsize=(10, 7))
     ax.set_title(title)
 
+    # ---- GT ----
     ax.plot(P_gt[:, 0], P_gt[:, 2], "k-", lw=2.8, label="GT")
-
     ax.scatter(P_gt[0, 0], P_gt[0, 2],
                s=140, c="green", edgecolors="black", zorder=5)
     ax.scatter(P_gt[-1, 0], P_gt[-1, 2],
                s=180, c="red", marker="X", edgecolors="black", zorder=5)
 
+    # ---- Method trajectories ----
     method_artists = {}
 
     for method, P in trajs.items():
-        line, = ax.plot(P[:, 0], P[:, 2],
-                        lw=1.8, color=colors[method], label=method)
-        s = ax.scatter(P[0, 0], P[0, 2], c="green", s=60)
-        e = ax.scatter(P[-1, 0], P[-1, 2], c="red", s=80)
-        method_artists[method] = (line, s, e)
+        line, = ax.plot(
+            P[:, 0], P[:, 2],
+            lw=1.8, color=colors[method], label=method
+        )
+        start = ax.scatter(P[0, 0], P[0, 2], c="green", s=60, zorder=4)
+        end = ax.scatter(P[-1, 0], P[-1, 2], c="red", s=80, zorder=4)
+
+        method_artists[method] = (line, start, end)
 
     ax.set_aspect("equal", adjustable="box")
     ax.grid(True)
 
-    leg = ax.legend(fontsize=9, frameon=True)
+    # ---- Legend ----
+    leg = ax.legend(fontsize=9, frameon=True, fancybox=True)
     legend_items = []
 
-    for l, t in zip(leg.get_lines(), leg.get_texts()):
-        l.set_picker(True)
-        t.set_picker(True)
-        legend_items.append((l, t, t.get_text()))
+    for leg_line, leg_text in zip(leg.get_lines(), leg.get_texts()):
+        method = leg_text.get_text()
 
-    def set_visible(m, v):
-        for a in method_artists[m]:
-            a.set_visible(v)
-        for l, t, name in legend_items:
-            if name == m:
-                l.set_alpha(1 if v else 0.25)
-                t.set_alpha(1 if v else 0.25)
+        leg_line.set_picker(True)
+        leg_line.set_pickradius(8)
+        leg_text.set_picker(True)
 
-    def on_pick(event):
+        legend_items.append((leg_line, leg_text, method))
+
+    # ---- Visibility helpers ----
+    def set_method_visibility(method, visible):
+        for artist in method_artists[method]:
+            artist.set_visible(visible)
+
         for l, t, m in legend_items:
+            if m == method:
+                alpha = 1.0 if visible else 0.25
+                l.set_alpha(alpha)
+                t.set_alpha(alpha)
+                t.set_fontweight("bold" if visible else "normal")
+
+    def hide_all_except(method):
+        for m in method_artists:
+            set_method_visibility(m, m == method)
+
+    # ---- Pick handler ----
+    def on_pick(event):
+        mouse_button = event.mouseevent.button
+        is_double = event.mouseevent.dblclick
+
+        for l, t, method in legend_items:
             if event.artist in (l, t):
-                vis = method_artists[m][0].get_visible()
-                if event.mouseevent.button == 3 or event.mouseevent.dblclick:
-                    for k in method_artists:
-                        set_visible(k, k == m)
+                currently_visible = method_artists[method][0].get_visible()
+
+                # Right-click OR double-click → isolate
+                if mouse_button == 3 or is_double:
+                    hide_all_except(method)
                 else:
-                    set_visible(m, not vis)
+                    set_method_visibility(method, not currently_visible)
+
                 fig.canvas.draw_idle()
                 return
 
