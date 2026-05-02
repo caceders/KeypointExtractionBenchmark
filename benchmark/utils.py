@@ -9,6 +9,18 @@ from typing import Tuple
 
 
 
+def downsample(img, scale_factor: float, sigma: float, interpolation_type):
+    if sigma != -1:
+        img = cv2.GaussianBlur(img, (0,0), sigma, borderType=cv2.BORDER_REFLECT_101)
+    if interpolation_type == None and scale_factor % 2 == 0 and scale_factor != 0:
+        downsampled_img = img[::scale_factor,::scale_factor]
+    else:
+        downsampled_img = cv2.resize(img, None, fx= 1/scale_factor, fy= 1/scale_factor, interpolation= interpolation_type)
+
+
+    return downsampled_img
+
+
 def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
     """
     Load the HPSequence dataset (PPM images and homographies),
@@ -340,3 +352,162 @@ def compare_rankings_and_visualize_across_sets(
     #     "num_valid_sets": len(spearman_matrices),
     #     "valid_set_indices": valid_set_indices
     # }
+
+
+    ## For debug ################################
+import cv2
+import numpy as np
+
+
+def visualize_matches_with_scale_change(
+    NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION,
+    img_ref,
+    img_rel,
+    H,
+    matches,
+):
+
+    # ----------------------------
+    # Local helper (collapsed)
+    # ----------------------------
+    def transformed_keypoint_size(kp, H):
+        x, y = kp.pt
+        r = kp.size / 2.0
+
+        angles = np.linspace(
+            0, 2 * np.pi,
+            NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION,
+            endpoint=False,
+        )
+
+        pts = np.stack(
+            [x + r * np.cos(angles), y + r * np.sin(angles)],
+            axis=1,
+        ).astype(np.float32)
+
+        pts_h = np.hstack(
+            [pts, np.ones((len(pts), 1), dtype=np.float32)]
+        )
+
+        center_h = np.array([x, y, 1.0], dtype=np.float32)
+
+        pts_t_h = pts_h @ H.T
+        center_t_h = H @ center_h
+
+        pts_t = pts_t_h[:, :2] / pts_t_h[:, 2:3]
+        center_t = center_t_h[:2] / center_t_h[2]
+
+        new_r = np.mean(np.linalg.norm(pts_t - center_t, axis=1))
+        return 2 * new_r, tuple(center_t.astype(int))
+
+
+    h1, w1 = img_ref.shape[:2]
+    h2, w2 = img_rel.shape[:2]
+
+    sorted_matches = sorted(
+        matches, key=lambda m: m.match_properties["distance"]
+    )
+
+    main_window = "Matches Viewer"
+    overlay_window = "Highlighted Match Overlay"
+
+    cv2.namedWindow(main_window)
+    cv2.namedWindow(overlay_window)
+
+    current_idx = 0
+
+    # ----------------------------
+    # Unified redraw
+    # ----------------------------
+    def redraw(idx):
+        # ---- Main view ----
+        out = np.zeros((max(h1, h2), w1 + w2, 3), dtype=img_ref.dtype)
+        out[:h1, :w1] = img_ref
+        out[:h2, w1:w1 + w2] = img_rel
+
+        visible = sorted_matches[: idx + 1]
+
+        for i, match in enumerate(visible):
+            kp1 = match.reference_feature.keypoint
+            kp2 = match.related_feature.keypoint
+
+            p1 = tuple(map(int, kp1.pt))
+            p2 = (int(kp2.pt[0] + w1), int(kp2.pt[1]))
+
+            r1 = max(2, int(kp1.size / 2))
+            r2 = max(2, int(kp2.size / 2))
+
+            if i == idx:
+                color = (0, 255, 255)
+                thickness = 2
+            else:
+                color = (0, 255, 0) if match.is_correct else (0, 0, 255)
+                thickness = 1
+
+            cv2.circle(out, p1, r1, color, thickness)
+            cv2.circle(out, p2, r2, color, thickness)
+            cv2.line(out, p1, p2, color, thickness)
+
+        cv2.imshow(main_window, out)
+
+        # ---- Overlay view ----
+        match = sorted_matches[idx]
+        overlay = img_ref.copy()
+
+        kp1 = match.reference_feature.keypoint
+        kp2 = match.related_feature.keypoint
+
+        cv2.circle(
+            overlay,
+            tuple(map(int, kp1.pt)),
+            max(2, int(kp1.size / 2)),
+            (0, 255, 0),
+            2,
+        )
+
+        new_size, new_center = transformed_keypoint_size(kp2, H)
+        cv2.circle(
+            overlay,
+            new_center,
+            max(2, int(new_size / 2)),
+            (255, 0, 0),
+            2,
+        )
+
+        cv2.imshow(overlay_window, overlay)
+        cv2.setTrackbarPos("Matches", main_window, idx)
+
+    # ----------------------------
+    # Trackbar
+    # ----------------------------
+    def on_trackbar(val):
+        nonlocal current_idx
+        current_idx = val
+        redraw(current_idx)
+
+    cv2.createTrackbar(
+        "Matches",
+        main_window,
+        current_idx,
+        len(sorted_matches) - 1,
+        on_trackbar,
+    )
+
+    redraw(current_idx)
+
+    # ----------------------------
+    # Event loop
+    # ----------------------------
+    while True:
+        key = cv2.waitKey(30) & 0xFF
+
+        if key == 27:
+            break
+        elif key in (81, ord("a")):
+            current_idx = max(0, current_idx - 1)
+            redraw(current_idx)
+        elif key in (83, ord("d")):
+            current_idx = min(len(sorted_matches) - 1, current_idx + 1)
+            redraw(current_idx)
+
+    cv2.destroyAllWindows()

@@ -1,0 +1,4269 @@
+{
+  "meta": {
+    "scale_sampling": "log-uniform",
+    "num_sequences": 115,
+    "num_frames": 575,
+    "mean_abs_rotation_deg": 29.214732250162704,
+    "mean_log_scale_dev": 0.34473224000653624,
+    "mean_gauss_sigma": 0.0,
+    "mean_motion_len": 0.0,
+    "max_motion_len": 0
+  },
+  "noise": [
+    [
+      {
+        "angle": -15.777327495885089,
+        "scale": 1.052761182193567,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 60.12471743627003
+      },
+      {
+        "angle": -38.02569103275869,
+        "scale": 0.5143786926633653,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 61.60440469423353
+      },
+      {
+        "angle": 37.48687862066144,
+        "scale": 1.4358897951114638,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 27.33569049072098
+      },
+      {
+        "angle": 38.29020331389178,
+        "scale": 0.5889250316011471,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 41.9787998162706
+      },
+      {
+        "angle": 23.09804881909119,
+        "scale": 1.1968357132726424,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 140.07315131971737
+      }
+    ],
+    [
+      {
+        "angle": -7.64074876618794,
+        "scale": 0.6490297940958734,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 21.50835762221044
+      },
+      {
+        "angle": -57.76391897172221,
+        "scale": 0.7058382889171759,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 68.62860636659612
+      },
+      {
+        "angle": -45.832389440491205,
+        "scale": 1.6723088614326926,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 92.21082515677436
+      },
+      {
+        "angle": 12.266382195933517,
+        "scale": 1.704053298847705,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 114.1877753506341
+      },
+      {
+        "angle": -9.376378356109036,
+        "scale": 1.7237117407694516,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 129.99846411026797
+      }
+    ],
+    [
+      {
+        "angle": -17.525171658275816,
+        "scale": 1.016158525279929,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 88.48608075931949
+      },
+      {
+        "angle": 55.81661548013902,
+        "scale": 1.3690819274885364,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 50.625996306077
+      },
+      {
+        "angle": -11.39829084143119,
+        "scale": 0.5691527284217199,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 12.777066276107693
+      },
+      {
+        "angle": -23.673236892241206,
+        "scale": 0.6005868919331829,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 138.89470434588614
+      },
+      {
+        "angle": -23.1869049213323,
+        "scale": 1.6816290621230687,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 153.030486556424
+      }
+    ],
+    [
+      {
+        "angle": 53.1905081115231,
+        "scale": 1.1240872163363702,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 173.88910293527397
+      },
+      {
+        "angle": -22.639486567986374,
+        "scale": 0.7434195253233584,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 84.0341004955162
+      },
+      {
+        "angle": -43.6044134926327,
+        "scale": 1.24957511876016,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 25.502404700749914
+      },
+      {
+        "angle": -28.219449728242502,
+        "scale": 1.1222769904728165,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 152.13396252839948
+      },
+      {
+        "angle": 27.368429893201395,
+        "scale": 0.5102422994075352,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 8.556775859857538
+      }
+    ],
+    [
+      {
+        "angle": 8.62239657029265,
+        "scale": 1.6548755879474746,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 125.30174592224127
+      },
+      {
+        "angle": -29.385802999846717,
+        "scale": 0.5556376154597173,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 160.7658353507561
+      },
+      {
+        "angle": -4.905091070222312,
+        "scale": 0.5040611720820956,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 143.1230221273063
+      },
+      {
+        "angle": -47.71775496467852,
+        "scale": 0.9322212118011785,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 9.12169145994704
+      },
+      {
+        "angle": 4.4457307511579955,
+        "scale": 0.8252470868566827,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 16.9836732318948
+      }
+    ],
+    [
+      {
+        "angle": -14.663351717953951,
+        "scale": 1.8283031458043333,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 72.87250646280066
+      },
+      {
+        "angle": -55.402764254456415,
+        "scale": 1.382913691240511,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 16.17304701901142
+      },
+      {
+        "angle": 9.796094950995126,
+        "scale": 0.9722669075179652,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 54.621360871322224
+      },
+      {
+        "angle": -12.901825912175688,
+        "scale": 1.073581710742941,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 40.1173559411945
+      },
+      {
+        "angle": 45.93042601016941,
+        "scale": 0.9538302361769715,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 125.94763036788612
+      }
+    ],
+    [
+      {
+        "angle": -14.535692704607108,
+        "scale": 0.5092817617612512,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 5.596160992078058
+      },
+      {
+        "angle": 42.12403266075012,
+        "scale": 1.7171299830465496,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 15.228642133048096
+      },
+      {
+        "angle": 24.137290630107046,
+        "scale": 0.7470031329525625,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 7.5210452707321735
+      },
+      {
+        "angle": 38.562557879065835,
+        "scale": 0.5454618940378623,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 7.046791417220774
+      },
+      {
+        "angle": -30.971679254322183,
+        "scale": 1.8422373143231279,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 0.6835987640043562
+      }
+    ],
+    [
+      {
+        "angle": -6.414235486160649,
+        "scale": 0.686847163097364,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 51.84921459329102
+      },
+      {
+        "angle": 7.541682497170825,
+        "scale": 0.6782725057650334,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 29.764015631895106
+      },
+      {
+        "angle": -14.737020933310149,
+        "scale": 0.7577632578983308,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 52.16872169313101
+      },
+      {
+        "angle": -46.148660574388785,
+        "scale": 0.653052871710253,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 9.805586804892263
+      },
+      {
+        "angle": 31.42803825897164,
+        "scale": 0.5054923824492906,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 142.8167698052929
+      }
+    ],
+    [
+      {
+        "angle": 5.557219366279483,
+        "scale": 1.0033195245946893,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 139.36297617262784
+      },
+      {
+        "angle": -40.248891653032906,
+        "scale": 0.5145448829612997,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 138.12603472039055
+      },
+      {
+        "angle": 13.85481989793577,
+        "scale": 1.260499174073027,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 146.27625336633636
+      },
+      {
+        "angle": 16.097304322870812,
+        "scale": 1.3789310668987627,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 117.58874063574753
+      },
+      {
+        "angle": 35.32514084149243,
+        "scale": 1.6743659026672175,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 103.3378633929614
+      }
+    ],
+    [
+      {
+        "angle": 41.39880381143135,
+        "scale": 0.6024749107608848,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 134.64527548555384
+      },
+      {
+        "angle": -17.191852337786898,
+        "scale": 1.5492587118178436,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 117.25187188485594
+      },
+      {
+        "angle": 6.030717929947883,
+        "scale": 1.5955371876434576,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 126.53603914830009
+      },
+      {
+        "angle": -13.755269195572602,
+        "scale": 1.8412511403134684,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 2.0901698285152936
+      },
+      {
+        "angle": 54.51105494376728,
+        "scale": 0.7519182187993835,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 6.797845586146787
+      }
+    ],
+    [
+      {
+        "angle": -28.636516549711622,
+        "scale": 0.8876320551405724,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 61.307434304752654
+      },
+      {
+        "angle": -26.80078039242406,
+        "scale": 0.9375900197111634,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 147.80707389987347
+      },
+      {
+        "angle": 28.131509395000137,
+        "scale": 0.9228549625590369,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 77.01190592144516
+      },
+      {
+        "angle": 18.565097263683114,
+        "scale": 0.6941620653182011,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 72.73077130353835
+      },
+      {
+        "angle": 41.625757797368976,
+        "scale": 0.8867919983283867,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 151.5510879027924
+      }
+    ],
+    [
+      {
+        "angle": -28.719888543062435,
+        "scale": 0.5271109326327946,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 89.29983747051568
+      },
+      {
+        "angle": 43.74477042266109,
+        "scale": 0.9901491996439399,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 16.04670509644881
+      },
+      {
+        "angle": 48.34172106365132,
+        "scale": 1.2489438877301327,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 110.73696372680162
+      },
+      {
+        "angle": -32.38544443219739,
+        "scale": 1.865661873354316,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 15.218499861942753
+      },
+      {
+        "angle": 38.863066451200254,
+        "scale": 1.3078553350302833,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 18.514525592570173
+      }
+    ],
+    [
+      {
+        "angle": -37.89932953238058,
+        "scale": 0.7711755475004967,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 124.84405141676353
+      },
+      {
+        "angle": -23.999019965725104,
+        "scale": 0.5348738881472666,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 90.8013646933475
+      },
+      {
+        "angle": 26.204164751837183,
+        "scale": 0.6213356286637687,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 91.77794626091375
+      },
+      {
+        "angle": 18.858563744724975,
+        "scale": 0.8569994717215675,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 102.2151649058281
+      },
+      {
+        "angle": 54.224064527931205,
+        "scale": 1.2411032942506612,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 26.089121529562185
+      }
+    ],
+    [
+      {
+        "angle": -55.15982067168278,
+        "scale": 1.0615498213792045,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 23.90690952116482
+      },
+      {
+        "angle": 8.6117914431628,
+        "scale": 0.5503125255812528,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 57.338273864082986
+      },
+      {
+        "angle": 8.560155251648709,
+        "scale": 1.6540737071573262,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 109.389006471946
+      },
+      {
+        "angle": -6.800707591798968,
+        "scale": 0.9263468945118963,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 75.2659493712884
+      },
+      {
+        "angle": -52.29091554674713,
+        "scale": 1.202530506592055,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 98.90757914654604
+      }
+    ],
+    [
+      {
+        "angle": 56.436944751098835,
+        "scale": 1.5389447862342103,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 28.88073949067984
+      },
+      {
+        "angle": -21.450553549392936,
+        "scale": 0.5474096659805898,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 179.03292107761635
+      },
+      {
+        "angle": 22.531624956119018,
+        "scale": 1.3691181078917551,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 34.679284112141666
+      },
+      {
+        "angle": 33.69735011398994,
+        "scale": 1.3464323369809856,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 151.0591903674903
+      },
+      {
+        "angle": -41.35995545100419,
+        "scale": 1.4196594315406132,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 84.7915934777051
+      }
+    ],
+    [
+      {
+        "angle": -34.42205775931667,
+        "scale": 0.6495272997028947,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 165.58748212585294
+      },
+      {
+        "angle": -5.12679426452091,
+        "scale": 1.9906405884440515,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 52.860056962559426
+      },
+      {
+        "angle": -58.13505085207921,
+        "scale": 0.9637786152500684,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 148.81651164603653
+      },
+      {
+        "angle": -20.65485111747818,
+        "scale": 1.3183628200462338,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 76.37672692690532
+      },
+      {
+        "angle": -25.984887412134754,
+        "scale": 0.7934092344719017,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 59.548664772305386
+      }
+    ],
+    [
+      {
+        "angle": -28.24480070006836,
+        "scale": 0.5714734600030508,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 33.43945613504162
+      },
+      {
+        "angle": 55.45591967566092,
+        "scale": 0.6348810831101744,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 110.96937858047968
+      },
+      {
+        "angle": 51.310627949672295,
+        "scale": 0.8385721475070602,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 106.28490896093626
+      },
+      {
+        "angle": 17.998516836325408,
+        "scale": 0.65030248450904,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 149.59534400434717
+      },
+      {
+        "angle": -41.79239053339725,
+        "scale": 0.5578115909505508,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 149.34800812111158
+      }
+    ],
+    [
+      {
+        "angle": -57.65095448777493,
+        "scale": 0.6845978116406216,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 19.952733639001245
+      },
+      {
+        "angle": 51.27171916918951,
+        "scale": 1.797315794586256,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 126.58116088214595
+      },
+      {
+        "angle": 3.1897351617987226,
+        "scale": 1.4584940488338354,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 45.9328016336898
+      },
+      {
+        "angle": -24.71864121311667,
+        "scale": 1.6153190370285664,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 151.34856711326023
+      },
+      {
+        "angle": -31.496196176957476,
+        "scale": 1.922092115580808,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 4.691487084748671
+      }
+    ],
+    [
+      {
+        "angle": 10.998214424776876,
+        "scale": 1.111296704289432,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 125.59476670545747
+      },
+      {
+        "angle": 54.856052987842745,
+        "scale": 0.9453479373002361,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 153.15712208290552
+      },
+      {
+        "angle": 49.90803510193955,
+        "scale": 0.542599379421316,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 124.12466996150162
+      },
+      {
+        "angle": -0.041928396999082906,
+        "scale": 0.5036215161057455,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 6.282475353843575
+      },
+      {
+        "angle": -33.169065740756004,
+        "scale": 1.5470686412499002,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 81.6690773135661
+      }
+    ],
+    [
+      {
+        "angle": -11.14975332098362,
+        "scale": 1.797555326763751,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 167.92425772135903
+      },
+      {
+        "angle": 45.219773957835926,
+        "scale": 0.8264095696320238,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 91.20407818643426
+      },
+      {
+        "angle": 36.306974324411584,
+        "scale": 1.9857409862248148,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 82.33636875732995
+      },
+      {
+        "angle": -10.054281812660875,
+        "scale": 0.5950434146727162,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 23.946699247951123
+      },
+      {
+        "angle": -50.247177466260716,
+        "scale": 1.6043282233365153,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 3.540210370557104
+      }
+    ],
+    [
+      {
+        "angle": -22.18848613129034,
+        "scale": 0.6805663655912808,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 152.29994170070944
+      },
+      {
+        "angle": 23.646765023364182,
+        "scale": 1.0746468963157498,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 53.37440619866513
+      },
+      {
+        "angle": -28.564173935391914,
+        "scale": 0.5933434373624742,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 84.82080452459934
+      },
+      {
+        "angle": -56.889380641318574,
+        "scale": 1.8454862869505897,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 104.52673615013845
+      },
+      {
+        "angle": 41.62311653151994,
+        "scale": 1.1314476066826047,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 97.84547547610767
+      }
+    ],
+    [
+      {
+        "angle": 9.019221152424791,
+        "scale": 0.7220148609404277,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 91.00363062264363
+      },
+      {
+        "angle": -59.793274288293844,
+        "scale": 1.3042194420032307,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 67.73131371443323
+      },
+      {
+        "angle": -5.905310656855619,
+        "scale": 1.3698083946385706,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 70.4712331363063
+      },
+      {
+        "angle": 1.4851865865590455,
+        "scale": 0.7895638369298605,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 46.44318275072583
+      },
+      {
+        "angle": 53.4586564461098,
+        "scale": 0.5498059844811769,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 178.07291132467887
+      }
+    ],
+    [
+      {
+        "angle": 1.067121698588565,
+        "scale": 0.9613369196633145,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 138.7212912964866
+      },
+      {
+        "angle": 22.508664057961013,
+        "scale": 1.5750245021070914,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 59.09255932139108
+      },
+      {
+        "angle": 57.29067481677359,
+        "scale": 1.4364224612925145,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 118.11283014446714
+      },
+      {
+        "angle": -48.55670784506838,
+        "scale": 0.9017515771030775,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 34.55069626237342
+      },
+      {
+        "angle": 29.884648235210676,
+        "scale": 1.5188681883115873,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 101.16865681952775
+      }
+    ],
+    [
+      {
+        "angle": 47.18296982691993,
+        "scale": 1.332944189005708,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 91.47839061478824
+      },
+      {
+        "angle": -24.848054456360188,
+        "scale": 0.9457900283467843,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 17.91344489547305
+      },
+      {
+        "angle": 3.994511737495216,
+        "scale": 0.6740862704347464,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 50.26835297853182
+      },
+      {
+        "angle": -41.17981218842964,
+        "scale": 1.127462982167831,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 24.15857916955207
+      },
+      {
+        "angle": 49.982905941179155,
+        "scale": 0.7708396562274483,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 39.64867415476728
+      }
+    ],
+    [
+      {
+        "angle": 46.47863744951185,
+        "scale": 0.5113069959581037,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 42.77173462157306
+      },
+      {
+        "angle": 4.25373809926802,
+        "scale": 1.5756301242273403,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 3.0218667064593285
+      },
+      {
+        "angle": -15.938140735643088,
+        "scale": 1.925149925983376,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 149.99396882618876
+      },
+      {
+        "angle": -40.33630715365858,
+        "scale": 0.7762355175110837,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 54.98542108846001
+      },
+      {
+        "angle": 19.709421094359897,
+        "scale": 0.6043398447206458,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 146.5513353772319
+      }
+    ],
+    [
+      {
+        "angle": 1.3181083573723456,
+        "scale": 1.192237195632924,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 133.5793009313965
+      },
+      {
+        "angle": 6.651943288702697,
+        "scale": 0.5223852048729024,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 50.280279539123185
+      },
+      {
+        "angle": -28.345302908213487,
+        "scale": 0.6461322773658167,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 8.857677037520856
+      },
+      {
+        "angle": -48.96480821647099,
+        "scale": 1.396881222770364,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 96.2199563476243
+      },
+      {
+        "angle": 26.376225898098568,
+        "scale": 1.6562608682701758,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 74.46952660211444
+      }
+    ],
+    [
+      {
+        "angle": 22.491730482467574,
+        "scale": 0.6934569293797671,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 150.98795346548334
+      },
+      {
+        "angle": 42.68712511611376,
+        "scale": 1.8785101555018622,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 110.81437706669374
+      },
+      {
+        "angle": 12.756407790621068,
+        "scale": 0.8120464859253417,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 136.53344238092757
+      },
+      {
+        "angle": 33.98948751892415,
+        "scale": 0.8390157202627417,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 121.75257980957089
+      },
+      {
+        "angle": 14.253380991006978,
+        "scale": 0.5326078004005598,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 124.5943673006101
+      }
+    ],
+    [
+      {
+        "angle": 53.071034840983,
+        "scale": 0.6201185413772409,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 135.06300099362488
+      },
+      {
+        "angle": 22.00155245698663,
+        "scale": 0.9584065441600916,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 1.9333058971646122
+      },
+      {
+        "angle": 22.98449864798073,
+        "scale": 1.462501709131431,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 17.93247884056487
+      },
+      {
+        "angle": -9.940906999089435,
+        "scale": 0.8620527650962088,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 80.73951854832308
+      },
+      {
+        "angle": -14.97969764433175,
+        "scale": 1.1415147824014256,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 92.40844219101884
+      }
+    ],
+    [
+      {
+        "angle": 41.35298667302628,
+        "scale": 1.4351785591023796,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 166.14960858983517
+      },
+      {
+        "angle": 6.487486382693319,
+        "scale": 0.7020525642452435,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 16.236692814001298
+      },
+      {
+        "angle": -43.72891706139744,
+        "scale": 1.310195234645853,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 128.451345686932
+      },
+      {
+        "angle": -32.10661948814658,
+        "scale": 0.9564021491448991,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 172.95207815174592
+      },
+      {
+        "angle": 27.28070530625874,
+        "scale": 1.3668146804669732,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 6.403467120342627
+      }
+    ],
+    [
+      {
+        "angle": -32.218985631670954,
+        "scale": 1.416886055807237,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 108.54149553985269
+      },
+      {
+        "angle": -31.262280316779957,
+        "scale": 0.7149189211684112,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 56.79916161813002
+      },
+      {
+        "angle": 4.745003913918424,
+        "scale": 0.6974153601039033,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 175.59923259887026
+      },
+      {
+        "angle": 24.783408984821463,
+        "scale": 1.1316422084076019,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 178.11960010409098
+      },
+      {
+        "angle": -0.997574470242256,
+        "scale": 0.6416229425867913,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 154.42167200395374
+      }
+    ],
+    [
+      {
+        "angle": -27.08614252748928,
+        "scale": 1.1215501898691282,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 80.99966429398933
+      },
+      {
+        "angle": 40.1024429942979,
+        "scale": 1.7805623027140622,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 24.222533152294663
+      },
+      {
+        "angle": -39.28812510342726,
+        "scale": 0.5559322109230956,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 46.018207387568616
+      },
+      {
+        "angle": 56.74812846331125,
+        "scale": 1.0644282965820426,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 48.984699099911225
+      },
+      {
+        "angle": 3.305983166611483,
+        "scale": 1.0611579372641793,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 164.03529684914753
+      }
+    ],
+    [
+      {
+        "angle": 15.35035368411829,
+        "scale": 0.5788136647735799,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 116.75102035662499
+      },
+      {
+        "angle": -23.71659538422611,
+        "scale": 0.763426664445145,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 44.33017962380326
+      },
+      {
+        "angle": 1.1716752201623422,
+        "scale": 1.7777515670437853,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 144.34321144727662
+      },
+      {
+        "angle": -36.11965780521001,
+        "scale": 0.8750894158417815,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 4.637875359439596
+      },
+      {
+        "angle": -44.88582711507934,
+        "scale": 0.9593598804254344,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 126.33158160908074
+      }
+    ],
+    [
+      {
+        "angle": 23.082517928937293,
+        "scale": 1.4578626960851542,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 78.56109544081376
+      },
+      {
+        "angle": -50.649023735740855,
+        "scale": 1.3522048933718134,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 103.58752558969611
+      },
+      {
+        "angle": -14.479898985394591,
+        "scale": 0.7470402171256263,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 45.66224395070482
+      },
+      {
+        "angle": 12.809554629522239,
+        "scale": 1.3914616695417603,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 162.9991457743299
+      },
+      {
+        "angle": -46.4684881614313,
+        "scale": 1.4991682339189325,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 30.948718449106394
+      }
+    ],
+    [
+      {
+        "angle": 39.34159769955612,
+        "scale": 1.2911262338602894,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 52.80398047913094
+      },
+      {
+        "angle": -42.937594070952024,
+        "scale": 0.632778179468954,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 168.61625787394595
+      },
+      {
+        "angle": 55.467131637645764,
+        "scale": 0.6759350974501813,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 84.35430131668596
+      },
+      {
+        "angle": -31.947584831739164,
+        "scale": 1.2491139899206543,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 58.53387143655139
+      },
+      {
+        "angle": 8.815107638567142,
+        "scale": 1.9219792129422972,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 11.92337599487185
+      }
+    ],
+    [
+      {
+        "angle": -35.43763354111408,
+        "scale": 0.9185339336109528,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 28.595582873663435
+      },
+      {
+        "angle": -44.53139618654943,
+        "scale": 0.5306027444890629,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 25.968092343216952
+      },
+      {
+        "angle": 58.51665399446594,
+        "scale": 0.7178084567229023,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 136.15642671365606
+      },
+      {
+        "angle": 11.950815383847683,
+        "scale": 0.8447188496767266,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 78.57915168709232
+      },
+      {
+        "angle": 48.13785724891403,
+        "scale": 1.0132529943281234,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 170.5452810302818
+      }
+    ],
+    [
+      {
+        "angle": 23.99676447253539,
+        "scale": 1.2439804488103152,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 45.351478571080285
+      },
+      {
+        "angle": -17.224648844933988,
+        "scale": 0.5022504370206227,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 159.95649787737693
+      },
+      {
+        "angle": 25.46272340158947,
+        "scale": 0.7242224279853967,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 166.9942488279663
+      },
+      {
+        "angle": -9.19004606142898,
+        "scale": 0.8925398777025622,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 138.41773663719434
+      },
+      {
+        "angle": -42.1088602459576,
+        "scale": 0.5892941393502537,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 8.496772942412798
+      }
+    ],
+    [
+      {
+        "angle": -46.807505539125394,
+        "scale": 1.2086359840539487,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 88.53587485664814
+      },
+      {
+        "angle": 23.614140380471625,
+        "scale": 1.3859987010811436,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 3.926186127247795
+      },
+      {
+        "angle": 31.07412523262495,
+        "scale": 1.3677457337261574,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 1.2127224502636391
+      },
+      {
+        "angle": 18.754710679424093,
+        "scale": 0.7099098038141837,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 143.9429750597505
+      },
+      {
+        "angle": -30.06722641158788,
+        "scale": 0.6077133577605602,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 84.44139935785148
+      }
+    ],
+    [
+      {
+        "angle": -8.546340844355129,
+        "scale": 1.6448657614115214,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 77.37927884041129
+      },
+      {
+        "angle": -55.88666823826323,
+        "scale": 0.668696705570924,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 106.13082434626716
+      },
+      {
+        "angle": 0.3180001850092822,
+        "scale": 0.6174950720040564,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 51.934985548934826
+      },
+      {
+        "angle": 57.77797259648763,
+        "scale": 0.6213826973600509,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 2.678199639439398
+      },
+      {
+        "angle": 35.67765705275281,
+        "scale": 1.0728997217442984,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 53.33438451180542
+      }
+    ],
+    [
+      {
+        "angle": -14.343756907912798,
+        "scale": 1.0661550575300476,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 52.209725628908586
+      },
+      {
+        "angle": 24.029941654291605,
+        "scale": 1.7106639513161157,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 68.15756588111483
+      },
+      {
+        "angle": -52.51458453334915,
+        "scale": 1.4529653740910777,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 135.63495883318768
+      },
+      {
+        "angle": 11.45342959923562,
+        "scale": 0.7223858541769069,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 29.710124216713886
+      },
+      {
+        "angle": 43.04494912320881,
+        "scale": 1.1836336774837712,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 50.251846946216325
+      }
+    ],
+    [
+      {
+        "angle": -34.86545099400661,
+        "scale": 1.3185233955730957,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 98.16518861150716
+      },
+      {
+        "angle": 24.643821504007306,
+        "scale": 1.172426548062361,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 128.42123883133397
+      },
+      {
+        "angle": 29.79501164753927,
+        "scale": 0.528810952702172,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 147.82935300182334
+      },
+      {
+        "angle": 53.30829450911955,
+        "scale": 1.0135677732362214,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 97.86610619138426
+      },
+      {
+        "angle": -8.402874336042629,
+        "scale": 0.8209183286584767,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 126.13738209760203
+      }
+    ],
+    [
+      {
+        "angle": 9.475682288920254,
+        "scale": 0.645908984529259,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 50.73704104836015
+      },
+      {
+        "angle": -11.206291985662617,
+        "scale": 0.6088750080698974,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 46.19562219723265
+      },
+      {
+        "angle": -30.22069346627387,
+        "scale": 0.885852511412706,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 40.34921298263042
+      },
+      {
+        "angle": 42.99657904411771,
+        "scale": 0.7977478761261297,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 153.7335150945532
+      },
+      {
+        "angle": 28.703043437704352,
+        "scale": 1.4417618668478176,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 79.77332225619168
+      }
+    ],
+    [
+      {
+        "angle": -55.9899313927157,
+        "scale": 0.9497633997027569,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 114.92182832501433
+      },
+      {
+        "angle": 54.99212620105969,
+        "scale": 0.9787627811028952,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 169.77350165311339
+      },
+      {
+        "angle": 5.464034354529829,
+        "scale": 0.527242202518429,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 91.96801059823693
+      },
+      {
+        "angle": -11.381149362937315,
+        "scale": 1.5597028474660135,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 71.69288414325727
+      },
+      {
+        "angle": 17.55857026316987,
+        "scale": 1.3237843407697054,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 37.91418866939759
+      }
+    ],
+    [
+      {
+        "angle": 12.678104678391591,
+        "scale": 0.7238949524905508,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 80.58380984330076
+      },
+      {
+        "angle": -43.094869228385136,
+        "scale": 1.6785414488933617,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 163.735872033297
+      },
+      {
+        "angle": 22.59677177486789,
+        "scale": 0.7968781704736417,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 179.1913844507846
+      },
+      {
+        "angle": -58.278890794787216,
+        "scale": 0.6107450174093048,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 4.498619196720048
+      },
+      {
+        "angle": -24.776615679773116,
+        "scale": 0.814718004707976,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 19.195720131958517
+      }
+    ],
+    [
+      {
+        "angle": -15.576032012413592,
+        "scale": 0.7736724825997771,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 171.91749464575733
+      },
+      {
+        "angle": 38.70333656962998,
+        "scale": 0.7822951424915643,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 125.74625547859621
+      },
+      {
+        "angle": -10.967374330850383,
+        "scale": 0.8284187550861197,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 118.03463976353443
+      },
+      {
+        "angle": 55.92770003537643,
+        "scale": 0.7039984930252743,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 95.5630856262163
+      },
+      {
+        "angle": 18.84465122886114,
+        "scale": 1.2414400730065702,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 142.25863430599586
+      }
+    ],
+    [
+      {
+        "angle": 40.814211227610826,
+        "scale": 1.7955295963685027,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 105.03256469969455
+      },
+      {
+        "angle": -34.20980893218928,
+        "scale": 1.7602580652524442,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 14.759910380498134
+      },
+      {
+        "angle": 12.189870756729391,
+        "scale": 1.1097543636421257,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 11.898148637963207
+      },
+      {
+        "angle": -24.79840583300207,
+        "scale": 1.0398981992214955,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 58.27511224275698
+      },
+      {
+        "angle": -50.92036493863021,
+        "scale": 1.86264401749942,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 18.26692932671694
+      }
+    ],
+    [
+      {
+        "angle": 11.84802260632982,
+        "scale": 0.7160696490414769,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 94.218869010964
+      },
+      {
+        "angle": 16.145660298687773,
+        "scale": 1.300956745201409,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 169.1534793146714
+      },
+      {
+        "angle": 32.87842352697666,
+        "scale": 0.8130339301593853,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 165.69921070782837
+      },
+      {
+        "angle": -44.93996160968977,
+        "scale": 0.9552047304923583,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 6.8825729736156145
+      },
+      {
+        "angle": -2.772226390822915,
+        "scale": 1.7829907774363218,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 125.88635045549363
+      }
+    ],
+    [
+      {
+        "angle": -56.86017594153173,
+        "scale": 1.3099422810118173,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 67.8874846367621
+      },
+      {
+        "angle": -15.947030542802842,
+        "scale": 1.3681746764595446,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 13.160667714576553
+      },
+      {
+        "angle": -54.37047602166232,
+        "scale": 1.2082488212065225,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 30.354998813631497
+      },
+      {
+        "angle": 7.992700055018219,
+        "scale": 0.7713454877403559,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 38.288796962575766
+      },
+      {
+        "angle": -40.67463578095004,
+        "scale": 1.2037287535738455,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 83.53467155300385
+      }
+    ],
+    [
+      {
+        "angle": -5.308821833362167,
+        "scale": 1.5888456526430332,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 99.64206359637055
+      },
+      {
+        "angle": 54.91019939589032,
+        "scale": 0.8373702305117193,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 90.6934615039871
+      },
+      {
+        "angle": 14.4719349784731,
+        "scale": 1.5848064176116436,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 136.19729072328957
+      },
+      {
+        "angle": -23.26149650715262,
+        "scale": 0.9210848871226107,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 60.32138539949904
+      },
+      {
+        "angle": 35.81271588222248,
+        "scale": 0.6772128797362001,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 141.6800132575815
+      }
+    ],
+    [
+      {
+        "angle": 12.873827980910661,
+        "scale": 1.6619011608046939,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 18.811669402887496
+      },
+      {
+        "angle": 49.70670604382637,
+        "scale": 1.2787535823464744,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 6.816483388232191
+      },
+      {
+        "angle": -57.25414555837538,
+        "scale": 0.5821515531440201,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 2.589720094696726
+      },
+      {
+        "angle": 8.881863650175148,
+        "scale": 0.532113939297931,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 141.9381740075997
+      },
+      {
+        "angle": 54.005766312660455,
+        "scale": 0.5430090348292549,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 143.5312528604898
+      }
+    ],
+    [
+      {
+        "angle": -5.7777010575673415,
+        "scale": 0.5934965305945081,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 15.738781934318979
+      },
+      {
+        "angle": 58.48373538492629,
+        "scale": 1.3364973633990882,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 168.109218878628
+      },
+      {
+        "angle": -29.49908957778549,
+        "scale": 0.5568820839758708,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 63.19845357195545
+      },
+      {
+        "angle": -28.720029713219787,
+        "scale": 1.114252605225857,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 177.0376075814762
+      },
+      {
+        "angle": -44.48707727941445,
+        "scale": 0.5841377069309783,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 132.85692620350872
+      }
+    ],
+    [
+      {
+        "angle": -4.877603884875505,
+        "scale": 1.3122669388594244,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 6.910386121930974
+      },
+      {
+        "angle": 46.139552651135816,
+        "scale": 0.538463458815577,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 179.98770955232652
+      },
+      {
+        "angle": -15.128538554017062,
+        "scale": 0.5996724534811112,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 2.5785107558402043
+      },
+      {
+        "angle": 11.13140112914813,
+        "scale": 1.1641465606368797,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 52.69293645115731
+      },
+      {
+        "angle": 40.466701057856014,
+        "scale": 1.1446914081279411,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 137.41807296905762
+      }
+    ],
+    [
+      {
+        "angle": -25.318749688760505,
+        "scale": 1.7814107717311365,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 76.03944708352759
+      },
+      {
+        "angle": 35.45400330903905,
+        "scale": 0.8766347900857845,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 21.99888385309316
+      },
+      {
+        "angle": 25.491825663669943,
+        "scale": 1.0080073368437523,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 115.28714115343148
+      },
+      {
+        "angle": -28.027707234115216,
+        "scale": 0.9714611618558143,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 22.49714137343332
+      },
+      {
+        "angle": 15.416250492569162,
+        "scale": 0.5720834916461394,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 152.172787102324
+      }
+    ],
+    [
+      {
+        "angle": -22.24949972847761,
+        "scale": 1.5102179917240381,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 90.64116578304676
+      },
+      {
+        "angle": 37.05246221697291,
+        "scale": 0.7372832965692014,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 57.88432128085733
+      },
+      {
+        "angle": 32.57707807441918,
+        "scale": 0.6872534272705645,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 7.980856934149041
+      },
+      {
+        "angle": 37.27630696846849,
+        "scale": 1.0592566529136893,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 103.36063287452036
+      },
+      {
+        "angle": 0.2193926489563296,
+        "scale": 1.2457474875692136,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 25.174127530222655
+      }
+    ],
+    [
+      {
+        "angle": 31.570597147999422,
+        "scale": 0.5736077603482569,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 127.35090676316806
+      },
+      {
+        "angle": 50.257528882123026,
+        "scale": 1.7910468167550588,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 98.15777064934593
+      },
+      {
+        "angle": -38.05288973724605,
+        "scale": 0.561051842646472,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 120.45300564957907
+      },
+      {
+        "angle": 22.14412032672955,
+        "scale": 1.4026230628321787,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 141.52474210076468
+      },
+      {
+        "angle": 39.96727621966744,
+        "scale": 0.6690904096009205,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 158.03799370958703
+      }
+    ],
+    [
+      {
+        "angle": -42.7210965660984,
+        "scale": 1.1947798748560725,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 25.372024861304624
+      },
+      {
+        "angle": 53.55022332525671,
+        "scale": 1.4500437841862721,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 79.36369060121639
+      },
+      {
+        "angle": -57.160798347216385,
+        "scale": 1.9225863986790686,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 55.58569704264772
+      },
+      {
+        "angle": 51.9311521100975,
+        "scale": 1.1212212399690584,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 2.1495225622420278
+      },
+      {
+        "angle": 28.62020947933783,
+        "scale": 0.5996813492149026,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 40.77623933763739
+      }
+    ],
+    [
+      {
+        "angle": 56.644239157428814,
+        "scale": 1.158868201537951,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 149.4314384930733
+      },
+      {
+        "angle": -12.333752274876986,
+        "scale": 1.079645852875356,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 24.181624100068387
+      },
+      {
+        "angle": -45.014206120536464,
+        "scale": 1.0945624714784985,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 105.20274897068973
+      },
+      {
+        "angle": -51.94410274044863,
+        "scale": 1.9182172610758048,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 40.019797302175704
+      },
+      {
+        "angle": 45.87678283408819,
+        "scale": 1.2387914846277346,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 151.57693293352077
+      }
+    ],
+    [
+      {
+        "angle": 17.43215904074448,
+        "scale": 1.4725901683369735,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 41.273925779628925
+      },
+      {
+        "angle": -46.0549670106443,
+        "scale": 0.6393743779191879,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 176.60109313721466
+      },
+      {
+        "angle": 2.2060814586251922,
+        "scale": 1.9599237240262501,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 127.47939092901323
+      },
+      {
+        "angle": 10.10518023357082,
+        "scale": 1.169376181665167,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 25.19564275183918
+      },
+      {
+        "angle": 21.752957086959313,
+        "scale": 0.9813421388360533,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 46.17893082113447
+      }
+    ],
+    [
+      {
+        "angle": 1.7679048578393193,
+        "scale": 0.8939881344169157,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 173.25217937026062
+      },
+      {
+        "angle": -56.95710245213696,
+        "scale": 0.7162161333560545,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 122.73744072383998
+      },
+      {
+        "angle": -5.42743491726894,
+        "scale": 0.5883318425458299,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 139.71046111578246
+      },
+      {
+        "angle": -8.093903732469386,
+        "scale": 1.508371396642937,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 144.99106419347325
+      },
+      {
+        "angle": -0.6151057387375687,
+        "scale": 0.8126545974324018,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 153.8744158636696
+      }
+    ],
+    [
+      {
+        "angle": 13.652326932176265,
+        "scale": 0.8303215572458771,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 126.96405419083243
+      },
+      {
+        "angle": 52.63073586830109,
+        "scale": 0.5371036722735425,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 61.83758841405831
+      },
+      {
+        "angle": 48.1941755233769,
+        "scale": 1.20232599600252,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 116.99922327219107
+      },
+      {
+        "angle": 22.794685171179708,
+        "scale": 1.50317466580255,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 137.36647480606655
+      },
+      {
+        "angle": 52.88245880634106,
+        "scale": 1.4834838238701331,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 148.063966610643
+      }
+    ],
+    [
+      {
+        "angle": 20.07312208827645,
+        "scale": 1.0417119773273313,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 19.07006768026047
+      },
+      {
+        "angle": 16.497086068863638,
+        "scale": 0.6723621504370592,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 55.01999042108208
+      },
+      {
+        "angle": 29.941573520473597,
+        "scale": 0.562129114699478,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 54.91742031714655
+      },
+      {
+        "angle": -0.4436212734150047,
+        "scale": 0.8299305802891055,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 4.017390230573252
+      },
+      {
+        "angle": -1.803313278683376,
+        "scale": 1.4992359766292127,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 73.51489974539258
+      }
+    ],
+    [
+      {
+        "angle": 0.5200866637750892,
+        "scale": 0.7503194534332971,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 119.55020980728031
+      },
+      {
+        "angle": -39.973436433955335,
+        "scale": 1.5182040381390403,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 40.72707978352355
+      },
+      {
+        "angle": 14.41144540443041,
+        "scale": 1.0835574762718134,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 136.05942140166908
+      },
+      {
+        "angle": -13.372881100281688,
+        "scale": 0.9273767061562219,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 155.3964520396006
+      },
+      {
+        "angle": -6.278445760085965,
+        "scale": 1.1037594175648189,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 167.37770353010896
+      }
+    ],
+    [
+      {
+        "angle": 48.52264897629779,
+        "scale": 0.6797449814179313,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 162.95314907011104
+      },
+      {
+        "angle": 11.401689865819577,
+        "scale": 0.7047440588930769,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 79.55358826834248
+      },
+      {
+        "angle": 55.53349206007417,
+        "scale": 0.5777919428146723,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 84.23926882297125
+      },
+      {
+        "angle": -45.77887961714207,
+        "scale": 1.3813964974183413,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 25.178482188781103
+      },
+      {
+        "angle": 47.091718406382554,
+        "scale": 0.7537995403006246,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 98.87502082782599
+      }
+    ],
+    [
+      {
+        "angle": -54.681530608867384,
+        "scale": 1.019397084466385,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 137.26353463657065
+      },
+      {
+        "angle": -19.9384760138783,
+        "scale": 1.969322783011376,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 117.46941864926707
+      },
+      {
+        "angle": -38.14513999943493,
+        "scale": 0.9631534555924043,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 124.0050655265799
+      },
+      {
+        "angle": 26.35781762534546,
+        "scale": 0.8124815601807741,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 94.26688317903725
+      },
+      {
+        "angle": -6.773600966886299,
+        "scale": 1.1506961120895356,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 87.48244807466375
+      }
+    ],
+    [
+      {
+        "angle": -2.5929878383855396,
+        "scale": 0.8060412120971203,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 162.19473263106462
+      },
+      {
+        "angle": 22.002462396794016,
+        "scale": 1.8718811031660318,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 104.02541402731778
+      },
+      {
+        "angle": -21.802737970121612,
+        "scale": 0.8297606459743435,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 1.7499891745968799
+      },
+      {
+        "angle": 7.532317591961572,
+        "scale": 0.5686851852721052,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 108.82863549930771
+      },
+      {
+        "angle": 44.79433560368983,
+        "scale": 0.8939973094318152,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 32.00950163276811
+      }
+    ],
+    [
+      {
+        "angle": 53.66971762379984,
+        "scale": 1.9450495662347953,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 46.15733347263591
+      },
+      {
+        "angle": -52.40914311747714,
+        "scale": 1.527721476438836,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 92.09814445462207
+      },
+      {
+        "angle": 46.8517943522495,
+        "scale": 0.9172708801817774,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 43.15782690421616
+      },
+      {
+        "angle": -5.802542333817257,
+        "scale": 1.2647416333324286,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 6.561648603878522
+      },
+      {
+        "angle": 31.508915254641778,
+        "scale": 1.517613323862235,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 159.8852189300389
+      }
+    ],
+    [
+      {
+        "angle": -43.89739317461911,
+        "scale": 0.8659527798319687,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 173.70264553048273
+      },
+      {
+        "angle": -24.38998193630789,
+        "scale": 0.9103731526430587,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 162.37393318588528
+      },
+      {
+        "angle": -20.222085327913504,
+        "scale": 0.7799429532864276,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 37.97209657201143
+      },
+      {
+        "angle": -15.180612088620038,
+        "scale": 0.6748760269441264,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 89.50485000347453
+      },
+      {
+        "angle": -1.3750872727397336,
+        "scale": 1.0808114259845383,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 141.8607903461842
+      }
+    ],
+    [
+      {
+        "angle": 36.1769497181558,
+        "scale": 1.6623637685090642,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 166.54465399908148
+      },
+      {
+        "angle": -3.1662880301261893,
+        "scale": 1.0411202523763001,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 47.08162751551234
+      },
+      {
+        "angle": 47.09278404506365,
+        "scale": 1.6073438852022788,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 93.94819227664179
+      },
+      {
+        "angle": -19.86064057398088,
+        "scale": 0.6361438157636525,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 73.77206190283182
+      },
+      {
+        "angle": -38.404130524293315,
+        "scale": 1.8978071645132764,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 147.33376331923128
+      }
+    ],
+    [
+      {
+        "angle": -14.074898677066798,
+        "scale": 0.7784563520644778,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 175.21690165330978
+      },
+      {
+        "angle": -57.03783550412528,
+        "scale": 0.6488646979774836,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 63.36433638808205
+      },
+      {
+        "angle": -19.833464323197937,
+        "scale": 1.0255696236192293,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 3.9999622478461028
+      },
+      {
+        "angle": -9.762287904989293,
+        "scale": 1.6132596113304274,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 140.60689460226635
+      },
+      {
+        "angle": -1.7697475404781429,
+        "scale": 0.6166305231363018,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 76.20880959757254
+      }
+    ],
+    [
+      {
+        "angle": -10.782329776735224,
+        "scale": 0.5950523875201892,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 88.91229530723832
+      },
+      {
+        "angle": -31.89302239608665,
+        "scale": 1.5155729640877178,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 35.85550353350236
+      },
+      {
+        "angle": -34.190189272713695,
+        "scale": 1.2762158415228848,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 33.423820859032084
+      },
+      {
+        "angle": -57.58277198188563,
+        "scale": 0.9495483168583875,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 11.411235797567487
+      },
+      {
+        "angle": -17.850476465242863,
+        "scale": 0.7582451598946753,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 40.70390927684638
+      }
+    ],
+    [
+      {
+        "angle": 22.09806520135433,
+        "scale": 1.1332913936260711,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 29.10508515346081
+      },
+      {
+        "angle": 14.942661602104451,
+        "scale": 0.5027866644067004,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 132.24059534796328
+      },
+      {
+        "angle": -11.513057205919019,
+        "scale": 1.0535220460376928,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 126.2724302716038
+      },
+      {
+        "angle": -43.91851322767464,
+        "scale": 1.6322911439121752,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 143.4851079293727
+      },
+      {
+        "angle": 49.32014671646645,
+        "scale": 1.1120499810088533,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 116.31470336778986
+      }
+    ],
+    [
+      {
+        "angle": 38.09872819322851,
+        "scale": 1.3507096602167,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 11.621792020429613
+      },
+      {
+        "angle": -19.223978342132767,
+        "scale": 1.6433287876066585,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 67.19218530204003
+      },
+      {
+        "angle": 38.63731594253187,
+        "scale": 0.711035487641814,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 154.41165481855788
+      },
+      {
+        "angle": 31.612746368131,
+        "scale": 1.3870865402019557,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 178.41400524332468
+      },
+      {
+        "angle": 14.574741961617008,
+        "scale": 1.5230923242074457,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 117.83534679804153
+      }
+    ],
+    [
+      {
+        "angle": -6.967956312428129,
+        "scale": 1.6564155963134204,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 135.16790224873247
+      },
+      {
+        "angle": -59.22167528849649,
+        "scale": 1.3113834628315804,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 168.67719290801384
+      },
+      {
+        "angle": 8.033815583758326,
+        "scale": 0.6134425339237557,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 136.26454920323698
+      },
+      {
+        "angle": 59.7253763067298,
+        "scale": 0.9197191454303933,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 177.49459961216596
+      },
+      {
+        "angle": 35.806539767637815,
+        "scale": 1.1023422444756705,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 10.41938584904073
+      }
+    ],
+    [
+      {
+        "angle": -50.12129836941335,
+        "scale": 0.6938951576426948,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 157.32451321521197
+      },
+      {
+        "angle": -57.43614215631497,
+        "scale": 1.1247919941085085,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 85.32615705747347
+      },
+      {
+        "angle": -40.651684746970346,
+        "scale": 1.8792906116509813,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 138.74639010130878
+      },
+      {
+        "angle": 33.45784720799898,
+        "scale": 1.0233450466282399,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 57.986081787059845
+      },
+      {
+        "angle": -23.028619694878635,
+        "scale": 1.5070095946133575,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 61.32221107650033
+      }
+    ],
+    [
+      {
+        "angle": 32.57809428417599,
+        "scale": 0.7692323602579414,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 97.50289067184248
+      },
+      {
+        "angle": 6.968206569264353,
+        "scale": 1.0519202975792372,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 78.73991593443152
+      },
+      {
+        "angle": -2.0361762328866604,
+        "scale": 1.8237392522560352,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 177.8738217557372
+      },
+      {
+        "angle": -46.71292110261345,
+        "scale": 0.7604032920522625,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 63.78346836874923
+      },
+      {
+        "angle": -2.4722835318597163,
+        "scale": 1.9218597636267987,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 130.42809160902652
+      }
+    ],
+    [
+      {
+        "angle": -43.35966879895921,
+        "scale": 0.5030732683087754,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 165.74483610445267
+      },
+      {
+        "angle": -24.610115605594174,
+        "scale": 1.279103820216384,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 151.17951027108342
+      },
+      {
+        "angle": 9.339854968083898,
+        "scale": 0.576484006787347,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 179.99988566787144
+      },
+      {
+        "angle": -35.65928525167914,
+        "scale": 0.5877637182035527,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 91.05517860751931
+      },
+      {
+        "angle": -11.47876453573302,
+        "scale": 0.7903656959283452,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 137.0857549518877
+      }
+    ],
+    [
+      {
+        "angle": 4.580341475135597,
+        "scale": 0.6130576091071341,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 168.97820176996981
+      },
+      {
+        "angle": -57.36947669171802,
+        "scale": 1.665026267256726,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 9.239350689194698
+      },
+      {
+        "angle": -12.755428580186035,
+        "scale": 1.0203074081504966,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 167.5831072046613
+      },
+      {
+        "angle": -50.74491183493805,
+        "scale": 0.5667526817085397,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 131.57971812483507
+      },
+      {
+        "angle": -28.649622030278774,
+        "scale": 0.7300563696533644,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 14.855034850581816
+      }
+    ],
+    [
+      {
+        "angle": -32.88037341411402,
+        "scale": 1.545214383262185,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 94.68147097570153
+      },
+      {
+        "angle": -25.963517652503057,
+        "scale": 0.7875383878630859,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 55.659711379247696
+      },
+      {
+        "angle": -59.005287710042786,
+        "scale": 0.6308662892704878,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 107.41963921435956
+      },
+      {
+        "angle": -59.09536840303784,
+        "scale": 1.6018337230866924,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 80.89033531386383
+      },
+      {
+        "angle": 47.40969228803844,
+        "scale": 1.5350486923895115,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 109.61548031755495
+      }
+    ],
+    [
+      {
+        "angle": -2.2850493689543043,
+        "scale": 1.196680797087632,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 172.25246144966619
+      },
+      {
+        "angle": -37.07846952845324,
+        "scale": 1.6771088750239793,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 130.79596947100313
+      },
+      {
+        "angle": -27.766909199000878,
+        "scale": 0.789463618322346,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 51.298334586665185
+      },
+      {
+        "angle": 45.88310206417691,
+        "scale": 1.9901494406957034,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 120.0160205540229
+      },
+      {
+        "angle": -17.404261762105193,
+        "scale": 1.3196764219424657,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 32.81104371522355
+      }
+    ],
+    [
+      {
+        "angle": -24.37596259142598,
+        "scale": 1.0611141679748313,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 111.88150734824707
+      },
+      {
+        "angle": -40.79573100505617,
+        "scale": 1.685991522478208,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 79.91408212550375
+      },
+      {
+        "angle": -12.512532405849363,
+        "scale": 0.970561264375356,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 35.58458113645025
+      },
+      {
+        "angle": 16.834274942432856,
+        "scale": 0.6118983461131994,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 99.53888106180165
+      },
+      {
+        "angle": -8.624824222671883,
+        "scale": 0.5356701274038038,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 93.80991981212854
+      }
+    ],
+    [
+      {
+        "angle": 27.928622168788692,
+        "scale": 0.547588790759837,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 70.24545899739545
+      },
+      {
+        "angle": 52.357646257518724,
+        "scale": 0.7233632579320526,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 120.7316251531884
+      },
+      {
+        "angle": 25.54472435195639,
+        "scale": 1.8841656993010911,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 135.44345709058243
+      },
+      {
+        "angle": 6.827287954528131,
+        "scale": 1.0464996878565995,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 20.0573267529214
+      },
+      {
+        "angle": -41.14346925795262,
+        "scale": 1.1853043225536866,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 53.68001980480115
+      }
+    ],
+    [
+      {
+        "angle": 30.631549410968987,
+        "scale": 0.6127115314140809,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 107.69986511619952
+      },
+      {
+        "angle": -8.392564540911067,
+        "scale": 0.6170027058228036,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 98.18521904535223
+      },
+      {
+        "angle": 56.88554631367293,
+        "scale": 1.7445984132200605,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 89.9993522512529
+      },
+      {
+        "angle": -54.564863602139894,
+        "scale": 0.6205118180429183,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 151.27994123085912
+      },
+      {
+        "angle": 2.8782696051245082,
+        "scale": 0.9073463490967666,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 50.15503432765669
+      }
+    ],
+    [
+      {
+        "angle": 18.50054888143407,
+        "scale": 1.4028491042590576,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 170.0294480217232
+      },
+      {
+        "angle": 12.15697829106125,
+        "scale": 0.681895985963344,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 91.21774080843328
+      },
+      {
+        "angle": 31.97511549062402,
+        "scale": 1.4154206726871734,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 130.73536699374256
+      },
+      {
+        "angle": 2.0064310965721646,
+        "scale": 1.1237434733412464,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 6.025763084766118
+      },
+      {
+        "angle": -49.85179521655008,
+        "scale": 1.0568338688198422,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 176.91215437234112
+      }
+    ],
+    [
+      {
+        "angle": -4.021118794974498,
+        "scale": 0.7300888885496997,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 27.57947045991221
+      },
+      {
+        "angle": 38.343672467320744,
+        "scale": 1.971777729293529,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 79.24043578509676
+      },
+      {
+        "angle": 23.544149796495446,
+        "scale": 0.8107240489148252,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 147.4794702081474
+      },
+      {
+        "angle": -18.471246006936475,
+        "scale": 0.8298489943834741,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 131.40188668271782
+      },
+      {
+        "angle": -30.29690061146292,
+        "scale": 1.1783193752681531,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 165.9742770744087
+      }
+    ],
+    [
+      {
+        "angle": -16.52710915861966,
+        "scale": 0.7599345866761161,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 56.33503468466158
+      },
+      {
+        "angle": 40.355556471164945,
+        "scale": 0.6201663471505802,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 44.73587773103903
+      },
+      {
+        "angle": 33.19455754698505,
+        "scale": 1.0615618987911806,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 1.489443729824087
+      },
+      {
+        "angle": 1.7078827766756604,
+        "scale": 1.7514601608550722,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 98.9785983134845
+      },
+      {
+        "angle": 37.247013711687714,
+        "scale": 1.3021633313543783,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 112.93393420043412
+      }
+    ],
+    [
+      {
+        "angle": -17.180678755960557,
+        "scale": 0.9503769234062357,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 141.81705961825676
+      },
+      {
+        "angle": -41.42798796397463,
+        "scale": 0.9110306948410318,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 5.350503864679757
+      },
+      {
+        "angle": 23.29768402789317,
+        "scale": 1.599443866252223,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 41.78684311996231
+      },
+      {
+        "angle": -36.69733005510272,
+        "scale": 0.9956635875493545,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 89.60634707193203
+      },
+      {
+        "angle": -45.81869052244761,
+        "scale": 0.9739486642776547,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 5.370237858649444
+      }
+    ],
+    [
+      {
+        "angle": -42.00527179664555,
+        "scale": 1.0917549942396318,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 84.04059399769667
+      },
+      {
+        "angle": -1.0018797587567008,
+        "scale": 1.1321587580141588,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 12.438577317325914
+      },
+      {
+        "angle": 9.150558322909362,
+        "scale": 0.5103788704657243,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 58.67684932392082
+      },
+      {
+        "angle": 40.896329047875994,
+        "scale": 0.7458288479639288,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 55.58351982545133
+      },
+      {
+        "angle": -5.734137817478214,
+        "scale": 0.6365606293924958,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 54.87788239295982
+      }
+    ],
+    [
+      {
+        "angle": -40.163182139348464,
+        "scale": 0.7337967076613594,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 53.79945771245791
+      },
+      {
+        "angle": 4.676850473687395,
+        "scale": 0.5810566003873772,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 9.402690164341042
+      },
+      {
+        "angle": 21.980680152374646,
+        "scale": 0.6757693078589688,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 89.30003895089868
+      },
+      {
+        "angle": -24.419228677264464,
+        "scale": 1.2882375004453372,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 152.99757631224412
+      },
+      {
+        "angle": 27.180206519064143,
+        "scale": 0.8451611850060751,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 69.44357905560793
+      }
+    ],
+    [
+      {
+        "angle": -8.753418054551247,
+        "scale": 0.5021913839342266,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 23.44830389493613
+      },
+      {
+        "angle": 53.49909377656664,
+        "scale": 1.4950572689855997,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 91.79111702082402
+      },
+      {
+        "angle": -49.046034160571494,
+        "scale": 1.2112877382092482,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 142.98762530286155
+      },
+      {
+        "angle": -29.066880329025526,
+        "scale": 0.5546616607273853,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 172.89544260517158
+      },
+      {
+        "angle": 19.51040761165349,
+        "scale": 0.6007257451296898,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 36.210345080022364
+      }
+    ],
+    [
+      {
+        "angle": 10.700671353488403,
+        "scale": 1.4686221643884805,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 37.55607537795359
+      },
+      {
+        "angle": 59.53447808911784,
+        "scale": 1.3809480277087065,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 46.527917638317746
+      },
+      {
+        "angle": 44.830609114105755,
+        "scale": 1.5517121160631957,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 160.14472303939496
+      },
+      {
+        "angle": 16.15386945321221,
+        "scale": 0.8071520457197694,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 76.0951284888223
+      },
+      {
+        "angle": 18.274354092675864,
+        "scale": 1.172781842226266,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 64.06139337769768
+      }
+    ],
+    [
+      {
+        "angle": -31.07431091633825,
+        "scale": 1.9056561870919089,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 143.434786382239
+      },
+      {
+        "angle": -46.316738736174244,
+        "scale": 0.7564258433373691,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 5.396695795202953
+      },
+      {
+        "angle": 7.883702831385079,
+        "scale": 1.6840762901752475,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 156.62182574645584
+      },
+      {
+        "angle": -35.0085723079069,
+        "scale": 1.6992187761640112,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 72.02085481016869
+      },
+      {
+        "angle": -57.193236570199986,
+        "scale": 1.7925329377692774,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 53.07023409434128
+      }
+    ],
+    [
+      {
+        "angle": -45.01073592778518,
+        "scale": 1.3079098284995876,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 62.09050379357841
+      },
+      {
+        "angle": -19.5224310380894,
+        "scale": 0.656979010620574,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 23.56024580130612
+      },
+      {
+        "angle": -41.13492554370879,
+        "scale": 0.6418640840482293,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 154.715995865508
+      },
+      {
+        "angle": -52.57477628891033,
+        "scale": 0.6864494364801617,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 76.64196336529655
+      },
+      {
+        "angle": -28.58702339421891,
+        "scale": 0.8840040347833732,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 65.65345282825282
+      }
+    ],
+    [
+      {
+        "angle": -51.54448428569182,
+        "scale": 1.562631599880387,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 133.55156398709525
+      },
+      {
+        "angle": -50.90832414607541,
+        "scale": 1.1452085545596993,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 113.34579494210405
+      },
+      {
+        "angle": -41.87598429950208,
+        "scale": 1.4953206056865047,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 172.12303174221861
+      },
+      {
+        "angle": 48.676414978731586,
+        "scale": 1.0267608057626545,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 116.62583875422474
+      },
+      {
+        "angle": -10.38244893710263,
+        "scale": 1.8327447277482571,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 176.83287471956447
+      }
+    ],
+    [
+      {
+        "angle": 9.844546188991885,
+        "scale": 0.5593928411990201,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 103.75947206001409
+      },
+      {
+        "angle": 6.604229716187717,
+        "scale": 0.8828383434115397,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 38.855580366617914
+      },
+      {
+        "angle": -42.939418787611,
+        "scale": 0.505252136456976,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 29.38121993853138
+      },
+      {
+        "angle": 16.589385755488806,
+        "scale": 0.9483006599673353,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 139.54821781250627
+      },
+      {
+        "angle": 8.320168221961836,
+        "scale": 1.0608228133491286,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 30.00353572217915
+      }
+    ],
+    [
+      {
+        "angle": -34.04780950115928,
+        "scale": 0.6845374103760429,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 101.47656336615515
+      },
+      {
+        "angle": -23.81413949670752,
+        "scale": 1.4611280391205828,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 112.79933295011604
+      },
+      {
+        "angle": -51.95775496990908,
+        "scale": 0.5163358460354199,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 88.19344228648836
+      },
+      {
+        "angle": 53.77425063312219,
+        "scale": 0.9988604368573896,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 114.60655759992991
+      },
+      {
+        "angle": 44.74172911492448,
+        "scale": 1.1525941475831172,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 123.0747258292165
+      }
+    ],
+    [
+      {
+        "angle": -14.409474633638169,
+        "scale": 0.8305016830605612,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 123.43087173880033
+      },
+      {
+        "angle": 56.13425576532536,
+        "scale": 1.9700625028864656,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 71.60008884229202
+      },
+      {
+        "angle": -0.862210539526238,
+        "scale": 1.7354408548922255,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 156.4579153368512
+      },
+      {
+        "angle": 4.38660529151683,
+        "scale": 0.7897773397192414,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 114.17777430961796
+      },
+      {
+        "angle": -38.267200956152095,
+        "scale": 1.6085866510509477,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 117.71948425849804
+      }
+    ],
+    [
+      {
+        "angle": 14.378652818948439,
+        "scale": 1.3261706560068018,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 122.31734367267939
+      },
+      {
+        "angle": -4.529706242282799,
+        "scale": 1.3021660993679165,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 67.01109844244365
+      },
+      {
+        "angle": 53.18480913353409,
+        "scale": 1.9700701971219046,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 167.76889498292456
+      },
+      {
+        "angle": 42.749151213200705,
+        "scale": 1.2400518806087013,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 106.99546930846105
+      },
+      {
+        "angle": -33.54677251733973,
+        "scale": 0.8241684732272326,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 29.525422250660394
+      }
+    ],
+    [
+      {
+        "angle": -59.14365031288049,
+        "scale": 1.9947800824317505,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 51.62400018428222
+      },
+      {
+        "angle": 43.576733063899,
+        "scale": 0.6151732960085008,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 154.305892437675
+      },
+      {
+        "angle": -47.559735080134566,
+        "scale": 0.6453121727802962,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 149.0901018909083
+      },
+      {
+        "angle": 28.656524445888664,
+        "scale": 0.6216103619268254,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 152.37341950258502
+      },
+      {
+        "angle": 21.40512398549066,
+        "scale": 1.107740014420393,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 69.73691503871535
+      }
+    ],
+    [
+      {
+        "angle": 30.709478367414746,
+        "scale": 0.5230767391763284,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 68.89780650368583
+      },
+      {
+        "angle": 21.43260435254966,
+        "scale": 1.251362861078109,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 121.55903316934823
+      },
+      {
+        "angle": -49.99164631896013,
+        "scale": 1.1637462946806112,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 67.07530674346786
+      },
+      {
+        "angle": 53.79619283282152,
+        "scale": 1.2958976428053346,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 171.50007992381646
+      },
+      {
+        "angle": -0.790906678287854,
+        "scale": 0.612117375542557,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 120.67612299543808
+      }
+    ],
+    [
+      {
+        "angle": 47.80092252472228,
+        "scale": 1.8473144276789737,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 27.39780395233779
+      },
+      {
+        "angle": -55.43715040635205,
+        "scale": 0.5167315715355623,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 166.57315621612443
+      },
+      {
+        "angle": 37.8438601652921,
+        "scale": 1.4470776943810417,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 150.69548773117498
+      },
+      {
+        "angle": 2.086689958043067,
+        "scale": 0.6884668412138314,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 61.335026856112115
+      },
+      {
+        "angle": -30.48432159472485,
+        "scale": 1.4946402988231893,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 122.63496921448048
+      }
+    ],
+    [
+      {
+        "angle": -28.315668223679143,
+        "scale": 0.5746641378881512,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 138.30828642359464
+      },
+      {
+        "angle": -32.42041709324602,
+        "scale": 1.88847431150692,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 169.37013401783886
+      },
+      {
+        "angle": -23.352074683398428,
+        "scale": 0.5681284037327357,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 104.62817428843805
+      },
+      {
+        "angle": -52.87982565276335,
+        "scale": 1.3823965751304077,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 163.77309428426517
+      },
+      {
+        "angle": -22.855229342335903,
+        "scale": 0.7800145565362377,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 169.33814200986836
+      }
+    ],
+    [
+      {
+        "angle": 46.4037078087522,
+        "scale": 1.9452844066675288,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 22.986617485519783
+      },
+      {
+        "angle": -2.437505359085783,
+        "scale": 1.7151837097697167,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 108.45481547447596
+      },
+      {
+        "angle": -7.531805913781675,
+        "scale": 1.203739487463,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 21.72647080242719
+      },
+      {
+        "angle": -7.906184082910151,
+        "scale": 1.2169769279029954,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 43.7088163205292
+      },
+      {
+        "angle": -22.65872326224568,
+        "scale": 0.6639233482001902,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 128.52274854206274
+      }
+    ],
+    [
+      {
+        "angle": 48.663887030360556,
+        "scale": 1.324093374786295,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 146.77666096849111
+      },
+      {
+        "angle": 35.531285291421284,
+        "scale": 1.6317543044668774,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 16.641777338021775
+      },
+      {
+        "angle": -46.46288156906463,
+        "scale": 0.6815877393580798,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 118.85674888108294
+      },
+      {
+        "angle": 52.35829894859846,
+        "scale": 0.710631309363802,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 128.26628203037168
+      },
+      {
+        "angle": -1.6770060487338014,
+        "scale": 1.5175753153315694,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 162.20048331203827
+      }
+    ],
+    [
+      {
+        "angle": -14.719068609931774,
+        "scale": 0.704584895086439,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 115.98064005427804
+      },
+      {
+        "angle": -39.894485372585876,
+        "scale": 1.4109333847193293,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 44.002019328168785
+      },
+      {
+        "angle": -4.145767948811702,
+        "scale": 0.8620176309407883,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 69.06748923939259
+      },
+      {
+        "angle": -28.54278569796168,
+        "scale": 1.3461804635845929,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 165.9883118276138
+      },
+      {
+        "angle": 32.333074230111805,
+        "scale": 0.5666583259163832,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 155.26289541668208
+      }
+    ],
+    [
+      {
+        "angle": 17.59355291331525,
+        "scale": 0.9280936798920731,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 26.477846463550208
+      },
+      {
+        "angle": 55.903279083078004,
+        "scale": 1.9088170817013086,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 67.05791729417099
+      },
+      {
+        "angle": -14.19603222600876,
+        "scale": 0.923937016702364,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 15.333784815617983
+      },
+      {
+        "angle": 46.408798362825024,
+        "scale": 1.0056588799779618,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 164.454244435275
+      },
+      {
+        "angle": -6.073041791245977,
+        "scale": 1.1063878626878487,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 14.285952030270357
+      }
+    ],
+    [
+      {
+        "angle": 56.88023699784995,
+        "scale": 1.2741954337455417,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 45.96927167611388
+      },
+      {
+        "angle": -44.070106157608365,
+        "scale": 0.8207098316230877,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 63.8306295325076
+      },
+      {
+        "angle": 5.708985278633094,
+        "scale": 0.9279453813787859,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 75.25786747319925
+      },
+      {
+        "angle": -41.812676620019964,
+        "scale": 1.960386593703314,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 62.466949655224234
+      },
+      {
+        "angle": -21.78029163321014,
+        "scale": 1.4134656221619417,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 132.34737369111275
+      }
+    ],
+    [
+      {
+        "angle": 30.417729353681892,
+        "scale": 1.6760014403426964,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 101.40869557140613
+      },
+      {
+        "angle": 9.769695971180795,
+        "scale": 0.9536503739639395,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 65.37284713533403
+      },
+      {
+        "angle": 51.993550352342154,
+        "scale": 1.432426362687841,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 67.14664645804663
+      },
+      {
+        "angle": -29.029751031587846,
+        "scale": 1.643555609060741,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 61.0769192779259
+      },
+      {
+        "angle": 3.563246495791475,
+        "scale": 1.5494341363317816,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 57.26393223936097
+      }
+    ],
+    [
+      {
+        "angle": 2.563010632117205,
+        "scale": 0.5431838924566614,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 146.5254123210015
+      },
+      {
+        "angle": -52.02225330816699,
+        "scale": 1.0649921813463816,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 49.42195127303033
+      },
+      {
+        "angle": 40.04186797940076,
+        "scale": 0.6636336804992263,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 138.42409533806966
+      },
+      {
+        "angle": -30.064477178563138,
+        "scale": 1.8864224838722234,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 15.725713716670045
+      },
+      {
+        "angle": -3.7769898912071085,
+        "scale": 1.275704090018696,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 90.49652589516437
+      }
+    ],
+    [
+      {
+        "angle": -23.251191491534072,
+        "scale": 0.5064030060943131,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 73.47833573144268
+      },
+      {
+        "angle": -47.14491411675907,
+        "scale": 1.874160003620744,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 105.46570865095524
+      },
+      {
+        "angle": 9.05860400757166,
+        "scale": 1.0497655016912228,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 77.15738108050041
+      },
+      {
+        "angle": -30.460534554620516,
+        "scale": 0.6306564484667588,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 160.7984860464725
+      },
+      {
+        "angle": 44.161942533415726,
+        "scale": 1.2184821405999458,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 129.43511732852895
+      }
+    ],
+    [
+      {
+        "angle": -24.867042861169345,
+        "scale": 0.6711846128636093,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 6.4610804512831965
+      },
+      {
+        "angle": -18.778653402376534,
+        "scale": 1.7659855896516197,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 108.500640625988
+      },
+      {
+        "angle": -26.93974538642778,
+        "scale": 1.5628841567310747,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 125.89967332436873
+      },
+      {
+        "angle": -44.77070569449066,
+        "scale": 0.5528347605302919,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 152.43643265823167
+      },
+      {
+        "angle": -11.323104683858645,
+        "scale": 1.7702570424491664,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 57.09343563931323
+      }
+    ],
+    [
+      {
+        "angle": -18.79975357615291,
+        "scale": 1.224581814825661,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 59.09827484049613
+      },
+      {
+        "angle": -39.07002170079901,
+        "scale": 0.6076223362542852,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 130.1622652525731
+      },
+      {
+        "angle": 5.324861209176618,
+        "scale": 0.6252494228401676,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 25.403289331313882
+      },
+      {
+        "angle": -45.26439371706111,
+        "scale": 0.8981949894790728,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 167.19124904860396
+      },
+      {
+        "angle": -10.961533766950119,
+        "scale": 0.5497800331785767,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 172.62282756717133
+      }
+    ],
+    [
+      {
+        "angle": -34.23528218291189,
+        "scale": 1.0902702563019082,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 38.499269883963535
+      },
+      {
+        "angle": -49.568377565073106,
+        "scale": 0.8335383075388201,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 61.012269092815394
+      },
+      {
+        "angle": 28.658563724772662,
+        "scale": 1.0657112840767036,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 119.2536788839916
+      },
+      {
+        "angle": 21.15602402589387,
+        "scale": 1.0688885970929585,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 68.15210245326476
+      },
+      {
+        "angle": -1.2129064010786195,
+        "scale": 1.3207809346616097,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 31.40743424250531
+      }
+    ],
+    [
+      {
+        "angle": -9.04359711325516,
+        "scale": 1.2992781472979658,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 100.09434737060688
+      },
+      {
+        "angle": -57.18531701885001,
+        "scale": 0.708946630182004,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 123.71750806534712
+      },
+      {
+        "angle": 38.370198324044466,
+        "scale": 1.0206976293119598,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 1.2948294573310237
+      },
+      {
+        "angle": -15.036929078063281,
+        "scale": 1.8811542670756425,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 88.00906899920359
+      },
+      {
+        "angle": -57.3299083916556,
+        "scale": 0.73267674622187,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 98.91818241943619
+      }
+    ],
+    [
+      {
+        "angle": -24.866259594003296,
+        "scale": 1.6506836885504845,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 121.97798629791947
+      },
+      {
+        "angle": -41.798231565085004,
+        "scale": 1.1109105958079122,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 4.429918967055451
+      },
+      {
+        "angle": 13.188109136113127,
+        "scale": 0.9099925473785149,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 78.6507629061783
+      },
+      {
+        "angle": 43.528048816370216,
+        "scale": 1.1325722757040044,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 154.7071214589098
+      },
+      {
+        "angle": -48.92408645031824,
+        "scale": 0.7491232992696576,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 3.1900553668602516
+      }
+    ],
+    [
+      {
+        "angle": -57.37507882800369,
+        "scale": 1.7865496681133508,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 24.305919504512346
+      },
+      {
+        "angle": -28.338500736504898,
+        "scale": 1.1262086145150618,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 11.15725430832267
+      },
+      {
+        "angle": 51.78093747618472,
+        "scale": 1.0699652015338816,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 68.00456645982511
+      },
+      {
+        "angle": 23.85846396854025,
+        "scale": 1.290081359261108,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 164.9434559599325
+      },
+      {
+        "angle": -29.029782147024367,
+        "scale": 0.9158122481415858,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 42.23791032331627
+      }
+    ],
+    [
+      {
+        "angle": -4.508284117467539,
+        "scale": 1.815832935119306,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 96.4547006257522
+      },
+      {
+        "angle": 42.67564270802812,
+        "scale": 0.8679306996529125,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 92.6089831927965
+      },
+      {
+        "angle": 21.490325588991993,
+        "scale": 1.6923208741814881,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 120.26195242388138
+      },
+      {
+        "angle": -29.34508222970086,
+        "scale": 0.6721480492741148,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 30.54416181255298
+      },
+      {
+        "angle": 22.432726909250817,
+        "scale": 0.620083365225406,
+        "gauss_sigma": 0.0,
+        "motion_len": 0,
+        "motion_angle": 8.14069912516331
+      }
+    ]
+  ]
+}

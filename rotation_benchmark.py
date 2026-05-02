@@ -12,8 +12,11 @@ import opencvSIFTOrientation
 # Config
 # ---------------------------------------------------------------
 LOAD_FROM_CSV = True
-CSV_PATH = "orientation_benchmark_results_sides_banned_parabola_smoothing.csv"
+CSV_PATH = "ca_results/smoothing_test_rotation/without.csv"
+plot_window_title = "without"
 ROTATION_BIN_SIZE = 1  # degrees
+USE_OPENCV_CUSTOM = False
+MAX_KEYPOINTS = 250
 # ---------------------------------------------------------------
 
 def rotate_highquality(img, angle):
@@ -64,20 +67,14 @@ if LOAD_FROM_CSV:
 else:
     dataset_image_sequences, _ = load_HPSequences(r"hpatches-sequences-release")
 
-    shi_tomasi_sift = sts.ShiTomasiSift(calculate_orientation_for_keypoints=True,
-                                response_type="sftt",
-                                orientation_calculation_gaussian_weight_std=50,
-                                create_new_keypoint_for_large_angle_histogram_values=True,
-                                num_octaves_in_scale_pyramid=1,
-                                descriptor_gaussian_weight_std=50,
-                                derivation_operator="simple",
-                                use_circular_descriptor=False,
-                                orientation_calculation_bin_count=36,
-                                d_weight=0.7,
-                                base_blur_sigma=-1,
-                                max_corners=250,
-                                enable_histogram_smoothing=True,
-                                )
+    shi_tomasi_sift = sts.ShiTomasiSift(num_octaves_in_scale_pyramid=1,
+                                        starting_level_scale_pyramid=0,
+                                        max_corners=MAX_KEYPOINTS,
+                                        use_descriptor_window_buffer_as_orientation_calculation_window_size=True,
+                                        enable_histogram_smoothing=True,
+                                        create_new_keypoint_for_large_angle_histogram_values=False,
+                                        # large_angle_histogram_value_threshold=0.90,
+                                        )
 
     average_angle_amounts = []
     amounts_difference_in_num_angles = []
@@ -109,15 +106,19 @@ else:
                 non_rotated_dx = sts.extract_area(non_rotated_buffered_dx, (x_pos, y_pos), shi_tomasi_sift.orientation_calculation_window_size)
                 non_rotated_dy = sts.extract_area(non_rotated_buffered_dy, (x_pos, y_pos), shi_tomasi_sift.orientation_calculation_window_size)
                 non_rotated_magnitudes, non_rotated_pixel_angles = shi_tomasi_sift._calculate_magnitude_and_angle(non_rotated_dx, non_rotated_dy)
-                # non_rotated_orientation_angles = opencvSIFTOrientation._calculate_orientation_of_keypoint((x_pos, y_pos), non_rotated_magnitudes, non_rotated_pixel_angles, shi_tomasi_sift.orientation_calculation_window_size, shi_tomasi_sift.orientation_calculation_gaussian_weight_std, shi_tomasi_sift.orientation_calculation_bin_count)
-                non_rotated_orientation_angles = shi_tomasi_sift._calculate_orientation_of_keypoint((x_pos, y_pos), non_rotated_magnitudes, non_rotated_pixel_angles)
+                if USE_OPENCV_CUSTOM:
+                    non_rotated_orientation_angles = opencvSIFTOrientation._calculate_orientation_of_keypoint((x_pos, y_pos), non_rotated_magnitudes, non_rotated_pixel_angles, shi_tomasi_sift.orientation_calculation_window_size, shi_tomasi_sift.orientation_calculation_gaussian_weight_std, shi_tomasi_sift.orientation_calculation_bin_count)
+                else:
+                    non_rotated_orientation_angles = shi_tomasi_sift._calculate_orientation_of_keypoint((x_pos, y_pos), non_rotated_magnitudes, non_rotated_pixel_angles)
 
                 rotated_buffered_dx, rotated_buffered_dy = shi_tomasi_sift._calculate_Ix_and_Iy(rotated_buffered_area)
                 rotated_dx = sts.extract_area(rotated_buffered_dx, (x_pos, y_pos), shi_tomasi_sift.orientation_calculation_window_size)
                 rotated_dy = sts.extract_area(rotated_buffered_dy, (x_pos, y_pos), shi_tomasi_sift.orientation_calculation_window_size)
                 rotated_magnitudes, rotated_pixel_angles = shi_tomasi_sift._calculate_magnitude_and_angle(rotated_dx, rotated_dy)
-                # rotated_orientation_angles = opencvSIFTOrientation._calculate_orientation_of_keypoint((x_pos, y_pos), rotated_magnitudes, rotated_pixel_angles, shi_tomasi_sift.orientation_calculation_window_size, shi_tomasi_sift.orientation_calculation_gaussian_weight_std, shi_tomasi_sift.orientation_calculation_bin_count)
-                rotated_orientation_angles = shi_tomasi_sift._calculate_orientation_of_keypoint((x_pos, y_pos), rotated_magnitudes, rotated_pixel_angles)
+                if USE_OPENCV_CUSTOM:
+                    rotated_orientation_angles = opencvSIFTOrientation._calculate_orientation_of_keypoint((x_pos, y_pos), rotated_magnitudes, rotated_pixel_angles, shi_tomasi_sift.orientation_calculation_window_size, shi_tomasi_sift.orientation_calculation_gaussian_weight_std, shi_tomasi_sift.orientation_calculation_bin_count)
+                else:
+                    rotated_orientation_angles = shi_tomasi_sift._calculate_orientation_of_keypoint((x_pos, y_pos), rotated_magnitudes, rotated_pixel_angles)
 
                 corrected_rotated_orientation_angles = [a + rotation for a in rotated_orientation_angles]
 
@@ -228,33 +229,33 @@ n_bins = len(bin_edges) - 1
 # Plots
 # ---------------------------------------------------------------
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Average angle amounts")
 values, counts = np.unique(average_angle_amounts, return_counts=True)
 plt.bar(values, counts)
 plt.xlabel("Average number of angles")
 plt.ylabel("Count")
 plt.title("Average angle amounts")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Difference in number of angles between rotated and non-rotated")
 values, counts = np.unique(amounts_difference_in_num_angles, return_counts=True)
 plt.bar(values, counts)
 plt.xlabel("Difference in number of angles")
 plt.ylabel("Count")
 plt.title("Difference in number of angles between rotated and non-rotated")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Closest angle errors")
 plt.hist(closest_angle_errors, bins=list(range(181)))
 plt.xlabel("Angle error (degrees)")
 plt.ylabel("Count")
 plt.title("Closest angle errors")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Closest descriptor errors")
 plt.hist(closest_descriptor_errors, bins=[i/100 for i in range(0, 200)])
 plt.xlabel("Descriptor error (L2)")
 plt.ylabel("Count")
 plt.title("Closest descriptor errors")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "CDF of closest angle errors")
 sorted_errors = np.sort(closest_angle_errors)
 plt.plot(sorted_errors, np.arange(1, len(sorted_errors)+1) / len(sorted_errors))
 plt.xlabel("Angle error (degrees)")
@@ -265,7 +266,7 @@ plt.legend()
 plt.title("CDF of closest angle errors")
 
 # Core decomposition plot
-plt.figure()
+plt.figure(num=plot_window_title + " " + "CDF: decomposition of descriptor error")
 for arr, label in [
     (closest_descriptor_errors,   "Total error"),
     (intrinsic_descriptor_errors, "Intrinsic (perfect orientation)"),
@@ -278,7 +279,7 @@ plt.ylabel("Fraction of matches")
 plt.legend()
 plt.title("CDF: decomposition of descriptor error")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Angle error vs total descriptor error")
 plt.hexbin(closest_angle_errors, closest_descriptor_errors, gridsize=40, cmap='viridis')
 plt.colorbar(label='count')
 r = np.corrcoef(closest_angle_errors, closest_descriptor_errors)[0, 1]
@@ -286,7 +287,7 @@ plt.xlabel("Angle error (degrees)")
 plt.ylabel("Descriptor error (L2)")
 plt.title(f"Angle error vs total descriptor error (r = {r:.3f})")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Angle error vs orientation-induced descriptor error")
 plt.hexbin(closest_angle_errors, orientation_induced_errors, gridsize=40, cmap='viridis')
 plt.colorbar(label='count')
 r = np.corrcoef(closest_angle_errors, orientation_induced_errors)[0, 1]
@@ -294,13 +295,13 @@ plt.xlabel("Angle error (degrees)")
 plt.ylabel("Orientation-induced descriptor error (L2)")
 plt.title(f"Angle error vs orientation-induced descriptor error (r = {r:.3f})")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Distribution of absolute rotations")
 plt.hist(rotations, bins=np.arange(0, 181, ROTATION_BIN_SIZE))
 plt.xlabel("Absolute rotation (degrees)")
 plt.ylabel("Count")
 plt.title(f"Distribution of absolute rotations ({ROTATION_BIN_SIZE}° bins)")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Angle error vs absolute rotation")
 plt.hexbin(pair_rotations, closest_angle_errors, gridsize=int(180/ROTATION_BIN_SIZE), cmap='viridis')
 plt.colorbar(label='count')
 r = np.corrcoef(pair_rotations, closest_angle_errors)[0, 1]
@@ -308,7 +309,7 @@ plt.xlabel("Absolute rotation (degrees)")
 plt.ylabel("Angle error (degrees)")
 plt.title(f"Angle error vs absolute rotation (r = {r:.3f})")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Intrinsic descriptor error vs absolute rotation")
 plt.hexbin(pair_rotations, intrinsic_descriptor_errors, gridsize=int(180/ROTATION_BIN_SIZE), cmap='viridis')
 plt.colorbar(label='count')
 r = np.corrcoef(pair_rotations, intrinsic_descriptor_errors)[0, 1]
@@ -318,7 +319,7 @@ plt.title(f"Intrinsic descriptor error vs absolute rotation (r = {r:.3f})")
 
 means, stds, medians, p25, p75 = per_bin_stats(closest_angle_errors, bin_indices, n_bins)
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Mean ± std angle error")
 plt.bar(bin_centers, means, width=ROTATION_BIN_SIZE * 0.8, label='Mean')
 plt.errorbar(bin_centers, means, yerr=stds, fmt='none', color='black', capsize=2, label='±1 std')
 plt.xlabel("Absolute rotation (degrees)")
@@ -326,7 +327,7 @@ plt.ylabel("Angle error (degrees)")
 plt.legend()
 plt.title(f"Mean ± std angle error per {ROTATION_BIN_SIZE}° rotation bin")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Median + IQR angle error")
 plt.bar(bin_centers, medians, width=ROTATION_BIN_SIZE * 0.8, label='Median')
 plt.errorbar(bin_centers, medians, yerr=[medians - p25, p75 - medians],
              fmt='none', color='black', capsize=2, label='IQR')
@@ -339,7 +340,7 @@ means_d, stds_d, medians_d, p25_d, p75_d = per_bin_stats(closest_descriptor_erro
 means_i, stds_i, medians_i, p25_i, p75_i = per_bin_stats(intrinsic_descriptor_errors, bin_indices, n_bins)
 means_o, stds_o, medians_o, p25_o, p75_o = per_bin_stats(orientation_induced_errors, bin_indices, n_bins)
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Mean ± std total descriptor error")
 plt.bar(bin_centers, means_d, width=ROTATION_BIN_SIZE * 0.8, label='Mean')
 plt.errorbar(bin_centers, means_d, yerr=stds_d, fmt='none', color='black', capsize=2, label='±1 std')
 plt.xlabel("Absolute rotation (degrees)")
@@ -347,7 +348,7 @@ plt.ylabel("Descriptor error (L2)")
 plt.legend()
 plt.title(f"Mean ± std total descriptor error per {ROTATION_BIN_SIZE}° rotation bin")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Median + IQR total descriptor error")
 plt.bar(bin_centers, medians_d, width=ROTATION_BIN_SIZE * 0.8, label='Median')
 plt.errorbar(bin_centers, medians_d, yerr=[medians_d - p25_d, p75_d - medians_d],
              fmt='none', color='black', capsize=2, label='IQR')
@@ -357,7 +358,7 @@ plt.legend()
 plt.title(f"Median + IQR total descriptor error per {ROTATION_BIN_SIZE}° rotation bin")
 
 # Stacked bar: intrinsic vs orientation-induced per rotation bin
-plt.figure()
+plt.figure(num=plot_window_title + " " + "Stacked mean descriptor error by source")
 plt.bar(bin_centers, means_i, width=ROTATION_BIN_SIZE * 0.8, label='Intrinsic', alpha=0.8)
 plt.bar(bin_centers, means_o, width=ROTATION_BIN_SIZE * 0.8, bottom=means_i, label='Orientation-induced', alpha=0.8)
 plt.xlabel("Absolute rotation (degrees)")
@@ -367,7 +368,7 @@ plt.title(f"Stacked mean descriptor error by source per {ROTATION_BIN_SIZE}° bi
 
 ranges = [(0, 22), (22, 45), (45, 67), (67, 90), (90, 112), (112, 135), (135, 157), (157, 180)]
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "CDF of angle error by absolute rotation range")
 for lo, hi in ranges:
     mask = (pair_rotations >= lo) & (pair_rotations < hi)
     if np.sum(mask) > 0:
@@ -378,7 +379,7 @@ plt.ylabel("Fraction of matches")
 plt.legend(fontsize='small')
 plt.title("CDF of angle error by absolute rotation range")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "CDF of total descriptor error by absolute rotation range")
 for lo, hi in ranges:
     mask = (pair_rotations >= lo) & (pair_rotations < hi)
     if np.sum(mask) > 0:
@@ -389,7 +390,7 @@ plt.ylabel("Fraction of matches")
 plt.legend(fontsize='small')
 plt.title("CDF of total descriptor error by absolute rotation range")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "CDF of intrinsic descriptor error by absolute rotation range")
 for lo, hi in ranges:
     mask = (pair_rotations >= lo) & (pair_rotations < hi)
     if np.sum(mask) > 0:
@@ -400,7 +401,7 @@ plt.ylabel("Fraction of matches")
 plt.legend(fontsize='small')
 plt.title("CDF of intrinsic descriptor error by absolute rotation range")
 
-plt.figure()
+plt.figure(num=plot_window_title + " " + "CDF of orientation-induced descriptor error by absolute rotation range")
 for lo, hi in ranges:
     mask = (pair_rotations >= lo) & (pair_rotations < hi)
     if np.sum(mask) > 0:

@@ -1,5 +1,5 @@
 from tqdm import tqdm
-from benchmark.utils import calculate_overlap_one_circle_to_many
+from benchmark.utils import calculate_overlap_one_circle_to_many, downsample, visualize_matches_with_scale_change
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
@@ -26,13 +26,17 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
     speed = 1/time
     return speed
 
-
 #@beartype
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool):  
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool, DOWNSAMPLE_ITERATIONS: int, DOWNSAMPLE_FACTOR: float, DOWNSAMPLE_SIGMA: float, DOWNSAMPLE_INTERPOLATION_TYPE):  
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
             
+            # for i in range(DOWNSAMPLE_ITERATIONS):
+            #     image = downsample(image,DOWNSAMPLE_FACTOR,1.2, DOWNSAMPLE_INTERPOLATION_TYPE)
+
+            effective_downsample_factor = DOWNSAMPLE_FACTOR**DOWNSAMPLE_ITERATIONS
+            image = downsample(image,effective_downsample_factor, DOWNSAMPLE_SIGMA, DOWNSAMPLE_INTERPOLATION_TYPE)
 
             keypoints = feature_extractor.detect_keypoints(image)
             num_keypoints = len(keypoints)
@@ -48,7 +52,12 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
 
             if (len(keypoints) == 0):
                 continue
+            # if len(keypoints) > 250:
+            #     keypoints = keypoints[250:500]
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
+
+            for keypoint in keypoints:
+                keypoint.pt = (keypoint.pt[0] * DOWNSAMPLE_FACTOR ** DOWNSAMPLE_ITERATIONS, keypoint.pt[1] * DOWNSAMPLE_FACTOR ** DOWNSAMPLE_ITERATIONS)
 
             if num_keypoints > min_required_keypoints and len(keypoints) < max_features:
                 print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
@@ -105,6 +114,8 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
             homography = dataset_homography_sequence[sequence_index][related_image_index]
 
             if len(related_images_features) == 0:
+                numbers_of_possible_correct_matches.append(0)
+                repeatabilities.append(0.0)
                 continue
 
             # transform position 
@@ -165,9 +176,9 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
 
 
 #@beartype
-def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seq_to_visualize: int) -> list[MatchSet]:
+def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seqs_to_visualize: int, DOWNSAMPLE_ITERATIONS: int, DOWNSAMPLE_FACTOR: float, DOWNSAMPLE_SIGMA: float, DOWNSAMPLE_INTERPOLATION_TYPE) -> list[MatchSet]:
     matching_match_sets: list[MatchSet] = []
-    for seq, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
+    for seq_num, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
         matching_match_set = MatchSet()
         matching_match_sets.append(matching_match_set)
         reference_features = image_feature_sequence.reference_image_features
@@ -176,137 +187,13 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
             matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
             matching_match_set.add_match(matches)
 
-            if visualize and seq == seq_to_visualize:
-
-                ## For debug ################################
-                def transformed_keypoint_size(kp, H):
-                    """Compute the transformed keypoint center and new size using global NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION."""
-                    x, y = kp.pt
-                    r = kp.size / 2
-
-                    # Sample points around the keypoint
-                    angles = np.linspace(0, 2*np.pi, NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, endpoint=False)
-                    pts = np.array([[x + r * np.cos(a), y + r * np.sin(a)] for a in angles], dtype=np.float32)
-
-                    # Homogeneous coordinates
-                    pts_h = np.hstack([pts, np.ones((NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, 1), dtype=np.float32)])
-                    center_h = np.array([x, y, 1.0], dtype=np.float32)
-
-                    # Apply homography
-                    pts_t_h = pts_h @ H.T
-                    center_t_h = H @ center_h
-                    pts_t = pts_t_h[:, :2] / pts_t_h[:, 2:3]
-                    center_t = center_t_h[:2] / center_t_h[2]
-
-                    new_r = np.mean(np.linalg.norm(pts_t - center_t, axis=1))
-                    return 2 * new_r, tuple(center_t.astype(int))
-
-                # -------------------
-                # Images and homography
-                img_ref = dataset_image_sequences[seq][0]
-                img_rel = dataset_image_sequences[seq][rel_idx + 1]
-                H = dataset_homography_sequence[seq][rel_idx]
-
-                h1, w1 = img_ref.shape[:2]
-                h2, w2 = img_rel.shape[:2]
-
-                # Sort matches
-                sorted_matches = sorted(matches, key=lambda m: m.match_properties["distance"])
-
-                # Window names
-                main_window = "Matches Viewer"
-                overlay_window = "Highlighted Match Overlay"
-                cv2.namedWindow(main_window)
-                cv2.namedWindow(overlay_window)
-
-                # Current match index
-                current_idx = 0  # 0 = first match
-
-                def redraw_main(idx):
-                    """Draw main viewer with matches up to current index."""
-                    out = np.zeros((max(h1, h2), w1 + w2, 3), dtype=img_ref.dtype)
-                    out[:h1, :w1] = img_ref
-                    out[:h2, w1:w1 + w2] = img_rel
-
-                    n = idx + 1
-                    visible = sorted_matches[:n]
-
-                    for i, match in enumerate(visible):
-                        kp1 = match.reference_feature.keypoint
-                        kp2 = match.related_feature.keypoint
-
-                        p1 = tuple(map(int, kp1.pt))
-                        p2 = (int(kp2.pt[0] + w1), int(kp2.pt[1]))
-
-                        r1 = max(2, int(kp1.size / 2))
-                        r2 = max(2, int(kp2.size / 2))
-
-                        if i == n - 1:
-                            color = (0, 255, 255)  # highlighted
-                            thickness = 2
-                        else:
-                            color = (0, 255, 0) if match.is_correct else (0, 0, 255)
-                            thickness = 1
-
-                        cv2.circle(out, p1, r1, color, thickness)
-                        cv2.circle(out, p2, r2, color, thickness)
-                        cv2.line(out, p1, p2, color, thickness)
-
-                    cv2.imshow(main_window, out)
-
-                def redraw_overlay(idx):
-                    """Draw overlay image with only the highlighted match transformed."""
-                    match = sorted_matches[idx]
-                    kp1 = match.reference_feature.keypoint
-                    kp2 = match.related_feature.keypoint
-
-                    overlay = img_ref.copy()  # overlay only on reference image
-
-                    # Draw reference keypoint
-                    r1 = max(2, int(kp1.size / 2))
-                    cv2.circle(overlay, tuple(map(int, kp1.pt)), r1, (0, 255, 0), 2)
-
-                    # Draw transformed related keypoint
-                    new_size, new_center = transformed_keypoint_size(kp2, H)
-                    cv2.circle(overlay, new_center, max(2, int(new_size / 2)), (255, 0, 0), 2)
-
-                    cv2.imshow(overlay_window, overlay)
-
-                def update(idx):
-                    """Update both windows for current index."""
-                    redraw_main(idx)
-                    redraw_overlay(idx)
-                    cv2.setTrackbarPos("Matches", main_window, idx)
-
-                # Trackbar callback
-                def on_trackbar(val):
-                    global current_idx
-                    current_idx = val
-                    update(current_idx)
-
-                # Create trackbar
-                cv2.createTrackbar("Matches", main_window, current_idx, len(sorted_matches)-1, on_trackbar)
-
-                # Initial draw
-                update(current_idx)
-
-                # -------------------
-                # Main loop
-                while True:
-                    key = cv2.waitKey(30) & 0xFF
-
-                    if key == 27:  # ESC
-                        break
-                    elif key == 81 or key == ord('a'):  # LEFT arrow or 'a'
-                        current_idx = max(0, current_idx - 1)
-                        update(current_idx)
-                    elif key == 83 or key == ord('d'):  # RIGHT arrow or 'd'
-                        current_idx = min(len(sorted_matches) - 1, current_idx + 1)
-                        update(current_idx)
-
-                cv2.destroyAllWindows()
-
-                #############################################
+            if visualize and seq_num in seqs_to_visualize:
+                effective_downsample_factor = DOWNSAMPLE_FACTOR**DOWNSAMPLE_ITERATIONS
+                ref_image = cv2.resize(downsample(dataset_image_sequences[seq_num][0],effective_downsample_factor,DOWNSAMPLE_SIGMA,DOWNSAMPLE_INTERPOLATION_TYPE), None, fx= effective_downsample_factor, fy= effective_downsample_factor, interpolation= INTER_NEAREST)
+                rel_image = cv2.resize(downsample(dataset_image_sequences[seq_num][rel_idx+1],effective_downsample_factor,DOWNSAMPLE_SIGMA,DOWNSAMPLE_INTERPOLATION_TYPE), None, fx= effective_downsample_factor, fy= effective_downsample_factor, interpolation= INTER_NEAREST)
+                homography = dataset_homography_sequence[seq_num][rel_idx]
+                visualize_matches_with_scale_change(NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, ref_image, rel_image, homography, matches)
+                
 
     return matching_match_sets
 
