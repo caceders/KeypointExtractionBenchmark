@@ -27,7 +27,7 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
     return speed
 
 #@beartype
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool, DOWNSAMPLE_ITERATIONS: int, DOWNSAMPLE_FACTOR: float, DOWNSAMPLE_SIGMA: float, DOWNSAMPLE_INTERPOLATION_TYPE):  
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool, DOWNSAMPLE_LEVEL: int, DOWNSAMPLE_FACTOR: float, INTRINSIC_SIGMA: float, INITIAL_SIGMA: float, APPLY_PROGRESSIVE_BLUR: bool, DOWNSAMPLE_INTERPOLATION_TYPE):  
 
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
@@ -35,8 +35,7 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
             # for i in range(DOWNSAMPLE_ITERATIONS):
             #     image = downsample(image,DOWNSAMPLE_FACTOR,1.2, DOWNSAMPLE_INTERPOLATION_TYPE)
 
-            effective_downsample_factor = DOWNSAMPLE_FACTOR**DOWNSAMPLE_ITERATIONS
-            image = downsample(image,effective_downsample_factor, DOWNSAMPLE_SIGMA, DOWNSAMPLE_INTERPOLATION_TYPE)
+            image = downsample(image, DOWNSAMPLE_LEVEL, DOWNSAMPLE_FACTOR, INTRINSIC_SIGMA, INITIAL_SIGMA, APPLY_PROGRESSIVE_BLUR, DOWNSAMPLE_INTERPOLATION_TYPE)
 
             keypoints = feature_extractor.detect_keypoints(image)
             num_keypoints = len(keypoints)
@@ -57,7 +56,7 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
 
             for keypoint in keypoints:
-                keypoint.pt = (keypoint.pt[0] * DOWNSAMPLE_FACTOR ** DOWNSAMPLE_ITERATIONS, keypoint.pt[1] * DOWNSAMPLE_FACTOR ** DOWNSAMPLE_ITERATIONS)
+                keypoint.pt = (keypoint.pt[0] * DOWNSAMPLE_FACTOR ** DOWNSAMPLE_LEVEL, keypoint.pt[1] * DOWNSAMPLE_FACTOR ** DOWNSAMPLE_LEVEL)
 
             if num_keypoints > min_required_keypoints and len(keypoints) < max_features:
                 print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
@@ -176,7 +175,7 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
 
 
 #@beartype
-def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seqs_to_visualize: int, DOWNSAMPLE_ITERATIONS: int, DOWNSAMPLE_FACTOR: float, DOWNSAMPLE_SIGMA: float, DOWNSAMPLE_INTERPOLATION_TYPE) -> list[MatchSet]:
+def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seqs_to_visualize: int, DOWNSAMPLE_LEVEL: int, DOWNSAMPLE_FACTOR: float, INTRINSIC_SIGMA: float, INITIAL_SIGMA: float, APPLY_PROGRESSIVE_BLUR: bool, DOWNSAMPLE_INTERPOLATION_TYPE) -> list[MatchSet]:
     matching_match_sets: list[MatchSet] = []
     for seq_num, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
         matching_match_set = MatchSet()
@@ -188,9 +187,8 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
             matching_match_set.add_match(matches)
 
             if visualize and seq_num in seqs_to_visualize:
-                effective_downsample_factor = DOWNSAMPLE_FACTOR**DOWNSAMPLE_ITERATIONS
-                ref_image = cv2.resize(downsample(dataset_image_sequences[seq_num][0],effective_downsample_factor,DOWNSAMPLE_SIGMA,DOWNSAMPLE_INTERPOLATION_TYPE), None, fx= effective_downsample_factor, fy= effective_downsample_factor, interpolation= INTER_NEAREST)
-                rel_image = cv2.resize(downsample(dataset_image_sequences[seq_num][rel_idx+1],effective_downsample_factor,DOWNSAMPLE_SIGMA,DOWNSAMPLE_INTERPOLATION_TYPE), None, fx= effective_downsample_factor, fy= effective_downsample_factor, interpolation= INTER_NEAREST)
+                ref_image = cv2.resize(downsample(dataset_image_sequences[seq_num][0], DOWNSAMPLE_LEVEL, DOWNSAMPLE_FACTOR, INTRINSIC_SIGMA, INITIAL_SIGMA, APPLY_PROGRESSIVE_BLUR, DOWNSAMPLE_INTERPOLATION_TYPE), None, fx= DOWNSAMPLE_FACTOR**DOWNSAMPLE_LEVEL, fy= DOWNSAMPLE_FACTOR**DOWNSAMPLE_LEVEL, interpolation= INTER_NEAREST)
+                rel_image = cv2.resize(downsample(dataset_image_sequences[seq_num][rel_idx+1], DOWNSAMPLE_LEVEL, DOWNSAMPLE_FACTOR, INTRINSIC_SIGMA, INITIAL_SIGMA, APPLY_PROGRESSIVE_BLUR, DOWNSAMPLE_INTERPOLATION_TYPE), None, fx= DOWNSAMPLE_FACTOR**DOWNSAMPLE_LEVEL, fy= DOWNSAMPLE_FACTOR**DOWNSAMPLE_LEVEL, interpolation= INTER_NEAREST)
                 homography = dataset_homography_sequence[seq_num][rel_idx]
                 visualize_matches_with_scale_change(NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, ref_image, rel_image, homography, matches)
                 

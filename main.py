@@ -5,7 +5,7 @@ from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
 from benchmark.pipeline import *
 from benchmark.matching import MatchSet, MatchRankingProperty, greedy_maximum_bipartite_matching_descriptor_distance
-from benchmark.utils import load_HPSequences, compare_rankings_and_visualize_across_sets
+from benchmark.utils import load_HPSequences, compare_rankings_and_visualize_across_sets, optional_try
 from benchmark.noise import *
 from tqdm import tqdm
 import cv2
@@ -32,22 +32,22 @@ if APPLY_NOISE:
 features2d = {
     #"AGAST" : cv2.AgastFeatureDetector_create(),
     "AKAZE" : cv2.AKAZE_create(),
-    #"BRISK" : cv2.BRISK_create(),
+    "BRISK" : cv2.BRISK_create(),
     #"FAST" : cv2.FastFeatureDetector_create(),
     #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
-    #"GFTT" : cv2.GFTTDetector_create(),
+    "GFTT" : cv2.GFTTDetector_create(),
     #"GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
     #"KAZE" : cv2.KAZE_create(),
-    #"ORB" : cv2.ORB_create(),
+    "ORB" : cv2.ORB_create(),
     #"ORB_NO_PYRAMID" : cv2.ORB_create(nlevels = 1),
-    #"SIFT" : cv2.SIFT_create(),
+    "SIFT" : cv2.SIFT_create(),
     #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
     #"SIFT_FAST2" : cv2.SIFT_create(sigma = 2.25),
     #"SIFT_GFTT2" : SIFT_GFTT2 = cv2.SIFT_create(),
     #"SIFT_SIG_3.5" : cv2.SIFT_create(sigma = 3.5),
     #"BRIEF" : cv2.xfeatures2d.BriefDescriptorExtractor_create(),
-    #"SHIFT_5_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
-    "SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
+    "SHIFT_5_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
+    #"SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
 }
 
 GFTT2_SCALE = 2
@@ -122,11 +122,11 @@ warnings.filterwarnings("once", category=UserWarning)
 
 #for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Calculating for all sizes"):
 keypoint_size_scaling = KEYPOINT_SIZE_SCALINGS[0]
-for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, desc="Calculating for all levels of downsampling"):
+for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Calculating for all levels of downsampling"):
     for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="Calculating for all combinations"):
         print(f"Calculating for {feature_extractor_key}")   
         
-        try:
+        with optional_try(SKIP_AT_ERROR, f"{feature_extractor_key}_{SUFFIX}_{downsample_level}"):
             feature_extractor: FeatureExtractor = test_combinations[feature_extractor_key]
             image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
 
@@ -139,11 +139,11 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
             if "speedtest" not in SKIP:
                 speed = speed_test(feature_extractor, dataset_image_sequences)
             
-            find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_iteration_num, DOWNSAMPLE_FACTOR, DOWNSAMPLE_SIGMA, DOWNSAMPLE_INTERPOLATION_TYPE)
+            find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, MAX_FEATURES, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_level, DOWNSAMPLE_FACTOR, INTRINSIC_SIGMA, INITIAL_SIGMA, APPLY_PROGRESSIVE_BLUR, DOWNSAMPLE_INTERPOLATION_TYPE)
             set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
 
             if "matching" not in SKIP:
-                matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach, dataset_image_sequences, dataset_homography_sequence, VISUALIZE, SEQUENCE_TO_VISUALIZE, downsample_iteration_num, DOWNSAMPLE_FACTOR, DOWNSAMPLE_SIGMA, DOWNSAMPLE_INTERPOLATION_TYPE)
+                matching_match_sets: list[MatchSet] = calculate_matching_evaluation(feature_extractor, image_feature_set, matching_approach, dataset_image_sequences, dataset_homography_sequence, VISUALIZE, SEQUENCE_TO_VISUALIZE, downsample_level, DOWNSAMPLE_FACTOR, INTRINSIC_SIGMA, INITIAL_SIGMA, APPLY_PROGRESSIVE_BLUR, DOWNSAMPLE_INTERPOLATION_TYPE)
             else:
                 matching_match_sets: list[MatchSet] = [MatchSet()]
             
@@ -318,7 +318,7 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
 
             results = {
                 #"combination": f"{feature_extractor_key}" if (len(KEYPOINT_SIZE_SCALINGS) == 1) else f"{feature_extractor_key} {keypoint_size_scaling}",
-                "combination": f"{feature_extractor_key}{SUFFIX}" if (len(DOWNSAMPLE_ITERATIONS_NUMS) == 1) else f"{feature_extractor_key}{SUFFIX}_{downsample_iteration_num}",
+                "combination":  f"{feature_extractor_key}{SUFFIX}_{downsample_level}",
                 "speed": speed,
                 "repeatability mean": np.mean(set_repeatabilities),
                 
@@ -419,12 +419,6 @@ for downsample_iteration_num in tqdm(DOWNSAMPLE_ITERATIONS_NUMS, leave=False, de
             else:
                 df.to_csv("results/" + FILE_NAME, index = False, header = False, mode='a') # If exists skip header
 
-        except Exception as e:
-            error_message = traceback.format_exc()
-            with open("failed_combinations.txt", "a") as f:
-                f.write(f"{feature_extractor_key}\n")
-                f.write(f"{error_message}\n")
-                f.write("\n")
 
 
 

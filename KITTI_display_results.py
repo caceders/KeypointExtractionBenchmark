@@ -9,31 +9,29 @@ import re
 # =============== CONFIG ==================
 ###########################################
 
-RUN_DIR = Path("KITTI/results/test_4_1.2")
+RUN_DIR = Path("KITTI/results/DOWNSAMPLE_SIGMA_TEST_NON_ADJUSTED_THRESH_NEW_ATE")
 CSV_PATH = RUN_DIR / "results.csv"
 
 FILTER_WHITELIST_MODE = False
 
 SUFFIX_FILTER = [
-    #"PNP0.5",
-    # "PNP1",
-    # "PNP2",
-    # "PNP3",
-    # "PNP4",
-    # "PNP6",
-    # "PNP10",
+    #"sig2",
+    #"sig3",
+    #"sig4",
+    #"sig6"
 ]
 
 DOWNSAMPLE_FILTER = [
-    # 0,
-    # # 1,
-    # # 2,
+    #0,
+    #1,
+    #2,
     # # 4,
-    0,
+    #0,
 ]
 
 METHOD_FILTER = [
-    "ORB+ORB"
+    #"BRISK+BRISK",
+    #"SHIFT_NO_PYRAMID+SHIFT_NO_PYRAMID"
 ]
 
 
@@ -61,7 +59,6 @@ def parse_method(method_name):
     """
     parts = method_name.split("_")
     method = "_".join(parts[0:-2])
-    print(method)
 
     if len(parts) < 3:
         return method, None, None

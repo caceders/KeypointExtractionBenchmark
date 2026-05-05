@@ -7,18 +7,41 @@ import math
 import random
 from typing import Tuple
 
+import traceback
+from contextlib import contextmanager, nullcontext
 
 
-def downsample(img, scale_factor: float, sigma: float, interpolation_type):
-    if sigma != -1:
-        img = cv2.GaussianBlur(img, (0,0), sigma, borderType=cv2.BORDER_REFLECT_101)
-    if interpolation_type == None and scale_factor % 2 == 0 and scale_factor != 0:
-        downsampled_img = img[::scale_factor,::scale_factor]
+
+def downsample(img, downsample_level: int, scale_factor: float, intrinsic_sigma: float, initial_sigma :float, apply_progressive_blurring :bool, interpolation_type):
+    if scale_factor == 2 and interpolation_type == None:
+        if initial_sigma != -1:
+            img = cv2.GaussianBlur(img, (0,0), initial_sigma, borderType=cv2.BORDER_REFLECT_101)
+            if apply_progressive_blurring and downsample_level > 0:
+                sigma = (intrinsic_sigma+initial_sigma) * scale_factor ** (downsample_level-1)
+                img = cv2.GaussianBlur(img, (0,0), sigma, borderType=cv2.BORDER_REFLECT_101)
+
+        downsampled_img = img[::scale_factor**downsample_level,::scale_factor**downsample_level]
     else:
-        downsampled_img = cv2.resize(img, None, fx= 1/scale_factor, fy= 1/scale_factor, interpolation= interpolation_type)
+        if initial_sigma != -1:
+            img = cv2.GaussianBlur(img, (0,0), initial_sigma, borderType=cv2.BORDER_REFLECT_101)
+        downsampled_img = cv2.resize(img, None, fx= 1/scale_factor**downsample_level, fy= 1/scale_factor**downsample_level, interpolation= interpolation_type)
 
 
     return downsampled_img
+
+@contextmanager
+def optional_try(enabled, name):
+    if not enabled:
+        yield
+        return
+
+    try:
+        yield
+    except Exception:
+        error_message = traceback.format_exc()
+        with open("failed_combinations.txt", "a") as f:
+            f.write(f"{name}\n")
+            f.write(f"{error_message}\n\n")
 
 
 def load_HPSequences(path_to_HPSequences: str) -> Tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
@@ -363,7 +386,7 @@ def visualize_matches_with_scale_change(
     NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION,
     img_ref,
     img_rel,
-    H,
+    homography,
     matches,
 ):
 
@@ -407,7 +430,6 @@ def visualize_matches_with_scale_change(
     sorted_matches = sorted(
         matches, key=lambda m: m.match_properties["distance"]
     )
-
     main_window = "Matches Viewer"
     overlay_window = "Highlighted Match Overlay"
 
@@ -465,7 +487,7 @@ def visualize_matches_with_scale_change(
             2,
         )
 
-        new_size, new_center = transformed_keypoint_size(kp2, H)
+        new_size, new_center = transformed_keypoint_size(kp2, homography)
         cv2.circle(
             overlay,
             new_center,

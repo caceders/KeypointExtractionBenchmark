@@ -30,13 +30,13 @@ FILTER_WHITELIST_MODE = False
 
 SUFFIX_FILTER = [
 
-    "sig6",
+    #"sig6",
     "sig8"
 ]
 
 DOWNSAMPLE_FILTER = [
-    0,
-    1,
+    #0,
+    #1,
     3,
 ]
 

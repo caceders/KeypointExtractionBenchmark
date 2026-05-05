@@ -2,7 +2,9 @@ from cv2 import INTER_LINEAR, INTER_NEAREST
 SKIP = ["speedtest", "verification", "retrieval"]
 #SKIP = ["speedtest"]
 FILE_NAME = "down_sample_sigma_test_share_fix.csv"
-SUFFIX = "_"+"sig8"
+SUFFIX = "_"+"sig auto"
+SKIP_AT_ERROR = False
+
 # Rotation, scale, gaussian blur, motion blur
 APPLY_NOISE = False
 NOISE_RANGES =[(-60,60), (0.5,2), (0,0), (0,0)] #FIKS SLIK AT 0.5 og 2 er like sannsynlig
@@ -10,18 +12,22 @@ NOISE_RANGES =[(-60,60), (0.5,2), (0,0), (0,0)] #FIKS SLIK AT 0.5 og 2 er like s
 #NOISE_RANGES = []
 APPLY_EXISTING_NOISE = True
 NOISE_FILE_NAME = "noise_6060_052.json"
+
 FORCE_CONSTANT_ANGLE = False
 KEYPOINT_SIZE_SCALINGS = [1]
-
 REGISTER_OCTAVE_DATA = True
-DOWNSAMPLE_ITERATIONS_NUMS = [0,1,2,3]
+
+DOWNSAMPLE_LEVELS = [0,1,2,3]
+INITIAL_SIGMA = -1 
+
+APPLY_PROGRESSIVE_BLUR = False #If off, only initial sigma is applied
+INTRINSIC_SIGMA = 0.5
 DOWNSAMPLE_FACTOR = 2
-DOWNSAMPLE_SIGMA = 8
 DOWNSAMPLE_INTERPOLATION_TYPE = None
 
 MAX_FEATURES = 250
 VISUALIZE = False
-SEQUENCE_TO_VISUALIZE = [13,14,15]
+SEQUENCE_TO_VISUALIZE = [14]
 
 USE_DISTANCE = True
 DISTANCE_THRESHOLD = 10
