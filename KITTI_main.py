@@ -7,6 +7,7 @@ import math
 from typing import Dict, List, Tuple, Optional
 from shi_tomasi_sift import ShiTomasiSift
 from benchmark.utils import downsample
+from benchmark.feature_extractor import FeatureExtractor
 import os
 import pandas as pd
 
@@ -24,7 +25,7 @@ CSV_PATH = BASE_OUT / "results.csv"
 TRAJ_DIR = BASE_OUT / "trajectories"
 BASE_OUT.mkdir(parents=True, exist_ok=True)
 TRAJ_DIR.mkdir(parents=True, exist_ok=True)
-ACTIVE_FRAMES = (2000,3000)  # or e.g. 500, 1000
+ACTIVE_FRAMES = (0,250)  # or e.g. 500, 1000
 MAX_FEATURES = 500
 LOWE_RATIO = 0.75
 PNP_REPROJ_THRESH = 2
@@ -85,26 +86,6 @@ ALLOWED_DETECTOR_FOR_DESCRIPTOR = {
     "SIFT_FAST2": "FAST2",
 }
 
-#########################################################
-#   FeatureExtractor helper wrapper (simple version)
-#########################################################
-
-class FeatureExtractor:
-    def __init__(self, detect_fn, compute_fn, norm_type):
-        self.detect_fn = detect_fn
-        self.compute_fn = compute_fn
-        self.norm = norm_type
-
-    @staticmethod
-    def from_opencv(detect_fn, compute_fn, norm_type):
-        return FeatureExtractor(detect_fn, compute_fn, norm_type)
-
-    def detect(self, img):
-        return self.detect_fn(img)
-
-    def compute(self, img, kps):
-        return self.compute_fn(img, kps)
-    
 
 test_combinations: dict[str, FeatureExtractor] = {}
 for detector_key in features2d.keys():
@@ -145,7 +126,7 @@ for detector_key in features2d.keys():
 # ==================== MAIN VO LOOP =====================
 #########################################################
 
-def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
+def run_stereo_vo(seq_root, name, extractor, downsample_iterations, timer=None):
 
     # Load calibration
     P0,P1 = read_kitti_P0P1(seq_root/"calib.txt")
@@ -167,8 +148,8 @@ def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
     #     L0 = downsample(L0, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
     #     R0 = downsample(R0, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
 
-    kL0 = extractor.detect(L0)
-    kR0 = extractor.detect(R0)
+    kL0 = extractor.detect_keypoints(L0)
+    kR0 = extractor.detect_keypoints(R0)
 
     if name == "FAST2+SIFT_FAST2":
         for keypoint in kL0:
@@ -183,8 +164,10 @@ def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
 
     kL0 = sorted(kL0, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
     kR0 = sorted(kR0, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
-    kL0, dL0 = extractor.compute(L0,kL0)
-    kR0, dR0 = extractor.compute(R0,kR0)
+    kL0, dL0 = extractor.describe_keypoints(L0, kL0)
+    dL0 = np.array(dL0)
+    kR0, dR0 = extractor.describe_keypoints(R0, kR0)
+    dR0 = np.array(dR0)
 
     for keypoint in kL0:
         keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
@@ -192,7 +175,7 @@ def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
         keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
 
 
-    matcher = cv2.BFMatcher(extractor.norm)
+    matcher = cv2.BFMatcher(extractor.distance_type)
 
     matchesLR0 = matcher.knnMatch(dL0, dR0, 2)
     good = [m for m,n in matchesLR0 if m.distance < LOWE_RATIO*n.distance]
@@ -214,6 +197,7 @@ def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
     tri_map = tri_prev
 
 
+    total_frames = len(left) - 1
     for i in range(1,len(left)):
         L=cv2.imread(str(left[i]),0)
         R=cv2.imread(str(right[i]),0)
@@ -227,9 +211,9 @@ def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
         #     R = downsample(R, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
 
 
-        kpL = extractor.detect(L)
+        kpL = extractor.detect_keypoints(L)
         kpL = sorted(kpL, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
-        kpR = extractor.detect(R)
+        kpR = extractor.detect_keypoints(R)
         kpR = sorted(kpR, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
 
 
@@ -244,8 +228,10 @@ def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
             for keypoint in kpR:
                     keypoint.size = keypoint.size * GFTT2_SCALE
 
-        kpL, dL = extractor.compute(L,kpL)
-        kpR, dR = extractor.compute(R,kpR)
+        kpL, dL = extractor.describe_keypoints(L, kpL)
+        dL = np.array(dL)
+        kpR, dR = extractor.describe_keypoints(R, kpR)
+        dR = np.array(dR)
 
         for keypoint in kpL:
             keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_iterations, keypoint.pt[1] * downsample_factor ** downsample_iterations)
@@ -295,6 +281,8 @@ def run_stereo_vo(seq_root, name, extractor, downsample_iterations):
         stats["triangulated"].append(len(tri_map))
 
         kLp, dLp = kpL, dL
+        if timer is not None:
+            timer.check(total_frames - i, total_frames)
 
     return poses, stats
 
@@ -538,6 +526,25 @@ def compute_rpe(est_poses, gt_poses, delta=1):
 
 
 
+
+
+def evaluate_kitti(extractor, timer=None):
+    """
+    Run stereo VO on KITTI sequences and return mean RPE translational RMSE (meters).
+    Uses module-level config (DATA_ROOT, SEQUENCES, ACTIVE_FRAMES, etc.).
+    """
+    rpe_trans = []
+    for seq in SEQUENCES:
+        seq_root = Path(DATA_ROOT) / "sequences" / seq
+        gt_path = Path(DATA_ROOT) / "poses" / f"{seq}.txt"
+        gt_poses = read_gt_poses(gt_path)
+        if gt_poses is None:
+            continue
+        poses, _ = run_stereo_vo(seq_root, "_optuna_", extractor, 0, timer=timer)
+        gt_trunc = gt_poses[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
+        trans_rmse, _, _, _ = compute_rpe(poses, gt_trunc, delta=RPE_DELTA)
+        rpe_trans.append(trans_rmse)
+    return float(np.mean(rpe_trans)) if rpe_trans else float("nan")
 
 
 if __name__ == "__main__":

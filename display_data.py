@@ -6,7 +6,7 @@ import re
 import json
 
 # ---------------------------- CONFIG ----------------------------
-CSV_PATH = "results/" + "down_sample_sigma_test_share_fix.csv"
+CSV_PATH = "results/" + "SIFT_simple_check.csv"
 # SORT_MODE:
 #   "alphabetical_by_detector"   -> detector, then descriptor name, then descriptor number
 #   "alphabetical_by_descriptor" -> descriptor name, then descriptor number, then detector

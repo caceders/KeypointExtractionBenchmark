@@ -27,8 +27,10 @@ def speed_test(feature_extractor: FeatureExtractor, dataset_image_sequences: lis
     return speed
 
 #@beartype
-def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool, DOWNSAMPLE_ITERATIONS: int, DOWNSAMPLE_FACTOR: float, DOWNSAMPLE_SIGMA: float, DOWNSAMPLE_INTERPOLATION_TYPE):  
+def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_image_sequences: list[list[np.ndarray]], image_feature_set: ImageFeatureSet, max_features: int, keypoint_size_scaling: int, FORCE_CONSTANT_ANGLE: bool, DOWNSAMPLE_ITERATIONS: int, DOWNSAMPLE_FACTOR: float, DOWNSAMPLE_SIGMA: float, DOWNSAMPLE_INTERPOLATION_TYPE, timer=None):
 
+    total_images = sum(len(seq) for seq in dataset_image_sequences)
+    processed = 0
     for sequence_index, image_sequence in enumerate(tqdm(dataset_image_sequences, leave=False, desc="Finding all features")):
         for image_index, image in enumerate(image_sequence):
             
@@ -95,6 +97,9 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
                 idx = np.argpartition(scores, -max_features)[-max_features:]
                 features = [features[i] for i in idx]
             image_feature_set[sequence_index][image_index] = features
+            processed += 1
+            if timer is not None:
+                timer.check(total_images - processed, total_images)
 
 
 #@beartype
@@ -176,7 +181,9 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
 
 
 #@beartype
-def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seqs_to_visualize: int, DOWNSAMPLE_ITERATIONS: int, DOWNSAMPLE_FACTOR: float, DOWNSAMPLE_SIGMA: float, DOWNSAMPLE_INTERPOLATION_TYPE) -> list[MatchSet]:
+def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seqs_to_visualize: int, DOWNSAMPLE_ITERATIONS: int, DOWNSAMPLE_FACTOR: float, DOWNSAMPLE_SIGMA: float, DOWNSAMPLE_INTERPOLATION_TYPE, timer=None) -> list[MatchSet]:
+    total = sum(len(seq.related_images_features) for seq in image_feature_set)
+    processed = 0
     matching_match_sets: list[MatchSet] = []
     for seq_num, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
         matching_match_set = MatchSet()
@@ -186,6 +193,9 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
         for rel_idx, related_image_features in enumerate(image_feature_sequence.related_images_features):
             matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
             matching_match_set.add_match(matches)
+            processed += 1
+            if timer is not None:
+                timer.check(total - processed, total)
 
             if visualize and seq_num in seqs_to_visualize:
                 effective_downsample_factor = DOWNSAMPLE_FACTOR**DOWNSAMPLE_ITERATIONS

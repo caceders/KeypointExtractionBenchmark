@@ -1,8 +1,8 @@
 from cv2 import INTER_LINEAR, INTER_NEAREST
 SKIP = ["speedtest", "verification", "retrieval"]
 #SKIP = ["speedtest"]
-FILE_NAME = "down_sample_sigma_test_share_fix.csv"
-SUFFIX = "_"+"sig8"
+FILE_NAME = "SIFT_simple_check.csv"
+SUFFIX = ""
 # Rotation, scale, gaussian blur, motion blur
 APPLY_NOISE = False
 NOISE_RANGES =[(-60,60), (0.5,2), (0,0), (0,0)] #FIKS SLIK AT 0.5 og 2 er like sannsynlig
@@ -14,9 +14,9 @@ FORCE_CONSTANT_ANGLE = False
 KEYPOINT_SIZE_SCALINGS = [1]
 
 REGISTER_OCTAVE_DATA = True
-DOWNSAMPLE_ITERATIONS_NUMS = [0,1,2,3]
+DOWNSAMPLE_ITERATIONS_NUMS = [0]
 DOWNSAMPLE_FACTOR = 2
-DOWNSAMPLE_SIGMA = 8
+DOWNSAMPLE_SIGMA = -1
 DOWNSAMPLE_INTERPOLATION_TYPE = None
 
 MAX_FEATURES = 250

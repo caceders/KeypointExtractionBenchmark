@@ -31,7 +31,7 @@ if APPLY_NOISE:
 
 features2d = {
     #"AGAST" : cv2.AgastFeatureDetector_create(),
-    "AKAZE" : cv2.AKAZE_create(),
+    # "AKAZE" : cv2.AKAZE_create(),
     #"BRISK" : cv2.BRISK_create(),
     #"FAST" : cv2.FastFeatureDetector_create(),
     #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
@@ -40,14 +40,14 @@ features2d = {
     #"KAZE" : cv2.KAZE_create(),
     #"ORB" : cv2.ORB_create(),
     #"ORB_NO_PYRAMID" : cv2.ORB_create(nlevels = 1),
-    #"SIFT" : cv2.SIFT_create(),
+    "SIFT" : cv2.SIFT_create(),
     #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
     #"SIFT_FAST2" : cv2.SIFT_create(sigma = 2.25),
     #"SIFT_GFTT2" : SIFT_GFTT2 = cv2.SIFT_create(),
     #"SIFT_SIG_3.5" : cv2.SIFT_create(sigma = 3.5),
     #"BRIEF" : cv2.xfeatures2d.BriefDescriptorExtractor_create(),
     #"SHIFT_5_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
-    "SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
+    # "SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
 }
 
 GFTT2_SCALE = 2
