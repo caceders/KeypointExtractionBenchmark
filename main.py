@@ -31,14 +31,14 @@ if APPLY_NOISE:
 
 features2d = {
     #"AGAST" : cv2.AgastFeatureDetector_create(),
-    #"AKAZE" : cv2.AKAZE_create(),
-    #"BRISK" : cv2.BRISK_create(),
+    "AKAZE" : cv2.AKAZE_create(),
+    "BRISK" : cv2.BRISK_create(),
     #"FAST" : cv2.FastFeatureDetector_create(),
     #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
-    #"GFTT" : cv2.GFTTDetector_create(),
+    "GFTT" : cv2.GFTTDetector_create(),
     #"GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
     #"KAZE" : cv2.KAZE_create(),
-    #"ORB" : cv2.ORB_create(),
+    "ORB" : cv2.ORB_create(),
     #"ORB_NO_PYRAMID" : cv2.ORB_create(nlevels = 1),
     "SIFT" : cv2.SIFT_create(),
     #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
@@ -276,43 +276,48 @@ for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Calculating f
             mean_pairwise_distances_normalized = []
             normalized_effective_ranks = []
 
-            for image_feature_sequence in image_feature_set:
-                sequence_descriptor = [feature.description for image_feature in image_feature_sequence
-                                for feature in image_feature]
-                descriptors = np.array(sequence_descriptor)
-                if len(descriptors) < 10:
-                    continue
-                if feature_extractor.distance_type == cv2.NORM_L2:
-                    pairwise = pdist(descriptors, metric='euclidean')
-                    mean_pairwise_distance = float(pairwise.mean())
-                    mean_pairwise_distances.append(mean_pairwise_distance)
+            if REGISTER_DESCRIPTOR_DATA:
+                for image_feature_sequence in image_feature_set:
+                    sequence_descriptor = [feature.description for image_feature in image_feature_sequence
+                                    for feature in image_feature]
+                    descriptors = np.array(sequence_descriptor)
+                    if len(descriptors) < 10:
+                        continue
+                    if feature_extractor.distance_type == cv2.NORM_L2:
+                        pairwise = pdist(descriptors, metric='euclidean')
+                        mean_pairwise_distance = float(pairwise.mean())
+                        mean_pairwise_distances.append(mean_pairwise_distance)
 
-                    norms = np.linalg.norm(descriptors, axis=1, keepdims=True)
-                    normalized = descriptors / np.where(norms == 0, 1, norms)
-                    mean_pairwise_distance_normalized = float(pdist(normalized, metric='euclidean').mean())
-                    mean_pairwise_distances_normalized.append(mean_pairwise_distance_normalized)
+                        norms = np.linalg.norm(descriptors, axis=1, keepdims=True)
+                        normalized = descriptors / np.where(norms == 0, 1, norms)
+                        mean_pairwise_distance_normalized = float(pdist(normalized, metric='euclidean').mean())
+                        mean_pairwise_distances_normalized.append(mean_pairwise_distance_normalized)
 
-                    cov = np.cov(descriptors, rowvar=False)
+                        cov = np.cov(descriptors, rowvar=False)
 
-                elif feature_extractor.distance_type == cv2.NORM_HAMMING:
-                    bit_matrix = np.unpackbits(descriptors, axis=1).astype(float)
-                    mean_pairwise_distance = float(pdist(bit_matrix, metric='hamming').mean())
-                    mean_pairwise_distances.append(mean_pairwise_distance)
+                    elif feature_extractor.distance_type == cv2.NORM_HAMMING:
+                        bit_matrix = np.unpackbits(descriptors, axis=1).astype(float)
+                        mean_pairwise_distance = float(pdist(bit_matrix, metric='hamming').mean())
+                        mean_pairwise_distances.append(mean_pairwise_distance)
 
-                    mean_pairwise_distance_normalized = mean_pairwise_distances  # magnitude meaningless for binary
-                    mean_pairwise_distances_normalized.append(mean_pairwise_distance_normalized)
+                        mean_pairwise_distance_normalized = mean_pairwise_distances  # magnitude meaningless for binary
+                        mean_pairwise_distances_normalized.append(mean_pairwise_distance_normalized)
 
-                    cov = np.cov(bit_matrix, rowvar=False)
+                        cov = np.cov(bit_matrix, rowvar=False)
 
-                eigenvalues = np.linalg.eigvalsh(cov)
-                eigenvalues = eigenvalues[eigenvalues > 0]
-                p = eigenvalues / eigenvalues.sum()
-                normalized_effective_rank = float(np.exp(-np.sum(p * np.log(p))) / cov.shape[0])
-                normalized_effective_ranks.append(normalized_effective_rank)
+                    eigenvalues = np.linalg.eigvalsh(cov)
+                    eigenvalues = eigenvalues[eigenvalues > 0]
+                    p = eigenvalues / eigenvalues.sum()
+                    normalized_effective_rank = float(np.exp(-np.sum(p * np.log(p))) / cov.shape[0])
+                    normalized_effective_ranks.append(normalized_effective_rank)
 
-            mean_pairwise_distances = np.mean(mean_pairwise_distances)
-            mean_pairwise_distances_normalized = np.mean(mean_pairwise_distances_normalized)
-            normalized_effective_ranks = np.mean(normalized_effective_ranks)
+                mean_pairwise_distances = np.mean(mean_pairwise_distances)
+                mean_pairwise_distances_normalized = np.mean(mean_pairwise_distances_normalized)
+                normalized_effective_ranks = np.mean(normalized_effective_ranks)
+            else:
+                mean_pairwise_distances = 0
+                mean_pairwise_distances_normalized = 0
+                normalized_effective_ranks = 0
 
 
             # ========================

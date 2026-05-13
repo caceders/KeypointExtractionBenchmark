@@ -263,8 +263,8 @@ def knn_ratio_ransac_matching(
     reference_features: list[Feature],
     related_features: list[Feature],
     distance_type: int,
-    ratio_threshold: float = 0.75,
-    ransac_reproj_threshold: float = 3.0,
+    ratio_threshold: float = 1,
+    ransac_reproj_threshold: float = 10.0,
     calculate_match_properties: bool = True,
 ) -> list[Match]:
     """
@@ -287,18 +287,21 @@ def knn_ratio_ransac_matching(
     rel_desc = np.array([f.description for f in related_features])
 
     # Ensure float32 for OpenCV
-    ref_desc = ref_desc.astype(np.float32)
-    rel_desc = rel_desc.astype(np.float32)
+    #ref_desc = ref_desc.astype(np.float32)
+    #rel_desc = rel_desc.astype(np.float32)
 
     # --- 2. KNN matching ---
     bf = cv2.BFMatcher(distance_type, crossCheck=False)
-    knn_matches = bf.knnMatch(ref_desc, rel_desc, k=2)
+    
 
-    # --- 3. Lowe ratio test ---
     good_matches = []
-    for m, n in knn_matches:
-        if m.distance < ratio_threshold * n.distance:
-            good_matches.append(m)
+    if (len(ref_desc) > 1 and len(rel_desc) > 1 and ratio_threshold < 1):
+        knn_matches = bf.knnMatch(ref_desc, rel_desc, k=2)
+        for m, n in knn_matches:
+            if m.distance < ratio_threshold * n.distance:
+                good_matches.append(m)
+    else:
+        good_matches = bf.match(ref_desc, rel_desc)
 
     if len(good_matches) < 4:
         return []
