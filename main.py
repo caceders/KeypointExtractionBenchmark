@@ -4,7 +4,7 @@ os.environ["BEARTYPE_IS_BEING_TYPE_CHECKED"] = "0" # Enable or disable beartype
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
 from benchmark.pipeline import *
-from benchmark.matching import MatchSet, MatchRankingProperty, greedy_maximum_bipartite_matching_descriptor_distance
+from benchmark.matching import MatchSet, MatchRankingProperty, greedy_maximum_bipartite_matching_descriptor_distance, knn_ratio_ransac_matching
 from benchmark.utils import load_HPSequences, compare_rankings_and_visualize_across_sets, optional_try
 from benchmark.noise import *
 from tqdm import tqdm
@@ -31,14 +31,14 @@ if APPLY_NOISE:
 
 features2d = {
     #"AGAST" : cv2.AgastFeatureDetector_create(),
-    "AKAZE" : cv2.AKAZE_create(),
-    "BRISK" : cv2.BRISK_create(),
+    #"AKAZE" : cv2.AKAZE_create(),
+    #"BRISK" : cv2.BRISK_create(),
     #"FAST" : cv2.FastFeatureDetector_create(),
     #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
-    "GFTT" : cv2.GFTTDetector_create(),
+    #"GFTT" : cv2.GFTTDetector_create(),
     #"GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
     #"KAZE" : cv2.KAZE_create(),
-    "ORB" : cv2.ORB_create(),
+    #"ORB" : cv2.ORB_create(),
     #"ORB_NO_PYRAMID" : cv2.ORB_create(nlevels = 1),
     "SIFT" : cv2.SIFT_create(),
     #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
@@ -46,7 +46,7 @@ features2d = {
     #"SIFT_GFTT2" : SIFT_GFTT2 = cv2.SIFT_create(),
     #"SIFT_SIG_3.5" : cv2.SIFT_create(sigma = 3.5),
     #"BRIEF" : cv2.xfeatures2d.BriefDescriptorExtractor_create(),
-    "SHIFT_5_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
+    #"SHIFT_5_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
     #"SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
 }
 
@@ -111,7 +111,10 @@ average_response_match_rank_property = MatchRankingProperty("average_response", 
 distinctiveness_match_rank_property = MatchRankingProperty("distinctiveness", True)
 match_properties = [distance_match_rank_property, average_response_match_rank_property, distinctiveness_match_rank_property]
 
-matching_approach = greedy_maximum_bipartite_matching_descriptor_distance
+if USE_RANSAC:
+    matching_approach = knn_ratio_ransac_matching
+else:
+    matching_approach = greedy_maximum_bipartite_matching_descriptor_distance
 
 #############################################################################################################################
 all_results = []

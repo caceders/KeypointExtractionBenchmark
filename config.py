@@ -1,7 +1,7 @@
 from cv2 import INTER_LINEAR, INTER_NEAREST
 SKIP = ["speedtest", "verification", "retrieval"]
 #SKIP = ["speedtest"]
-FILE_NAME = "down_sample_sigma_test_share_fix.csv"
+FILE_NAME = "test.csv"
 SUFFIX = "_"+"sig auto"
 SKIP_AT_ERROR = False
 
@@ -16,9 +16,10 @@ NOISE_FILE_NAME = "noise_6060_052.json"
 FORCE_CONSTANT_ANGLE = False
 KEYPOINT_SIZE_SCALINGS = [1]
 REGISTER_OCTAVE_DATA = True
+USE_RANSAC = True
 
-DOWNSAMPLE_LEVELS = [0,1,2,3]
-INITIAL_SIGMA = -1 
+DOWNSAMPLE_LEVELS = [0]
+INITIAL_SIGMA = -1
 
 APPLY_PROGRESSIVE_BLUR = False #If off, only initial sigma is applied
 INTRINSIC_SIGMA = 0.5
@@ -26,7 +27,7 @@ DOWNSAMPLE_FACTOR = 2
 DOWNSAMPLE_INTERPOLATION_TYPE = None
 
 MAX_FEATURES = 250
-VISUALIZE = False
+VISUALIZE = True
 SEQUENCE_TO_VISUALIZE = [14]
 
 USE_DISTANCE = True

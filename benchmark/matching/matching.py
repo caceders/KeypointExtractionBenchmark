@@ -259,6 +259,83 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
 
     return matches
 
+def knn_ratio_ransac_matching(
+    reference_features: list[Feature],
+    related_features: list[Feature],
+    distance_type: int,
+    ratio_threshold: float = 0.75,
+    ransac_reproj_threshold: float = 3.0,
+    calculate_match_properties: bool = True,
+) -> list[Match]:
+    """
+    Matching pipeline:
+        1. KNN descriptor matching (k=2)
+        2. Lowe ratio test
+        3. RANSAC homography filtering
+
+    Returns
+    -------
+    list[Match]
+        Matches in same format as greedy_maximum_bipartite_matching
+    """
+
+    if not reference_features or not related_features:
+        return []
+
+    # --- 1. Build descriptor arrays ---
+    ref_desc = np.array([f.description for f in reference_features])
+    rel_desc = np.array([f.description for f in related_features])
+
+    # Ensure float32 for OpenCV
+    ref_desc = ref_desc.astype(np.float32)
+    rel_desc = rel_desc.astype(np.float32)
+
+    # --- 2. KNN matching ---
+    bf = cv2.BFMatcher(distance_type, crossCheck=False)
+    knn_matches = bf.knnMatch(ref_desc, rel_desc, k=2)
+
+    # --- 3. Lowe ratio test ---
+    good_matches = []
+    for m, n in knn_matches:
+        if m.distance < ratio_threshold * n.distance:
+            good_matches.append(m)
+
+    if len(good_matches) < 4:
+        return []
+
+    # --- 4. Collect point correspondences ---
+    ref_pts = np.float32([reference_features[m.queryIdx].pt for m in good_matches])
+    rel_pts = np.float32([related_features[m.trainIdx].pt for m in good_matches])
+
+    # --- 5. RANSAC homography ---
+    H, mask = cv2.findHomography(rel_pts, ref_pts, cv2.RANSAC, ransac_reproj_threshold)
+
+    if mask is None:
+        return []
+
+    mask = mask.ravel().astype(bool)
+
+    # --- 6. Build Match objects ---
+    matches: list[Match] = []
+
+    for i, m in enumerate(good_matches):
+        if not mask[i]:
+            continue
+
+        ref_f = reference_features[m.queryIdx]
+        rel_f = related_features[m.trainIdx]
+
+        match = Match(ref_f, rel_f)
+
+        if calculate_match_properties:
+            match.match_properties["distance"] = float(m.distance)
+            match.match_properties["average_response"] = 0
+            match.match_properties["match rank"] = 0
+            match.match_properties["distinctiveness"] = 1.0
+
+        matches.append(match)
+
+    return matches
 
 #@beartype
 def greedy_maximum_bipartite_matching_descriptor_distance(reference_features: list[Feature], related_features: list[Feature], distance_type: int) -> list[Match]:
