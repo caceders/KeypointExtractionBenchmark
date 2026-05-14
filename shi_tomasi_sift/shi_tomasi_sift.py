@@ -29,7 +29,7 @@ class ShiTomasiSift():
                  response_type : str = "normal", # "sftt", "normal
                  use_previous_max_when_calculating_threshold : bool = False,
                  first_max_value_when_previous_max_is_used : int = 80000,
-                 quality_level : float = 0.005,
+                 quality_level : float = 0.01,
                  max_corners : int = 1000,
                  perform_non_maxima_supression : bool = True,
                  use_descriptor_window_buffer_as_orientation_calculation_window_size : bool = False,
@@ -47,7 +47,7 @@ class ShiTomasiSift():
                  descriptor_bin_count : int = 8,
                  drop_keypoints_on_border : bool = False,
                  base_blur_sigma : float = -1, #1.6
-                 starting_level_scale_pyramid : int = 8,
+                 starting_level_scale_pyramid : int = 0,
                  num_octaves_in_scale_pyramid : int = 5,
                  scale_pyramid_scaling_factor: float = 1.2,
                  scale_pyramid_blur_sigma: float = -1, #-1 for no blur
