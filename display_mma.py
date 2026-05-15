@@ -1,71 +1,177 @@
+import colorsys
+import math
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from collections import defaultdict
 
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH         = "results/mma_results.csv"
-PIXEL_THRESHOLDS = list(range(1, 11))
-HOM_THRESHOLDS   = [1, 3, 5]
-IMG_INDICES      = [2, 3, 4, 5, 6]
+CSV_PATH = "results/mma_results_SIFT.csv"
+FIG_DPI  = 120
 
-# Bar-chart sort / display
-# SORT_MODE: "alphabetical_by_detector" | "alphabetical_by_descriptor" | "metric"
-SORT_MODE          = "alphabetical_by_detector"
-METRIC_ASCENDING   = False
-NUMBER_DESCENDING  = True
-SECTION_COLOR_MODE = "auto"   # "auto" | "detector" | "descriptor"
-SHADE_SECTIONS     = True
-FIG_DPI            = 120
-FONT_FAMILY_YTICKS = "monospace"
-
-# Bar-chart columns to plot.
-# None → auto: only show _auc summary columns + avg_num_matches
-# Set to a list to override, e.g. ["mma_overall_all_auc", "mma_illum_all_auc"]
-BAR_CHART_COLS = None
-
-# Method filter
-FILTER_WHITELIST_MODE = False
-METHOD_FILTER         = []    # e.g. ["ORB+ORB"] to exclude
-ENABLE_METHOD_FILTER  = False
-
-# MMA curve plots: which (scope, difficulty) panels to show.
-# One figure per unique scope; difficulties become subplots within it.
-# scope: "overall" | "illumination" | "viewpoint"
-# diff:  "all" | "easy" | "normal" | "hard"
-CURVE_CATEGORIES = [
-    ("overall", "all"),
-    ("overall", "easy"),
-    ("overall", "normal"),
-    ("overall", "hard"),
-    ("illumination",   "all"),
-    ("viewpoint",    "all"),
+# ──────────────────────────────────────────────────────────────────────────────
+# PLOTS — each entry produces one matplotlib figure.
+#
+# Required:
+#   title    — window title and figure suptitle
+#   x        — CSV column for the x-axis
+#   lines    — CSV column whose unique values become separate lines
+#   y_stat   — which value column to read:
+#                 "mean" | "std" | "min" | "max"   (per-bucket stats)
+#                 or any other numeric column, e.g. "avg_num_features"
+#
+# Optional:
+#   subplots — CSV column that creates subplot panels (default: None → one panel)
+#   agg      — list of collapse steps applied left to right, each:
+#                 {"col": column_name, "fn": "auc"|"mean"|"std"|"min"|"max"}
+#                 {"col": column_name, "fn": "auc", "range": [lo, hi]}
+#              "auc" = mean over the values (equally-spaced thresholds).
+#              "range" restricts which values of col are included before aggregating,
+#              e.g. {"col": "threshold", "fn": "auc", "range": [3, 8]} computes
+#              AUC only for pixel thresholds 3–8.
+#              Steps reduce one dimension at a time; after all steps, one scalar
+#              y-value remains per (subplot, x, line) combination.
+#              Omit or use [] to plot y_stat directly.
+#   select   — dict that fixes column values not covered by x/lines/subplots/agg:
+#                 scalar value → equality
+#                 list of values → "any of these" (isin)
+#              If a column has multiple values and isn't assigned to any dimension,
+#              the plotter warns and takes the mean.
+#
+# Long-format CSV column reference:
+#   Identity:   combination, downsample_level, max_features,
+#               ratio_threshold, ransac_reproj
+#   Summaries:  avg_num_features, frac_below_max_features, avg_num_matches
+#   Dimensions: scope, difficulty, metric, threshold
+#   Stats:      mean, std, min, max, count
+# ──────────────────────────────────────────────────────────────────────────────
+PLOTS = [
+    # MMA curve: threshold vs mean MMA, subplots per difficulty
+    {
+        "title":    "MMA curve — overall",
+        "x":        "threshold",
+        "lines":    "combination",
+        "subplots": "difficulty",
+        "y_stat":   "mean",
+        "agg":      [],
+        "select": {
+            "metric":           "mma",
+            "scope":            "overall",
+            "difficulty":       ["all", "easy", "normal", "hard"],
+            "max_features":     1000,
+            "ratio_threshold":  0.8,
+            "ransac_reproj":    3.0,
+            "downsample_level": 0,
+        },
+    },
+    # MMA AUC vs max_features sweep
+    {
+        "title":    "MMA AUC vs max features",
+        "x":        "max_features",
+        "lines":    "combination",
+        "subplots": None,
+        "y_stat":   "mean",
+        "agg":      [{"col": "threshold", "fn": "auc"}],
+        "select": {
+            "metric":           "mma",
+            "scope":            "overall",
+            "difficulty":       "all",
+            "ratio_threshold":  0.8,
+            "ransac_reproj":    3.0,
+            "downsample_level": 0,
+        },
+    },
+    # Repeatability curve
+    {
+        "title":    "Repeatability curve — overall",
+        "x":        "threshold",
+        "lines":    "combination",
+        "subplots": "difficulty",
+        "y_stat":   "mean",
+        "agg":      [],
+        "select": {
+            "metric":           "rep",
+            "scope":            "overall",
+            "difficulty":       ["all", "easy", "normal", "hard"],
+            "max_features":     1000,
+            "ratio_threshold":  0.8,
+            "ransac_reproj":    3.0,
+            "downsample_level": 0,
+        },
+    },
+    # Homography accuracy curve
+    {
+        "title":    "Homography accuracy curve — overall",
+        "x":        "threshold",
+        "lines":    "combination",
+        "subplots": "difficulty",
+        "y_stat":   "mean",
+        "agg":      [],
+        "select": {
+            "metric":           "hom_acc",
+            "scope":            "overall",
+            "difficulty":       ["all", "easy", "normal", "hard"],
+            "max_features":     1000,
+            "ratio_threshold":  0.8,
+            "ransac_reproj":    3.0,
+            "downsample_level": 0,
+        },
+    },
+    # MMA AUC per image index (difficulty progression)
+    {
+        "title":    "MMA AUC per image — overall",
+        "x":        "difficulty",
+        "lines":    "combination",
+        "subplots": None,
+        "y_stat":   "mean",
+        "agg":      [{"col": "threshold", "fn": "auc"}],
+        "select": {
+            "metric":           "mma",
+            "scope":            "overall",
+            "difficulty":       ["img2", "img3", "img4", "img5", "img6"],
+            "max_features":     1000,
+            "ratio_threshold":  0.8,
+            "ransac_reproj":    3.0,
+            "downsample_level": 0,
+        },
+    },
+    # MMA AUC vs downsample level
+    {
+        "title":    "MMA AUC vs downsample level",
+        "x":        "downsample_level",
+        "lines":    "combination",
+        "subplots": None,
+        "y_stat":   "mean",
+        "agg":      [{"col": "threshold", "fn": "auc"}],
+        "select": {
+            "metric":           "mma",
+            "scope":            "overall",
+            "difficulty":       "all",
+            "max_features":     1000,
+            "ratio_threshold":  0.8,
+            "ransac_reproj":    3.0,
+        },
+    },
+    # Avg features detected vs max_features
+    {
+        "title":    "Avg features detected vs max features",
+        "x":        "max_features",
+        "lines":    "combination",
+        "subplots": None,
+        "y_stat":   "avg_num_features",
+        "agg":      [],
+        "select": {
+            "scope":            "overall",
+            "difficulty":       "all",
+            "metric":           "mma",
+            "threshold":        1,
+            "ratio_threshold":  0.8,
+            "ransac_reproj":    3.0,
+            "downsample_level": 0,
+        },
+    },
 ]
-
-# Repeatability curve plots (same structure as MMA, uses rep_*_th{th} columns)
-REP_CURVE_CATEGORIES = [
-    ("overall", "all"),
-    ("overall", "easy"),
-    ("overall", "normal"),
-    ("overall", "hard"),
-    ("illumination", "all"),
-    ("viewpoint",    "all"),
-]
-
-# Homography accuracy curve plots (same structure, uses hom_acc_*_eps{eps} columns)
-HOM_CURVE_CATEGORIES = [
-    ("overall", "all"),
-    ("overall", "easy"),
-    ("overall", "normal"),
-    ("overall", "hard"),
-    ("illumination",   "all"),
-    ("viewpoint",    "all"),
-]
-
-# Per-image lineplots: which scopes to show (x-axis = image index 2-6)
-IMG_CURVE_SCOPES = ["overall", "illumination", "viewpoint"]
 
 # ============================================================
 # HELPERS
@@ -81,81 +187,288 @@ def set_fig_title(fig, title):
             pass
 
 
-def passes_filter(combo):
-    if not ENABLE_METHOD_FILTER:
-        return True
-    in_filter = combo in METHOD_FILTER
-    return in_filter if FILTER_WHITELIST_MODE else not in_filter
-
-
-def bar_chart(df_sorted, col, group_key, color_map, fig_dpi):
-    split  = [s.split("+", 1) for s in df_sorted["detector"] + "+" + df_sorted["descriptor_full"]]
-    maxL   = max(len(p[0]) for p in split)
-    maxR   = max(len(p[1]) for p in split)
-    labels = [p[0].ljust(maxL) + " + " + p[1].ljust(maxR) for p in split]
-    y_pos  = np.arange(len(df_sorted))
-    colors = [color_map[g] for g in df_sorted[group_key]]
-
-    fig_h = max(6, len(df_sorted) * 0.18)
-    fig, ax = plt.subplots(figsize=(10, fig_h), dpi=fig_dpi)
-    set_fig_title(fig, col)
-    ax.barh(y_pos, df_sorted[col], color=colors)
-
-    if SHADE_SECTIONS:
-        seq = df_sorted[group_key].tolist()
-        runs, start, curr = [], 0, seq[0]
-        for j, v in enumerate(seq[1:], 1):
-            if v != curr:
-                runs.append((start, j, curr)); start = j; curr = v
-        runs.append((start, len(seq), curr))
-        xright = ax.get_xlim()[1] or float(df_sorted[col].max() or 1.0)
-        for k, (a, b, g) in enumerate(runs):
-            ax.axhspan(a - 0.5, b - 0.5, color=color_map[g], alpha=0.08, lw=0)
-            if k > 0:
-                ax.axhline(a - 0.5, color="gray", ls="--", alpha=0.7)
-            ax.text(xright * 1.01, (a + b - 1) / 2, g,
-                    ha="left", va="center", fontweight="bold", color=color_map[g])
-
-    ax.set_title(col, fontweight="bold")
-    ax.set_xlabel(col)
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(labels, fontfamily=FONT_FAMILY_YTICKS)
-    ax.grid(True, axis="x", linestyle=":", alpha=0.5)
-    plt.tight_layout()
+def _distinct_colors(n):
+    """Maximally distinct colors via golden-ratio hue stepping + alternating lightness."""
+    golden = 0.618033988749895
+    h = 0.0
+    colors = []
+    for i in range(n):
+        s = 0.85 if i % 2 == 0 else 0.65
+        l = 0.38 if (i // 2) % 2 == 0 else 0.58
+        colors.append(colorsys.hls_to_rgb(h % 1.0, l, s))
+        h += golden
+    return colors
 
 
 def make_interactive_legend(fig, leg, lined):
     """
-    Wire up a legend so clicking a legend line (or its text label)
-    toggles the visibility of all associated data lines.
-
-    lined: dict  {legend_line_artist → [data_line, ...]}
+    lined: {legend_line_artist → [data_line, ...]}
+    Single-click → toggle visibility.
+    Double-click → isolate (double-click again → restore all).
     """
-    # Also map legend text items so clicking the label works too
-    text_to_lines = {}
-    for legline, legtext, data_lines in zip(
-        leg.get_lines(), leg.get_texts(), lined.values()
-    ):
+    text_to_entry = {}
+    for legline, legtext, data_lines in zip(leg.get_lines(), leg.get_texts(), lined.values()):
         legline.set_picker(6)
         legtext.set_picker(6)
-        text_to_lines[legtext] = (legline, data_lines)
+        text_to_entry[legtext] = (legline, data_lines)
+
+    _state = {"isolated": None, "suppress_pick": False}
+
+    def _find_entry(event):
+        try:
+            renderer = fig.canvas.get_renderer()
+        except Exception:
+            return None, None
+        for legline, legtext in zip(leg.get_lines(), leg.get_texts()):
+            lb = legline.get_window_extent(renderer)
+            tb = legtext.get_window_extent(renderer)
+            if lb.contains(event.x, event.y) or tb.contains(event.x, event.y):
+                return legline, lined[legline]
+        return None, None
 
     def on_pick(event):
+        if _state["suppress_pick"]:
+            _state["suppress_pick"] = False
+            return
         artist = event.artist
-        # Resolve to (legline, data_lines)
         if artist in lined:
             legline, data_lines = artist, lined[artist]
-        elif artist in text_to_lines:
-            legline, data_lines = text_to_lines[artist]
+        elif artist in text_to_entry:
+            legline, data_lines = text_to_entry[artist]
         else:
             return
         vis = not data_lines[0].get_visible()
         for line in data_lines:
             line.set_visible(vis)
         legline.set_alpha(1.0 if vis else 0.2)
+        _state["isolated"] = None
         event.artist.get_figure().canvas.draw()
 
+    def on_button_press(event):
+        if not event.dblclick:
+            return
+        try:
+            in_legend = leg.get_window_extent().contains(event.x, event.y)
+        except Exception:
+            in_legend = True
+        if not in_legend:
+            return
+        legline, data_lines = _find_entry(event)
+        if legline is None:
+            return
+        _state["suppress_pick"] = True
+        if _state["isolated"] is legline:
+            for ll, dls in lined.items():
+                for line in dls:
+                    line.set_visible(True)
+                ll.set_alpha(1.0)
+            _state["isolated"] = None
+        else:
+            for ll, dls in lined.items():
+                vis = (ll is legline)
+                for line in dls:
+                    line.set_visible(vis)
+                ll.set_alpha(1.0 if vis else 0.2)
+            _state["isolated"] = legline
+        fig.canvas.draw()
+
     fig.canvas.mpl_connect("pick_event", on_pick)
+    fig.canvas.mpl_connect("button_press_event", on_button_press)
+
+
+def _apply_fn(values, fn):
+    arr = np.array(values, dtype=np.float64)
+    if fn in ("auc", "mean"):
+        return float(np.mean(arr))
+    elif fn == "std":
+        return float(np.std(arr))
+    elif fn == "min":
+        return float(np.min(arr))
+    elif fn == "max":
+        return float(np.max(arr))
+    else:
+        raise ValueError(f"Unknown agg fn '{fn}'. Use: auc | mean | std | min | max")
+
+
+def _collapse(df, y_col, agg_steps):
+    """
+    Recursively collapse one dimension at a time.
+
+    Each step groups the current DataFrame by every column except the step's
+    column and y_col, applies the aggregation function to y_col, and produces
+    a smaller DataFrame. After all steps, a single scalar y-value is returned.
+    """
+    if not agg_steps:
+        if len(df) != 1:
+            # Multiple rows remain — values should all be equal (summary column);
+            # silently take the mean.
+            return float(df[y_col].mean())
+        return float(df[y_col].iloc[0])
+
+    step       = agg_steps[0]
+    col        = step["col"]
+    fn         = step["fn"]
+    th_range   = step.get("range")          # optional [lo, hi] to restrict before aggregating
+    other_cols = [c for c in df.columns if c != col and c != y_col]
+
+    def _filtered(subdf):
+        if th_range is not None:
+            lo, hi = th_range
+            subdf = subdf[(subdf[col] >= lo) & (subdf[col] <= hi)]
+        return subdf
+
+    if not other_cols:
+        return _apply_fn(_filtered(df)[y_col].values, fn)
+
+    results = []
+    for keys, subdf in df.groupby(other_cols, sort=False, dropna=False):
+        agg_val = _apply_fn(_filtered(subdf)[y_col].values, fn)
+        if not isinstance(keys, tuple):
+            keys = (keys,)
+        row = dict(zip(other_cols, keys))
+        row[y_col] = agg_val
+        results.append(row)
+
+    return _collapse(pd.DataFrame(results), y_col, agg_steps[1:])
+
+
+def make_plot(cfg, df, combo_color):
+    title        = cfg["title"]
+    x_col        = cfg["x"]
+    lines_col    = cfg["lines"]
+    subplots_col = cfg.get("subplots")
+    y_stat       = cfg.get("y_stat", "mean")
+    agg_steps    = cfg.get("agg", [])
+    select       = cfg.get("select", {})
+
+    # ── Apply select ──────────────────────────────────────────────────────────
+    dfs = df.copy()
+    for col, val in select.items():
+        if col not in dfs.columns:
+            print(f"[{title}] select: column '{col}' not in CSV — skipping this filter.")
+            continue
+        if isinstance(val, list):
+            dfs = dfs[dfs[col].isin(val)]
+        elif isinstance(val, float) and math.isnan(val):
+            dfs = dfs[dfs[col].isna()]
+        else:
+            dfs = dfs[dfs[col] == val]
+
+    if dfs.empty:
+        print(f"[{title}] No data after select — skipping plot.")
+        return
+
+    # ── Determine subplot panels ──────────────────────────────────────────────
+    if subplots_col and subplots_col in dfs.columns:
+        raw_panels = dfs[subplots_col].unique()
+        try:
+            panels = sorted(raw_panels, key=float)
+        except (ValueError, TypeError):
+            panels = sorted(raw_panels, key=str)
+    else:
+        panels = [None]
+
+    n_panels = len(panels)
+    ncols    = min(n_panels, 3)
+    nrows    = (n_panels + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols,
+                              figsize=(7 * ncols, 5 * nrows),
+                              dpi=FIG_DPI, squeeze=False)
+    set_fig_title(fig, title)
+    fig.suptitle(title, fontweight="bold")
+
+    # ── Color assignment ──────────────────────────────────────────────────────
+    all_line_vals = sorted(dfs[lines_col].unique(), key=str)
+    if lines_col == "combination":
+        line_color = {v: combo_color.get(v) for v in all_line_vals}
+    else:
+        line_color = dict(zip(all_line_vals, _distinct_colors(len(all_line_vals))))
+
+    # Track all Line2D objects per line value (across ALL panels) for shared legend
+    line_artists: dict = {v: [] for v in all_line_vals}
+
+    # Columns that carry y-relevant variance (used to slim down the DataFrame per group)
+    agg_cols = [s["col"] for s in agg_steps]
+
+    for panel_idx, panel_val in enumerate(panels):
+        row_i, col_i = divmod(panel_idx, ncols)
+        ax = axes[row_i][col_i]
+
+        panel_df = (dfs[dfs[subplots_col] == panel_val]
+                    if panel_val is not None else dfs)
+
+        if panel_val is not None:
+            ax.set_title(str(panel_val), fontweight="bold")
+
+        # Sort x values numerically if possible, else alphabetically
+        x_vals = panel_df[x_col].unique()
+        try:
+            x_vals = sorted(x_vals, key=float)
+        except (ValueError, TypeError):
+            x_vals = sorted(x_vals, key=str)
+
+        for line_val in all_line_vals:
+            line_df = panel_df[panel_df[lines_col] == line_val]
+            if line_df.empty:
+                continue
+
+            y_vals = []
+            for xv in x_vals:
+                group_df = line_df[line_df[x_col] == xv]
+                if group_df.empty:
+                    y_vals.append(float("nan"))
+                    continue
+
+                if agg_steps:
+                    # Keep only the columns needed for the agg chain
+                    keep = [c for c in [y_stat] + agg_cols if c in group_df.columns]
+                    yv   = _collapse(group_df[keep], y_stat, agg_steps)
+                else:
+                    unique_vals = group_df[y_stat].dropna().unique()
+                    if len(unique_vals) > 1:
+                        print(f"[{title}] Warning: {len(group_df)} rows with differing "
+                              f"'{y_stat}' for {lines_col}={line_val!r} x={xv!r} — "
+                              f"taking mean. Add agg or select to disambiguate.")
+                    yv = float(group_df[y_stat].mean())
+                y_vals.append(yv)
+
+            line_obj, = ax.plot(
+                x_vals, y_vals,
+                color=line_color.get(line_val),
+                linewidth=1.8,
+                marker="o", markersize=3,
+                label=str(line_val),
+            )
+            line_artists[line_val].append(line_obj)
+
+        ax.set_xlabel(x_col)
+        y_label = y_stat if not agg_steps else f"{agg_steps[-1]['fn']}({y_stat})"
+        ax.set_ylabel(y_label)
+        ax.grid(True, linestyle=":", alpha=0.5)
+
+    # Hide unused panels
+    for extra in range(n_panels, nrows * ncols):
+        r, c = divmod(extra, ncols)
+        axes[r][c].set_visible(False)
+
+    # ── Shared interactive legend ─────────────────────────────────────────────
+    present = {v: arts for v, arts in line_artists.items() if arts}
+    if present:
+        proxy_lines = [arts[0] for arts in present.values()]
+        labels      = list(present.keys())
+        leg = fig.legend(
+            proxy_lines, labels,
+            loc="outside right upper",
+            fontsize=8,
+            title=lines_col,
+            title_fontsize=9,
+            framealpha=0.9,
+        )
+        lined = {legline: arts
+                 for legline, arts in zip(leg.get_lines(), present.values())}
+        make_interactive_legend(fig, leg, lined)
+
+    plt.tight_layout()
 
 
 # ============================================================
@@ -163,341 +476,18 @@ def make_interactive_legend(fig, leg, lined):
 # ============================================================
 df = pd.read_csv(CSV_PATH)
 df["combination"] = df["combination"].astype(str).str.strip()
-df = df[df["combination"].apply(passes_filter)].reset_index(drop=True)
 
 parts = df["combination"].str.split("+", n=1, expand=True)
-df["detector"]        = parts[0].str.strip()
-df["descriptor_full"] = parts[1].str.strip()
+df["detector"]   = parts[0].str.strip()
+df["descriptor"] = parts[1].str.strip()
 
-desc_ex = df["descriptor_full"].str.extract(r"^(.*?)(?:\s+(\d+(?:\.\d+)?))?$")
-df["descriptor_name"] = desc_ex[0].str.strip()
-df["descriptor_num"]  = pd.to_numeric(desc_ex[1], errors="coerce")
-
-# ============================================================
-# SORTING
-# ============================================================
-dfw = df.assign(
-    __det_key  = df["detector"].str.lower(),
-    __desc_key = df["descriptor_name"].str.lower(),
-    __comb_key = df["combination"].str.lower(),
-)
-desc_num_key = np.where(
-    df["descriptor_num"].notna(),
-    -df["descriptor_num"] if NUMBER_DESCENDING else df["descriptor_num"],
-    -np.inf if NUMBER_DESCENDING else np.inf,
-)
-dfw["__desc_num_key"] = desc_num_key
-SORT_HELPERS = ["__det_key", "__desc_key", "__desc_num_key", "__comb_key"]
-
-df_by_det  = dfw.sort_values(by=SORT_HELPERS, kind="mergesort").drop(columns=SORT_HELPERS).reset_index(drop=True)
-df_by_desc = dfw.sort_values(
-    by=["__desc_key", "__desc_num_key", "__det_key", "__comb_key"], kind="mergesort"
-).drop(columns=SORT_HELPERS).reset_index(drop=True)
+all_combos  = list(df["combination"].unique())
+combo_color = dict(zip(all_combos, _distinct_colors(len(all_combos))))
 
 # ============================================================
-# COLOR MAPS
+# RENDER ALL PLOTS
 # ============================================================
-all_det  = sorted(df["detector"].unique(), key=str.lower)
-all_des  = sorted(df["descriptor_name"].unique(), key=str.lower)
-cmap20   = plt.cm.get_cmap("tab20")
-det_color  = {d: cmap20(i % 20) for i, d in enumerate(all_det)}
-des_color  = {d: cmap20(i % 20) for i, d in enumerate(all_des)}
-combo_color = {row["combination"]: cmap20(i % 20) for i, (_, row) in enumerate(df.iterrows())}
-
-# ============================================================
-# BAR CHARTS  (AUC columns only)
-# ============================================================
-extra_cols = [c for c in ["avg_num_matches"] if c in df.columns]
-
-if BAR_CHART_COLS is not None:
-    bar_cols = [c for c in BAR_CHART_COLS if c in df.columns]
-else:
-    bar_cols = extra_cols   # _auc columns are already covered by curve/line plots
-
-for col in bar_cols:
-    if SORT_MODE == "alphabetical_by_detector":
-        df_sorted = df_by_det.copy()
-        group_key = "detector" if SECTION_COLOR_MODE != "descriptor" else "descriptor_name"
-    elif SORT_MODE == "alphabetical_by_descriptor":
-        df_sorted = df_by_desc.copy()
-        group_key = "descriptor_name" if SECTION_COLOR_MODE != "detector" else "detector"
-    else:
-        df_sorted = df_by_det.sort_values(by=col, ascending=METRIC_ASCENDING, kind="mergesort")
-        group_key = "detector"
-
-    color_map = det_color if group_key == "detector" else des_color
-    bar_chart(df_sorted, col, group_key, color_map, FIG_DPI)
-
-# ============================================================
-# MMA CURVE PLOTS  (one figure per scope, subplots per difficulty)
-#
-# Click a legend line or its label to toggle that method on/off.
-# ============================================================
-
-# Group configured categories by scope
-scope_to_diffs = defaultdict(list)
-for scope, diff in CURVE_CATEGORIES:
-    if diff not in scope_to_diffs[scope]:
-        scope_to_diffs[scope].append(diff)
-
-for scope, diffs in scope_to_diffs.items():
-    # Check at least one category has data
-    valid_diffs = [
-        d for d in diffs
-        if all(f"mma_{scope}_{d}_th{th}" in df.columns for th in PIXEL_THRESHOLDS)
-    ]
-    if not valid_diffs:
-        continue
-
-    n       = len(valid_diffs)
-    ncols   = min(n, 2)
-    nrows   = (n + ncols - 1) // ncols
-    fig, axes = plt.subplots(nrows, ncols, figsize=(7 * ncols, 5 * nrows),
-                              dpi=FIG_DPI, squeeze=False)
-
-    title = f"MMA curves — {scope}"
-    set_fig_title(fig, title)
-    fig.suptitle(title, fontweight="bold")
-
-    # combo → list of ALL line objects across every subplot
-    combo_all_lines: dict[str, list] = {row["combination"]: [] for _, row in df.iterrows()}
-
-    for panel_idx, diff in enumerate(valid_diffs):
-        row_i, col_i = divmod(panel_idx, ncols)
-        ax = axes[row_i][col_i]
-        th_cols = [f"mma_{scope}_{diff}_th{th}" for th in PIXEL_THRESHOLDS]
-
-        for _, data_row in df.iterrows():
-            combo    = data_row["combination"]
-            mma_vals = [data_row[c] for c in th_cols]
-            line, = ax.plot(
-                PIXEL_THRESHOLDS, mma_vals,
-                color=combo_color[combo],
-                linewidth=1.8,
-                marker="o", markersize=3,
-                label=combo,
-            )
-            combo_all_lines[combo].append(line)
-
-        ax.set_title(diff, fontweight="bold")
-        ax.set_xlabel("Pixel threshold")
-        ax.set_ylabel("MMA")
-        ax.set_xticks(PIXEL_THRESHOLDS)
-        ax.set_ylim(0, 1)
-        ax.grid(True, linestyle=":", alpha=0.5)
-
-    # Hide any unused subplot panels
-    for extra in range(n, nrows * ncols):
-        r, c = divmod(extra, ncols)
-        axes[r][c].set_visible(False)
-
-    # ---- Shared interactive legend outside the subplots ----
-    # Use the lines from the first panel as legend proxies
-    proxy_lines = [combo_all_lines[combo][0] for combo in combo_all_lines if combo_all_lines[combo]]
-    combos_ordered = [combo for combo in combo_all_lines if combo_all_lines[combo]]
-
-    leg = fig.legend(
-        proxy_lines, combos_ordered,
-        loc="outside right upper",
-        fontsize=8,
-        title="Method",
-        title_fontsize=9,
-        framealpha=0.9,
-    )
-
-    # lined: legend_line → all data lines for that combo
-    lined = {
-        legline: combo_all_lines[combo]
-        for legline, combo in zip(leg.get_lines(), combos_ordered)
-    }
-    make_interactive_legend(fig, leg, lined)
-    plt.tight_layout()
-
-# ============================================================
-# REPEATABILITY CURVE PLOTS  (x = pixel threshold, same as MMA)
-# ============================================================
-rep_scope_to_diffs = defaultdict(list)
-for scope, diff in REP_CURVE_CATEGORIES:
-    if diff not in rep_scope_to_diffs[scope]:
-        rep_scope_to_diffs[scope].append(diff)
-
-for scope, diffs in rep_scope_to_diffs.items():
-    valid_diffs = [
-        d for d in diffs
-        if all(f"rep_{scope}_{d}_th{th}" in df.columns for th in PIXEL_THRESHOLDS)
-    ]
-    if not valid_diffs:
-        continue
-
-    n     = len(valid_diffs)
-    ncols = min(n, 2)
-    nrows = (n + ncols - 1) // ncols
-    fig, axes = plt.subplots(nrows, ncols, figsize=(7 * ncols, 5 * nrows),
-                              dpi=FIG_DPI, squeeze=False)
-
-    title = f"Repeatability — {scope}"
-    set_fig_title(fig, title)
-    fig.suptitle(title, fontweight="bold")
-
-    combo_all_lines: dict[str, list] = {row["combination"]: [] for _, row in df.iterrows()}
-
-    for panel_idx, diff in enumerate(valid_diffs):
-        row_i, col_i = divmod(panel_idx, ncols)
-        ax = axes[row_i][col_i]
-        th_cols = [f"rep_{scope}_{diff}_th{th}" for th in PIXEL_THRESHOLDS]
-
-        for _, data_row in df.iterrows():
-            combo = data_row["combination"]
-            vals  = [data_row[c] for c in th_cols]
-            line, = ax.plot(
-                PIXEL_THRESHOLDS, vals,
-                color=combo_color[combo],
-                linewidth=1.8,
-                marker="o", markersize=3,
-                label=combo,
-            )
-            combo_all_lines[combo].append(line)
-
-        ax.set_title(diff, fontweight="bold")
-        ax.set_xlabel("Pixel threshold")
-        ax.set_ylabel("Repeatability")
-        ax.set_xticks(PIXEL_THRESHOLDS)
-        ax.set_ylim(0, 1)
-        ax.grid(True, linestyle=":", alpha=0.5)
-
-    for extra in range(n, nrows * ncols):
-        r, c = divmod(extra, ncols)
-        axes[r][c].set_visible(False)
-
-    proxy_lines    = [combo_all_lines[combo][0] for combo in combo_all_lines if combo_all_lines[combo]]
-    combos_ordered = [combo for combo in combo_all_lines if combo_all_lines[combo]]
-    leg = fig.legend(proxy_lines, combos_ordered, loc="outside right upper",
-                     fontsize=8, title="Method", title_fontsize=9, framealpha=0.9)
-    lined = {legline: combo_all_lines[combo]
-             for legline, combo in zip(leg.get_lines(), combos_ordered)}
-    make_interactive_legend(fig, leg, lined)
-    plt.tight_layout()
-
-# ============================================================
-# HOMOGRAPHY ACCURACY CURVE PLOTS  (x = epsilon threshold)
-# ============================================================
-hom_scope_to_diffs = defaultdict(list)
-for scope, diff in HOM_CURVE_CATEGORIES:
-    if diff not in hom_scope_to_diffs[scope]:
-        hom_scope_to_diffs[scope].append(diff)
-
-for scope, diffs in hom_scope_to_diffs.items():
-    valid_diffs = [
-        d for d in diffs
-        if all(f"hom_acc_{scope}_{d}_eps{eps}" in df.columns for eps in HOM_THRESHOLDS)
-    ]
-    if not valid_diffs:
-        continue
-
-    n     = len(valid_diffs)
-    ncols = min(n, 2)
-    nrows = (n + ncols - 1) // ncols
-    fig, axes = plt.subplots(nrows, ncols, figsize=(7 * ncols, 5 * nrows),
-                              dpi=FIG_DPI, squeeze=False)
-
-    title = f"Homography accuracy — {scope}"
-    set_fig_title(fig, title)
-    fig.suptitle(title, fontweight="bold")
-
-    combo_all_lines: dict[str, list] = {row["combination"]: [] for _, row in df.iterrows()}
-
-    for panel_idx, diff in enumerate(valid_diffs):
-        row_i, col_i = divmod(panel_idx, ncols)
-        ax = axes[row_i][col_i]
-        eps_cols = [f"hom_acc_{scope}_{diff}_eps{eps}" for eps in HOM_THRESHOLDS]
-
-        for _, data_row in df.iterrows():
-            combo = data_row["combination"]
-            vals  = [data_row[c] for c in eps_cols]
-            line, = ax.plot(
-                HOM_THRESHOLDS, vals,
-                color=combo_color[combo],
-                linewidth=1.8,
-                marker="o", markersize=3,
-                label=combo,
-            )
-            combo_all_lines[combo].append(line)
-
-        ax.set_title(diff, fontweight="bold")
-        ax.set_xlabel("Corner error threshold (px)")
-        ax.set_ylabel("Fraction correct")
-        ax.set_xticks(HOM_THRESHOLDS)
-        ax.set_ylim(0, 1)
-        ax.grid(True, linestyle=":", alpha=0.5)
-
-    for extra in range(n, nrows * ncols):
-        r, c = divmod(extra, ncols)
-        axes[r][c].set_visible(False)
-
-    proxy_lines    = [combo_all_lines[combo][0] for combo in combo_all_lines if combo_all_lines[combo]]
-    combos_ordered = [combo for combo in combo_all_lines if combo_all_lines[combo]]
-    leg = fig.legend(proxy_lines, combos_ordered, loc="outside right upper",
-                     fontsize=8, title="Method", title_fontsize=9, framealpha=0.9)
-    lined = {legline: combo_all_lines[combo]
-             for legline, combo in zip(leg.get_lines(), combos_ordered)}
-    make_interactive_legend(fig, leg, lined)
-    plt.tight_layout()
-
-# ============================================================
-# PER-IMAGE LINEPLOTS  (x = image index 2–6)
-# One figure per scope; two subplots: MMA AUC and Hom-acc AUC.
-# ============================================================
-for scope in IMG_CURVE_SCOPES:
-    mma_cols = [f"mma_{scope}_img{i}_auc"     for i in IMG_INDICES]
-    rep_cols = [f"rep_{scope}_img{i}_auc"     for i in IMG_INDICES]
-    hom_cols = [f"hom_acc_{scope}_img{i}_auc" for i in IMG_INDICES]
-    has_mma  = all(c in df.columns for c in mma_cols)
-    has_rep  = all(c in df.columns for c in rep_cols)
-    has_hom  = all(c in df.columns for c in hom_cols)
-    if not has_mma and not has_rep and not has_hom:
-        continue
-
-    panels = []
-    if has_mma: panels.append(("MMA AUC",          mma_cols))
-    if has_rep: panels.append(("Repeatability AUC", rep_cols))
-    if has_hom: panels.append(("Hom-acc AUC",       hom_cols))
-
-    fig, axes = plt.subplots(1, len(panels), figsize=(7 * len(panels), 5),
-                              dpi=FIG_DPI, squeeze=False)
-    title = f"Performance vs image index — {scope}"
-    set_fig_title(fig, title)
-    fig.suptitle(title, fontweight="bold")
-
-    combo_all_lines: dict[str, list] = {row["combination"]: [] for _, row in df.iterrows()}
-
-    for col_i, (ylabel, cols) in enumerate(panels):
-        ax = axes[0][col_i]
-        for _, data_row in df.iterrows():
-            combo = data_row["combination"]
-            vals  = [data_row[c] for c in cols]
-            line, = ax.plot(
-                IMG_INDICES, vals,
-                color=combo_color[combo],
-                linewidth=1.8,
-                marker="o", markersize=3,
-                label=combo,
-            )
-            combo_all_lines[combo].append(line)
-
-        ax.set_title(ylabel, fontweight="bold")
-        ax.set_xlabel("Image index")
-        ax.set_ylabel(ylabel)
-        ax.set_xticks(IMG_INDICES)
-        ax.set_ylim(0, 1)
-        ax.grid(True, linestyle=":", alpha=0.5)
-
-    proxy_lines    = [combo_all_lines[combo][0] for combo in combo_all_lines if combo_all_lines[combo]]
-    combos_ordered = [combo for combo in combo_all_lines if combo_all_lines[combo]]
-    leg = fig.legend(proxy_lines, combos_ordered, loc="outside right upper",
-                     fontsize=8, title="Method", title_fontsize=9, framealpha=0.9)
-    lined = {legline: combo_all_lines[combo]
-             for legline, combo in zip(leg.get_lines(), combos_ordered)}
-    make_interactive_legend(fig, leg, lined)
-    plt.tight_layout()
+for cfg in PLOTS:
+    make_plot(cfg, df, combo_color)
 
 plt.show()
