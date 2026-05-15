@@ -340,6 +340,73 @@ def knn_ratio_ransac_matching(
 
     return matches
 
+def nearest_neighbor_matching(
+    reference_features: list[Feature],
+    related_features: list[Feature],
+    distance_type: int,
+    use_mutual: bool = True,
+    calculate_match_properties: bool = True,
+) -> list[Match]:
+    """
+    Matching pipeline:
+        1. Nearest neighbor matching
+        2. Optional mutual nearest neighbor filtering (cross-check)
+
+    Returns
+    -------
+    list[Match]
+        Matches in same format as greedy_maximum_bipartite_matching
+    """
+
+    if not reference_features or not related_features:
+        return []
+
+    # --- 1. Build descriptor arrays ---
+    ref_desc = np.array([f.description for f in reference_features])
+    rel_desc = np.array([f.description for f in related_features])
+
+    bf = cv2.BFMatcher(distance_type, crossCheck=False)
+
+    # --- 2. Forward matching (ref -> rel) ---
+    forward_matches = bf.match(ref_desc, rel_desc)
+
+    if not use_mutual:
+        valid_matches = forward_matches
+    else:
+        # --- 3. Reverse matching (rel -> ref) ---
+        backward_matches = bf.match(rel_desc, ref_desc)
+
+        # Build lookup: rel_idx -> best ref_idx
+        rel_to_ref = {m.queryIdx: m.trainIdx for m in backward_matches}
+
+        # Keep only mutual matches
+        valid_matches = []
+        for m in forward_matches:
+            ref_idx = m.queryIdx
+            rel_idx = m.trainIdx
+
+            if rel_idx in rel_to_ref and rel_to_ref[rel_idx] == ref_idx:
+                valid_matches.append(m)
+
+    # --- 4. Build Match objects ---
+    matches: list[Match] = []
+
+    for m in valid_matches:
+        ref_f = reference_features[m.queryIdx]
+        rel_f = related_features[m.trainIdx]
+
+        match = Match(ref_f, rel_f)
+
+        if calculate_match_properties:
+            match.match_properties["distance"] = float(m.distance)
+            match.match_properties["average_response"] = 0
+            match.match_properties["match rank"] = 0
+            match.match_properties["distinctiveness"] = 1.0
+
+        matches.append(match)
+
+    return matches
+
 #@beartype
 def greedy_maximum_bipartite_matching_descriptor_distance(reference_features: list[Feature], related_features: list[Feature], distance_type: int) -> list[Match]:
     """

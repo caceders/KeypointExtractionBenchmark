@@ -14,20 +14,44 @@ from contextlib import contextmanager, nullcontext
 
 def downsample(img, downsample_level: int, scale_factor: float, intrinsic_sigma: float, initial_sigma :float, apply_progressive_blurring :bool, interpolation_type):
     if scale_factor == 2 and interpolation_type == None:
-        if initial_sigma != -1:
+        if initial_sigma > 0:
             img = cv2.GaussianBlur(img, (0,0), initial_sigma, borderType=cv2.BORDER_REFLECT_101)
             if apply_progressive_blurring and downsample_level > 0:
-                sigma = (intrinsic_sigma+initial_sigma) * scale_factor ** (downsample_level-1)
+                sigma = np.sqrt(intrinsic_sigma**2+initial_sigma**2) * scale_factor ** (downsample_level-1)
                 img = cv2.GaussianBlur(img, (0,0), sigma, borderType=cv2.BORDER_REFLECT_101)
 
         downsampled_img = img[::scale_factor**downsample_level,::scale_factor**downsample_level]
     else:
-        if initial_sigma != -1:
+        if initial_sigma > 0:
             img = cv2.GaussianBlur(img, (0,0), initial_sigma, borderType=cv2.BORDER_REFLECT_101)
         downsampled_img = cv2.resize(img, None, fx= 1/scale_factor**downsample_level, fy= 1/scale_factor**downsample_level, interpolation= interpolation_type)
 
 
     return downsampled_img
+
+
+def non_maximal_supression(kps, radius, scale_ratio=1):
+    kps = sorted(kps, key=lambda x: x.response, reverse=True)
+    kept = []
+
+    for kp in kps:
+        keep = True
+        for s in kept:
+            dx = kp.pt[0] - s.pt[0]
+            dy = kp.pt[1] - s.pt[1]
+            dist2 = dx*dx + dy*dy
+
+            # allow multiple if scales differ
+            scale_diff = abs(kp.size - s.size) / max(kp.size, s.size)
+
+            if dist2 < radius*radius and scale_diff < scale_ratio:
+                keep = False
+                break
+
+        if keep:
+            kept.append(kp)
+
+    return kept
 
 @contextmanager
 def optional_try(enabled, name):
@@ -378,8 +402,7 @@ def compare_rankings_and_visualize_across_sets(
 
 
     ## For debug ################################
-import cv2
-import numpy as np
+
 
 
 def visualize_matches_with_scale_change(

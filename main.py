@@ -4,7 +4,7 @@ os.environ["BEARTYPE_IS_BEING_TYPE_CHECKED"] = "0" # Enable or disable beartype
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
 from benchmark.pipeline import *
-from benchmark.matching import MatchSet, MatchRankingProperty, greedy_maximum_bipartite_matching_descriptor_distance, knn_ratio_ransac_matching
+from benchmark.matching import MatchSet, MatchRankingProperty, greedy_maximum_bipartite_matching_descriptor_distance, knn_ratio_ransac_matching, nearest_neighbor_matching
 from benchmark.utils import load_HPSequences, compare_rankings_and_visualize_across_sets, optional_try
 from benchmark.noise import *
 from tqdm import tqdm
@@ -30,47 +30,33 @@ if APPLY_NOISE:
         save_noise(noise, NOISE_FILE_NAME)
 
 features2d = {
-    #"AGAST" : cv2.AgastFeatureDetector_create(),
     "AKAZE" : cv2.AKAZE_create(),
     "BRISK" : cv2.BRISK_create(),
-    #"FAST" : cv2.FastFeatureDetector_create(),
-    #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
-    "GFTT" : cv2.GFTTDetector_create(),
-    #"GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
-    #"KAZE" : cv2.KAZE_create(),
-    "ORB" : cv2.ORB_create(),
+    "GFTT" : cv2.GFTTDetector_create(maxCorners = 2000),
+    "ORB" : cv2.ORB_create(nfeatures = 2000),
     #"ORB_NO_PYRAMID" : cv2.ORB_create(nlevels = 1),
     "SIFT" : cv2.SIFT_create(),
     #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
-    #"SIFT_FAST2" : cv2.SIFT_create(sigma = 2.25),
-    #"SIFT_GFTT2" : SIFT_GFTT2 = cv2.SIFT_create(),
-    #"SIFT_SIG_3.5" : cv2.SIFT_create(sigma = 3.5),
-    #"BRIEF" : cv2.xfeatures2d.BriefDescriptorExtractor_create(),
     #"SHIFT_5_octaves" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
     #"SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
 }
 
-GFTT2_SCALE = 2
-FAST2_SCALE = 1.5
 
 ONLY_SELF = True #Forces no mixing
-ONLY_SELF_EXCEPTIONS = [("GFTT", "SIFT"), ("GFTT2", "SIFT")]
-ONLY_USED_AS_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
-ONLY_USED_AS_DESCRIPTOR = ["FREAK", "SIFT_FAST2", "SIFT_GFTT2"]                     
+ONLY_SELF_EXCEPTIONS = [("GFTT", "SIFT")]
+ONLY_USED_AS_DETECTOR = ["GFTT"]                     
+ONLY_USED_AS_DESCRIPTOR = ["FREAK"]                     
 BLACKLIST = []                                 
 ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
     # "FAST": "SIFT",
-    "FAST2": "SIFT_FAST2",
     # "GFTT": "SIFT",
-    "GFTT2": "SIFT_GFTT2",
-    "GFTT2": "SIFT",
     "ORB" : "ORB",
     "SIFT" : "SIFT",
     "BRISK": "BRISK",
     "SHIFT_5_octaves" : "SHIFT_5_octaves"
 }   
 ALLOWED_DETECTOR_FOR_DESCRIPTOR = {
-    "SIFT_FAST2": "FAST2",
+
 }
 
 test_combinations: dict[str, FeatureExtractor] = {}
@@ -111,9 +97,11 @@ average_response_match_rank_property = MatchRankingProperty("average_response", 
 distinctiveness_match_rank_property = MatchRankingProperty("distinctiveness", True)
 match_properties = [distance_match_rank_property, average_response_match_rank_property, distinctiveness_match_rank_property]
 
-if USE_RANSAC:
+if MATCHER == "NN":
+    matching_approach = nearest_neighbor_matching
+elif MATCHER == "ransac":
     matching_approach = knn_ratio_ransac_matching
-else:
+elif MATCHER == "default":
     matching_approach = greedy_maximum_bipartite_matching_descriptor_distance
 
 #############################################################################################################################
@@ -132,11 +120,6 @@ for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Calculating f
         with optional_try(SKIP_AT_ERROR, f"{feature_extractor_key}_{SUFFIX}_{downsample_level}"):
             feature_extractor: FeatureExtractor = test_combinations[feature_extractor_key]
             image_feature_set = ImageFeatureSet(NUM_SEQUENCES, NUM_RELATED_IMAGES)
-
-            if (feature_extractor_key == "FAST2+SIFT_FAST2"):
-                keypoint_size_scaling = FAST2_SCALE
-            elif (feature_extractor_key == "GFTT2+SIFT_GFTT2"):
-                keypoint_size_scaling = GFTT2_SCALE
 
             speed = 0
             if "speedtest" not in SKIP:

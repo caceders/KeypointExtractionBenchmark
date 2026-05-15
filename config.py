@@ -1,8 +1,8 @@
 from cv2 import INTER_LINEAR, INTER_NEAREST
 SKIP = ["speedtest", "verification", "retrieval"]
 #SKIP = ["speedtest"]
-FILE_NAME = "RANSAC.csv"
-SUFFIX = "_"+"sig auto"
+FILE_NAME = "matching.csv"
+SUFFIX = "_"+"KEEM"
 SKIP_AT_ERROR = False
 
 # Rotation, scale, gaussian blur, motion blur
@@ -17,19 +17,22 @@ FORCE_CONSTANT_ANGLE = False
 KEYPOINT_SIZE_SCALINGS = [1]
 REGISTER_OCTAVE_DATA = True
 REGISTER_DESCRIPTOR_DATA = False
-USE_RANSAC = True
+MATCHER = "default" #NN, RANSAC or default
 
-DOWNSAMPLE_LEVELS = [0,1,2,3]
-INITIAL_SIGMA = 1
+DOWNSAMPLE_LEVELS = [0]
+INITIAL_SIGMA = 0
 
 APPLY_PROGRESSIVE_BLUR = False #If off, only initial sigma is applied
 INTRINSIC_SIGMA = 0.5
 DOWNSAMPLE_FACTOR = 2
 DOWNSAMPLE_INTERPOLATION_TYPE = None
 
-MAX_FEATURES = 500
+MAX_FEATURES = 250
 VISUALIZE = False
 SEQUENCE_TO_VISUALIZE = [14]
+
+APPLY_NMS = False
+NMS_RADIUS = 10
 
 USE_DISTANCE = True
 DISTANCE_THRESHOLD = 10
