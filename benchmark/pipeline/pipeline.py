@@ -1,5 +1,5 @@
 from tqdm import tqdm
-from benchmark.utils import calculate_overlap_one_circle_to_many, downsample, visualize_matches_with_scale_change
+from benchmark.utils import calculate_overlap_one_circle_to_many, downsample, visualize_matches_with_scale_change, non_maximal_supression
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.image_feature_set import ImageFeatureSet
@@ -39,26 +39,33 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
 
             keypoints = feature_extractor.detect_keypoints(image)
             num_keypoints = len(keypoints)
+            if (num_keypoints == 0):
+                continue
+
             min_required_keypoints = round(max_features*1.1)
-            if min_required_keypoints < len(keypoints):
-                scores = np.array([keypoint.response for keypoint in keypoints])
-                idx = np.argpartition(scores, -min_required_keypoints)[-min_required_keypoints:]
-                keypoints = [keypoints[i] for i in idx]
+
+            if APPLY_NMS:
+                keypoints = non_maximal_supression(keypoints, NMS_RADIUS, min_required_keypoints)
+            else:
+                if min_required_keypoints < len(keypoints):
+                    scores = np.array([keypoint.response for keypoint in keypoints])
+                    idx = np.argpartition(scores, -min_required_keypoints)[-min_required_keypoints:]
+                    keypoints = [keypoints[i] for i in idx]
+
             for keypoint in keypoints:
                 keypoint.size = keypoint.size * keypoint_size_scaling
                 if (FORCE_CONSTANT_ANGLE):
                     keypoint.angle = 0
-
-            if (len(keypoints) == 0):
-                continue
+            
             # if len(keypoints) > 250:
             #     keypoints = keypoints[250:500]
+
             keypoints, descriptions = feature_extractor.describe_keypoints(image, keypoints)
 
             for keypoint in keypoints:
                 keypoint.pt = (keypoint.pt[0] * DOWNSAMPLE_FACTOR ** DOWNSAMPLE_LEVEL, keypoint.pt[1] * DOWNSAMPLE_FACTOR ** DOWNSAMPLE_LEVEL)
 
-            if num_keypoints > min_required_keypoints and len(keypoints) < max_features:
+            if num_keypoints > min_required_keypoints and len(keypoints) < max_features and not APPLY_NMS:
                 print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 
             # if (num_keypoints < max_features):

@@ -6,7 +6,7 @@ import csv
 import math
 from typing import Dict, List, Tuple, Optional
 from shi_tomasi_sift import ShiTomasiSift
-from benchmark.utils import downsample, visualize_matches_with_scale_change, optional_try
+from benchmark.utils import downsample, visualize_matches_with_scale_change, optional_try, non_maximal_supression
 import os
 import pandas as pd
 
@@ -18,29 +18,33 @@ import pandas as pd
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "DOWNSAMPLE_SIGMA_TEST_NON_ADJUSTED_THRESH_NEW_ATE"
+RUN_NAME = "test"
 METHOD_SUFFIX = "sig6"
-BASE_OUT = Path("KITTI/results") / RUN_NAME
-CSV_PATH = BASE_OUT / "results.csv"
-TRAJ_DIR = BASE_OUT / "trajectories"
-BASE_OUT.mkdir(parents=True, exist_ok=True)
-TRAJ_DIR.mkdir(parents=True, exist_ok=True)
+
 ACTIVE_FRAMES = (0,1000)  #empty for full sequence
 MAX_FEATURES = 500
 LOWE_RATIO = 0.75
 PNP_REPROJ_THRESH = 2
 EPIPOLAR_TOL = 1
 RPE_DELTA = 1
-downsample_levels = [0,1,2]
-initial_gaussian_blur_sigma = -1
+downsample_levels = [0]
+initial_gaussian_blur_sigma = 0
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
 downsample_factor = 2
 downsample_interpolation_type = None
 
+APPLY_NMS = False
+NMS_RADIUS = 1
 
-skip_at_error = True
+skip_at_error = False
+
+BASE_OUT = Path("KITTI/results") / RUN_NAME
+CSV_PATH = BASE_OUT / "results.csv"
+TRAJ_DIR = BASE_OUT / "trajectories"
+BASE_OUT.mkdir(parents=True, exist_ok=True)
+TRAJ_DIR.mkdir(parents=True, exist_ok=True)
 
  
 #########################################################
@@ -49,47 +53,33 @@ skip_at_error = True
 
 
 features2d = {
-    "AKAZE" : cv2.AKAZE_create(),
-    "BRISK" : cv2.BRISK_create(),
-    #"FAST" : cv2.FastFeatureDetector_create(),
-    #"FAST2" : cv2.FastFeatureDetector_create(threshold = 15),
-    "GFTT" : cv2.GFTTDetector_create(),
-    #"GFTT2" : cv2.GFTTDetector_create(blockSize = 6, qualityLevel = 0.005),
+    #"AKAZE" : cv2.AKAZE_create(),
+    #"BRISK" : cv2.BRISK_create(),
+    #"GFTT" : cv2.GFTTDetector_create(),
     "ORB" : cv2.ORB_create(),
-    "ORB_NO_PYRAMID" : cv2.ORB_create(nlevels=1),
-    #"ORB_4_LAYERS" : cv2.ORB_create(nlevels=4),
-    "SIFT" : cv2.SIFT_create(),
+    #"ORB_NO_PYRAMID" : cv2.ORB_create(nlevels=1),
+    #"SIFT" : cv2.SIFT_create(),
     #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
-    #"SIFT_FAST2" : cv2.SIFT_create(sigma = 2.25),
-    #"SIFT_GFTT2" : SIFT_GFTT2 = cv2.SIFT_create(),
-    #"SIFT_SIG_3.5" : cv2.SIFT_create(sigma = 3.5),
-    #"BRIEF" : cv2.xfeatures2d.BriefDescriptorExtractor_create(),
-    "SHIFT" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
-    "SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
+    #"SHIFT" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
+    #"SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
 }
-
-GFTT2_SCALE = 2
-FAST2_SCALE = 1.5
 
 
 ONLY_SELF = True #Forces no mixing
-ONLY_SELF_EXCEPTIONS = [("GFTT", "SIFT"), ("GFTT2", "SIFT")]
-ONLY_USED_AS_DETECTOR = ["GFTT", "FAST2", "GFTT2"]                     
-ONLY_USED_AS_DESCRIPTOR = ["SIFT_FAST2", "SIFT_GFTT2"]                     
+ONLY_SELF_EXCEPTIONS = [("GFTT", "SIFT")]
+ONLY_USED_AS_DETECTOR = ["GFTT"]                     
+ONLY_USED_AS_DESCRIPTOR = []                     
 BLACKLIST = []                                 
 ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
     # "FAST": "SIFT",
-    "FAST2": "SIFT_FAST2",
     # "GFTT": "SIFT",
-    "GFTT2": "SIFT_GFTT2",
-    "GFTT2": "SIFT",
     "ORB" : "ORB",
     "SIFT" : "SIFT",
     "BRISK": "BRISK",
     "SHIFT_5_octaves" : "SHIFT_5_octaves"
 }   
 ALLOWED_DETECTOR_FOR_DESCRIPTOR = {
-    "SIFT_FAST2": "FAST2",
+
 }
 
 #########################################################
@@ -175,35 +165,20 @@ def run_stereo_vo(seq_root, name, extractor, downsample_level):
     L0 = downsample(L0, downsample_level, downsample_factor, intrinsic_gaussian_blur_sigma, initial_gaussian_blur_sigma, apply_progressive_blur, downsample_interpolation_type)
     R0 = downsample(R0, downsample_level, downsample_factor, intrinsic_gaussian_blur_sigma, initial_gaussian_blur_sigma, apply_progressive_blur, downsample_interpolation_type)
     
-    # for i in range(downsample_iterations):
-    #     L0 = downsample(L0, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
-    #     R0 = downsample(R0, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
 
     kL0 = extractor.detect(L0)
     kR0 = extractor.detect(R0)
-    kL0 = sorted(kL0, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
-    kR0 = sorted(kR0, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
-
-    if name == "FAST2+SIFT_FAST2":
-        for keypoint in kL0:
-                keypoint.size = keypoint.size * FAST2_SCALE
-        for keypoint in kR0:
-                keypoint.size = keypoint.size * FAST2_SCALE
-    if name == "GFTT2+SIFT_GFTT2":
-        for keypoint in kL0:
-                keypoint.size = keypoint.size * GFTT2_SCALE
-        for keypoint in kR0:
-                keypoint.size = keypoint.size * GFTT2_SCALE
-
+    if APPLY_NMS:
+        kL0 = non_maximal_supression(kL0, NMS_RADIUS, MAX_FEATURES*1.1)
+        kR0 = non_maximal_supression(kR0, NMS_RADIUS, MAX_FEATURES*1.1)
+    else:
+        kL0 = sorted(kL0, key=lambda x:x.response, reverse=True)[:MAX_FEATURES*1.1]
+        kR0 = sorted(kR0, key=lambda x:x.response, reverse=True)[:MAX_FEATURES*1.1]
     
-    kL0, dL0 = extractor.compute(L0,kL0)
-    kR0, dR0 = extractor.compute(R0,kR0)
+    
+    kL0, dL0 = extractor.compute(L0,kL0)[:MAX_FEATURES]
+    kR0, dR0 = extractor.compute(R0,kR0)[:MAX_FEATURES]
 
-    if name == "SHIFT+SHIFT" or name == "SHIFT_NO_PYRAMID+SHIFT_NO_PYRAMID":
-        kL0 = kL0[:500]
-        kR0 = kR0[:500]
-        dL0 = dL0[:500]
-        dR0 = dR0[:500]
 
     for keypoint in kL0:
         keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_level, keypoint.pt[1] * downsample_factor ** downsample_level)
@@ -240,34 +215,17 @@ def run_stereo_vo(seq_root, name, extractor, downsample_level):
         L = downsample(L, downsample_level, downsample_factor, intrinsic_gaussian_blur_sigma, initial_gaussian_blur_sigma, apply_progressive_blur, downsample_interpolation_type)
         R = downsample(R, downsample_level, downsample_factor, intrinsic_gaussian_blur_sigma, initial_gaussian_blur_sigma, apply_progressive_blur, downsample_interpolation_type)
 
-        # for i in range(downsample_iterations):
-        #     L = downsample(L, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
-        #     R = downsample(R, downsample_factor, downsample_gaussian_sigma, downsample_interpolation_type)
-
         kpL = extractor.detect(L)
         kpR = extractor.detect(R)
-        kpL = sorted(kpL, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
-        kpR = sorted(kpR, key=lambda x:x.response, reverse=True)[:MAX_FEATURES]
+        if APPLY_NMS:
+            kpL = non_maximal_supression(kpL,NMS_RADIUS, MAX_FEATURES*1.1)
+            kpR = non_maximal_supression(kpR,NMS_RADIUS, MAX_FEATURES*1.1)
+        else:
+            kpL = sorted(kpL, key=lambda x:x.response, reverse=True)[:MAX_FEATURES*1,1]
+            kpR = sorted(kpR, key=lambda x:x.response, reverse=True)[:MAX_FEATURES*1.1]
 
-
-        if name == "FAST2+SIFT_FAST2":
-            for keypoint in kpL:
-                    keypoint.size = keypoint.size * FAST2_SCALE
-            for keypoint in kpR:
-                    keypoint.size = keypoint.size * FAST2_SCALE
-        if name == "GFTT2+SIFT_GFTT2":
-            for keypoint in kpL:
-                    keypoint.size = keypoint.size * GFTT2_SCALE
-            for keypoint in kpR:
-                    keypoint.size = keypoint.size * GFTT2_SCALE
-
-        kpL, dL = extractor.compute(L,kpL)
-        kpR, dR = extractor.compute(R,kpR)
-        if name == "SHIFT+SHIFT" or name == "SHIFT_NO_PYRAMID+SHIFT_NO_PYRAMID":
-                kpL = kpL[:500]
-                kpR = kpR[:500]
-                dL = dL[:500]
-                dR = dR[:500]
+        kpL, dL = extractor.compute(L,kpL)[:MAX_FEATURES]
+        kpR, dR = extractor.compute(R,kpR)[:MAX_FEATURES]
 
         for keypoint in kpL:
             keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_level, keypoint.pt[1] * downsample_factor ** downsample_level)
