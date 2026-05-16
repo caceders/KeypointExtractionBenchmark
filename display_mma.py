@@ -6,39 +6,45 @@ import matplotlib.pyplot as plt
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "results/mma_results.csv"
+CSV_PATH = "results/mma_results_num_keypoints_scale_dependency.csv"
 
-y_default = "mma_matches_mean"
-x_default = "combination"
-lines_default = "combination"
 
 PLOTS = [
 
-    # {
-    #     "y":        y_default,
-    #     "x":        x_default,
-    #     # "lines":    lines_default,
-    #     # "subplots" : "downsample_level",
-    #     "bar":      True,
-    #     "select": {
-    #         # [COL]: {"values": [VALS], "fn": [FUNCTION]},
-    #         "tag": {"values": "baseline"},
-    #     },
-    # },
-
     {
         "y":        "mma_matches_mean",
-        "x":        "max_features",
-        "lines":    "combination",
-        "subplots" : "downsample_level",
-        "bar":      False,
+        "x":        ["max_features"],
+        "lines": ["combination", "tag"],
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
             "threshold": {"values": np.arange(0,6), "fn": "auc"},
-            "tag": {"values": "autoscale"},
+            
         },
     },
 
+    {
+        "y":        "mma_matches_mean",
+        "x":        ["max_features"],
+        "lines": ["downsample_level", "tag"],
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "scope": {"values": "viewpoint", "fn": "std"},
+            "threshold": {"values": np.arange(0,6), "fn": "auc"},
+            "combination" : "SIFT+SIFT",
+        },
+    },
+    {
+        "title": "Pizza Bomba",
+        "y_label" : "Pepper",
+        "x_label" : "mengde >:c",
+        "y":        "avg_num_features",
+        "x":        ["max_features"],
+        "lines": ["downsample_level", "tag"],
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "combination" : "SIFT+SIFT",
+        },
+    },
 
 ]
 
@@ -51,7 +57,7 @@ PLOTS = [
 #                 "mma_kps_mean"    "mma_matches_mean"
 #                 "rep_mean"        "hom_acc_mean"
 #                 "avg_num_features"  "avg_num_matches"  ...
-#   lines    — CSV column whose unique values become separate lines
+#   lines    — CSV column(s) whose unique values become separate lines (omit → bar chart)
 #   subplots — CSV column that creates subplot panels (default: None → one panel)
 #
 # ── Select ────────────────────────────────────────────────────────────────────
@@ -214,45 +220,151 @@ def _sorted_vals(vals):
     try:
         return sorted(vals, key=float)
     except (ValueError, TypeError):
-        return sorted(vals, key=str)
+        return sorted(vals, key=lambda v: tuple(str(x) for x in v) if isinstance(v, tuple) else str(v))
 
 
-def _m(text):
-    return r"\mathrm{" + text.replace("_", r"\ ") + "}"
+def _as_cols(col):
+    """Normalize a column spec (str | list | None) → list | None."""
+    if col is None:
+        return None
+    return col if isinstance(col, list) else [col]
 
 
-def _auto_y_label(y, agg_steps):
-    """Build y-axis label with mathtext subscripts: mean_scope(mean_difficulty(y))."""
-    if not agg_steps:
-        return y.replace("_", " ")
-    label = _m(y)
-    for step in reversed(agg_steps):
-        fn  = step["fn"]
-        col = step["col"]
-        rng = step.get("range")
-        core = r"\underset{" + _m(col) + r"}{" + _m(fn) + r"}(" + label + ")"
-        label = core if not rng else core + f"[{rng[0]}-{rng[1]}]"
-    return "$" + label + "$"
+def _group_vals(df, cols):
+    """Unique scalar or tuple values for a list of columns, sorted."""
+    if len(cols) == 1:
+        return _sorted_vals(df[cols[0]].unique())
+    return _sorted_vals([tuple(r) for r in df[cols].drop_duplicates().values])
 
 
-def _auto_title(cfg, agg_steps):
-    y_label = _auto_y_label(cfg.get("y", "mma_kps_mean"), agg_steps)
-    x_col   = cfg.get("x")
-    lines_col = cfg.get("lines")
-    x_label = x_col.replace("_", " ") if x_col else (lines_col.replace("_", " ") if lines_col else "")
-    agg     = cfg.get("select", {})
-    parts   = []
-    for k, spec in agg.items():
+def _filter_group(df, cols, val):
+    """Filter df to rows where cols == val (scalar or tuple)."""
+    if not isinstance(val, tuple):
+        return df[df[cols[0]] == val]
+    mask = pd.Series(True, index=df.index)
+    for c, v in zip(cols, val):
+        mask &= df[c] == v
+    return df[mask]
+
+
+def _fmt_val(val):
+    """Human-readable label for a scalar or composite (tuple) value."""
+    if isinstance(val, tuple):
+        return " / ".join(str(v) for v in val)
+    return str(val)
+
+
+def _tick_label(val):
+    """Tick label: multi-column values on separate lines for readability."""
+    if isinstance(val, tuple):
+        return "\n".join(str(v) for v in val)
+    return str(val)
+
+
+def _cols_label(cols):
+    return " / ".join(c.replace("_", " ") for c in cols)
+
+
+_LINESTYLES = ["-", "--", "-.", ":"]
+
+
+def _coordinated_colors(df, cols, combo_color, tag_color):
+    """Color by leftmost column; shade variations for subsequent columns."""
+    if len(cols) == 1:
+        vals = _group_vals(df, cols)
+        if cols == ["combination"]:
+            return {v: combo_color.get(v) for v in vals}
+        if cols == ["tag"]:
+            return {v: tag_color.get(v) for v in vals}
+        return dict(zip(vals, _distinct_colors(len(vals))))
+    primary_vals = _sorted_vals(df[cols[0]].unique())
+    if cols[0] == "combination":
+        base_colors = {pv: combo_color.get(pv) for pv in primary_vals}
+    elif cols[0] == "tag":
+        base_colors = {pv: tag_color.get(pv) for pv in primary_vals}
+    else:
+        base_colors = dict(zip(primary_vals, _distinct_colors(len(primary_vals))))
+    result = {}
+    for pv in primary_vals:
+        sub = df[df[cols[0]] == pv]
+        rest = cols[1:]
+        if len(rest) == 1:
+            sec_vals = _sorted_vals(sub[rest[0]].unique())
+        else:
+            sec_vals = _sorted_vals([tuple(r) for r in sub[rest].drop_duplicates().values])
+        n = len(sec_vals)
+        base = base_colors[pv] or (0.5, 0.5, 0.5)
+        for i, sv in enumerate(sec_vals):
+            shift = 0.18 - 0.36 * (i / max(n - 1, 1))
+            shade = tuple(min(1.0, max(0.0, c + shift)) for c in base)
+            key = (pv, sv) if len(cols) == 2 else (pv,) + (sv if isinstance(sv, tuple) else (sv,))
+            result[key] = shade
+    return result
+
+
+def _linestyles_for(all_vals, cols):
+    """Vary linestyle by secondary column within each primary group."""
+    if len(cols) <= 1:
+        return {v: "-" for v in all_vals}
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for v in all_vals:
+        groups[v[0]].append(v)
+    result = {}
+    for group in groups.values():
+        for i, lv in enumerate(group):
+            result[lv] = _LINESTYLES[i % len(_LINESTYLES)]
+    return result
+
+
+def _bar_positions(x_vals, x_cols, gap=0.6):
+    """y-positions with an extra gap between primary groups when multi-column."""
+    if len(x_cols) <= 1:
+        return list(range(len(x_vals)))
+    positions = []
+    pos = 0.0
+    prev_primary = None
+    for v in x_vals:
+        primary = v[0]
+        if prev_primary is not None and primary != prev_primary:
+            pos += gap
+        positions.append(pos)
+        pos += 1.0
+        prev_primary = primary
+    return positions
+
+
+
+
+def _auto_title(cfg):
+    y       = cfg.get("y", "mma_kps_mean")
+    x_cols  = _as_cols(cfg.get("x"))
+    l_cols  = _as_cols(cfg.get("lines"))
+    x_label = _cols_label(x_cols) if x_cols else (_cols_label(l_cols) if l_cols else "")
+    return f"{y.replace('_', ' ')} vs {x_label}"
+
+
+def _info_str(cfg, agg_steps):
+    select = cfg.get("select", {})
+    if not select:
+        return "(no filters)"
+    lines = []
+    for col, spec in select.items():
         if not isinstance(spec, dict):
             spec = {"values": spec}
-        v = spec.get("values")
-        if v is None:
-            continue
-        parts.append(f"{k}=[{','.join(str(i) for i in v)}]" if isinstance(v, list) else f"{k}={v}")
-    title = f"{y_label} vs {x_label}"
-    if parts:
-        title += "  (" + ", ".join(parts) + ")"
-    return title
+        parts = []
+        v  = spec.get("values")
+        fn = spec.get("fn")
+        rng = spec.get("range")
+        if v is not None:
+            if isinstance(v, (list, np.ndarray)):
+                parts.append(f"[{', '.join(str(x) for x in v)}]")
+            else:
+                parts.append(str(v))
+        if fn is not None:
+            parts.append(f"fn={fn}" + (f" range={rng}" if rng else ""))
+        lines.append(f"  {col}: {'  |  '.join(parts)}")
+    return "select\n" + "\n".join(lines)
 
 
 def _apply_fn(values, fn):
@@ -310,9 +422,9 @@ def _collapse(df, y_col, agg_steps):
 
 
 def make_plot(cfg, df, combo_color, tag_color):
-    x_col        = cfg.get("x")
-    bar_mode     = cfg.get("bar", False)
-    lines_col    = cfg.get("lines")
+    x_cols       = _as_cols(cfg.get("x"))
+    lines_cols   = _as_cols(cfg.get("lines"))
+    bar_mode     = lines_cols is None
     subplots_col = cfg.get("subplots")
     y            = cfg.get("y", "mma_kps_mean")
     select       = cfg.get("select", {})
@@ -341,9 +453,9 @@ def make_plot(cfg, df, combo_color, tag_color):
             agg_steps.append(step)
 
     # ── Auto-generate labels (all overridable) ────────────────────────────────
-    title   = cfg.get("title",   _auto_title(cfg, agg_steps))
-    x_label = cfg.get("x_label", x_col.replace("_", " ") if x_col else (lines_col.replace("_", " ") if lines_col else ""))
-    y_label = cfg.get("y_label", _auto_y_label(y, agg_steps))
+    title   = cfg.get("title",   _auto_title(cfg))
+    x_label = cfg.get("x_label", _cols_label(x_cols) if x_cols else (_cols_label(lines_cols) if lines_cols else ""))
+    y_label = cfg.get("y_label", y.replace("_", " "))
 
     if dfs.empty:
         print(f"[{title}] No data after filter — skipping plot.")
@@ -368,21 +480,35 @@ def make_plot(cfg, df, combo_color, tag_color):
     set_fig_title(fig, title)
     fig.suptitle(title, fontweight="bold")
 
-    # ── Color assignment ──────────────────────────────────────────────────────
-    if lines_col is not None:
-        all_line_vals = _sorted_vals(dfs[lines_col].unique())
-        if lines_col == "combination":
-            line_color = {v: combo_color.get(v) for v in all_line_vals}
-        elif lines_col == "tag":
-            line_color = {v: tag_color.get(v) for v in all_line_vals}
-        else:
-            line_color = dict(zip(all_line_vals, _distinct_colors(len(all_line_vals))))
-    else:
-        all_line_vals = [None]
-        line_color    = {None: "#1f77b4"}
+    # ── Toggleable info overlay ───────────────────────────────────────────────
+    info_box = fig.text(0.5, 0.5, _info_str(cfg, agg_steps),
+                        ha="center", va="center", fontsize=9,
+                        fontfamily="monospace", visible=False, zorder=10,
+                        bbox=dict(boxstyle="round,pad=0.7", facecolor="lightyellow",
+                                  edgecolor="#888888", alpha=0.95),
+                        transform=fig.transFigure)
+    info_toggle = fig.text(0.005, 0.995, "ⓘ", ha="left", va="top",
+                           fontsize=11, color="#aaaaaa", picker=True,
+                           transform=fig.transFigure)
 
-    line_artists:   dict = {v: [] for v in all_line_vals}
-    bar_containers: dict = {v: [] for v in all_line_vals}
+    def _on_info_pick(event):
+        if event.artist is not info_toggle:
+            return
+        vis = not info_box.get_visible()
+        info_box.set_visible(vis)
+        info_toggle.set_color("black" if vis else "#aaaaaa")
+        fig.canvas.draw()
+
+    fig.canvas.mpl_connect("pick_event", _on_info_pick)
+
+    # ── Color assignment ──────────────────────────────────────────────────────
+    if bar_mode:
+        x_color = _coordinated_colors(dfs, x_cols, combo_color, tag_color)
+    else:
+        all_line_vals = _group_vals(dfs, lines_cols)
+        line_color    = _coordinated_colors(dfs, lines_cols, combo_color, tag_color)
+        line_style    = _linestyles_for(all_line_vals, lines_cols)
+        line_artists: dict = {v: [] for v in all_line_vals}
 
     agg_cols = [s["col"] for s in agg_steps]
 
@@ -398,44 +524,33 @@ def make_plot(cfg, df, combo_color, tag_color):
             ax.set_title(subplot_label, fontweight="bold")
 
         if bar_mode:
-            x_vals    = _sorted_vals(panel_df[x_col].unique())
-            n_groups  = len(x_vals)
-            n_bars    = len(all_line_vals)
-            ungrouped = lines_col is None
-            height    = 0.97 if ungrouped else 0.97 / max(n_bars, 1)
-            offsets   = [0] * n_bars if ungrouped else [(i - (n_bars - 1) / 2) * height for i in range(n_bars)]
-
-            for bar_idx, line_val in enumerate(all_line_vals):
-                line_df = panel_df if line_val is None else panel_df[panel_df[lines_col] == line_val]
-                bar_vals = []
-                for xv in x_vals:
-                    group_df = line_df[line_df[x_col] == xv]
-                    if group_df.empty:
-                        bar_vals.append(float("nan"))
-                    elif agg_steps:
-                        keep = [c for c in [y] + agg_cols if c in group_df.columns]
-                        bar_vals.append(_collapse(group_df[keep], y, agg_steps))
-                    else:
-                        bar_vals.append(float(group_df[y].mean()))
-                positions = [i + offsets[bar_idx] for i in range(n_groups)]
-                container = ax.barh(positions, bar_vals, height=height,
-                                    color=line_color.get(line_val),
-                                    label=str(line_val) if line_val is not None else None)
-                bar_containers[line_val].append(container)
-
-            ax.set_yticks(list(range(n_groups)))
-            ax.set_yticklabels([str(v) for v in x_vals])
+            x_vals   = _group_vals(panel_df, x_cols)
+            bar_vals = []
+            for xv in x_vals:
+                group_df = _filter_group(panel_df, x_cols, xv)
+                if group_df.empty:
+                    bar_vals.append(float("nan"))
+                elif agg_steps:
+                    keep = [c for c in [y] + agg_cols if c in group_df.columns]
+                    bar_vals.append(_collapse(group_df[keep], y, agg_steps))
+                else:
+                    bar_vals.append(float(group_df[y].mean()))
+            colors    = [x_color.get(xv) for xv in x_vals]
+            positions = _bar_positions(x_vals, x_cols)
+            ax.barh(positions, bar_vals, height=0.97, color=colors)
+            ax.set_yticks(positions)
+            ax.set_yticklabels([_tick_label(v) for v in x_vals])
         else:
-            x_vals = _sorted_vals(panel_df[x_col].unique())
+            x_vals = _group_vals(panel_df, x_cols)
 
             for line_val in all_line_vals:
-                line_df = panel_df if line_val is None else panel_df[panel_df[lines_col] == line_val]
+                line_df = panel_df if line_val is None else _filter_group(panel_df, lines_cols, line_val)
                 if line_df.empty:
                     continue
 
                 y_vals = []
                 for xv in x_vals:
-                    group_df = line_df[line_df[x_col] == xv]
+                    group_df = _filter_group(line_df, x_cols, xv)
                     if group_df.empty:
                         y_vals.append(float("nan"))
                         continue
@@ -447,17 +562,19 @@ def make_plot(cfg, df, combo_color, tag_color):
                         unique_vals = group_df[y].dropna().unique()
                         if len(unique_vals) > 1:
                             print(f"[{title}] Warning: {len(group_df)} rows with differing "
-                                  f"'{y}' for {lines_col}={line_val!r} x={xv!r} — "
+                                  f"'{y}' for {x_cols}={_fmt_val(xv)!r} lines={_fmt_val(line_val)!r} — "
                                   f"taking mean. Add agg or filter to disambiguate.")
                         yv = float(group_df[y].mean())
                     y_vals.append(yv)
 
                 line_obj, = ax.plot(
-                    x_vals, y_vals,
+                    [_fmt_val(v) if isinstance(v, tuple) else v for v in x_vals],
+                    y_vals,
                     color=line_color.get(line_val),
+                    linestyle=line_style[line_val],
                     linewidth=1.8,
                     marker="o", markersize=3,
-                    label=str(line_val) if line_val is not None else None,
+                    label=_fmt_val(line_val) if line_val is not None else None,
                 )
                 line_artists[line_val].append(line_obj)
 
@@ -475,29 +592,16 @@ def make_plot(cfg, df, combo_color, tag_color):
         axes[r][c].set_visible(False)
 
     # ── Legend ────────────────────────────────────────────────────────────────
-    if bar_mode:
-        present_bars = {v: cs for v, cs in bar_containers.items() if cs}
-        if present_bars:
-            proxy_patches = [cs[0] for cs in present_bars.values()]
-            labels        = [str(v) for v in present_bars.keys()]
-            leg = fig.legend(proxy_patches, labels,
-                             loc="outside right upper",
-                             fontsize=8,
-                             title=lines_col,
-                             title_fontsize=9,
-                             framealpha=0.9)
-            patched = {lp: cs for lp, cs in zip(leg.get_patches(), present_bars.values())}
-            make_interactive_legend(fig, leg, patched)
-    else:
+    if not bar_mode:
         present = {v: arts for v, arts in line_artists.items() if arts}
         if present:
             proxy_lines = [arts[0] for arts in present.values()]
-            labels      = list(present.keys())
+            labels      = [_fmt_val(v) for v in present.keys()]
             leg = fig.legend(
                 proxy_lines, labels,
                 loc="outside right upper",
                 fontsize=8,
-                title=lines_col,
+                title=_cols_label(lines_cols) if lines_cols else "",
                 title_fontsize=9,
                 framealpha=0.9,
             )
