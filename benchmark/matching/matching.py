@@ -1,6 +1,8 @@
 from ..feature import Feature
 from sklearn.metrics import average_precision_score
+from scipy.spatial.distance import cdist
 from typing import Iterator
+import heapq
 import cv2
 import numpy as np
 from beartype import beartype
@@ -145,22 +147,20 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
     num_scores_for_distinctivess = min(NUM_SCORES_DISTINCTIVNESS, num_best_matches)
 
 
-    best_rel_feature_idxs = np.empty((num_ref_features, num_best_matches), dtype=np.int64)
-    best_similarity_scores = np.empty((num_ref_features, num_best_matches), dtype=similarity_score_matrix.dtype)
+    row_idx = np.arange(num_ref_features)[:, None]  # (n_ref, 1) for advanced indexing
 
-    for ref_feature_idx in range(num_ref_features):
-        similarity_scores = similarity_score_matrix[ref_feature_idx]
-        if similarity_higher_is_better:
-            best_matches_idxs = np.argpartition(-similarity_scores, num_best_matches-1)[:num_best_matches]      # NUM_BEST_MATCHES largest (unordered)
-            best_matches_idx_order = np.argsort(-similarity_scores[best_matches_idxs])             # sort those descending
-        else:
-            best_matches_idxs = np.argpartition(similarity_scores, num_best_matches-1)[:num_best_matches]       # NUMB_BEST_MATCHES smallest (unordered)
-            best_matches_idx_order = np.argsort(similarity_scores[best_matches_idxs])              # sort those ascending
+    if similarity_higher_is_better:
+        part_idxs = np.argpartition(-similarity_score_matrix, num_best_matches - 1, axis=1)[:, :num_best_matches]
+        part_scores = similarity_score_matrix[row_idx, part_idxs]
+        order = np.argsort(-part_scores, axis=1)
+    else:
+        part_idxs = np.argpartition(similarity_score_matrix, num_best_matches - 1, axis=1)[:, :num_best_matches]
+        part_scores = similarity_score_matrix[row_idx, part_idxs]
+        order = np.argsort(part_scores, axis=1)
 
-        best_matches_ordered = best_matches_idxs[best_matches_idx_order]
-        best_rel_feature_idxs[ref_feature_idx] = best_matches_ordered
-        best_similarity_scores[ref_feature_idx] = similarity_scores[best_matches_ordered]
-    
+    best_rel_feature_idxs = part_idxs[row_idx, order]        # (n_ref, k)
+    best_similarity_scores = part_scores[row_idx, order]     # (n_ref, k)
+
     if use_mnn:
         # Forward: ref → best rel
         forward_best = best_rel_feature_idxs[:, 0]
@@ -172,13 +172,10 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
             reverse_best = np.argmin(similarity_score_matrix, axis=0)
 
         # Keep only mutual matches
-        valid_refs = []
-        for ref_idx, rel_idx in enumerate(forward_best):
-            if reverse_best[rel_idx] == ref_idx:
-                valid_refs.append(ref_idx)
+        valid_refs = np.where(reverse_best[forward_best] == np.arange(num_ref_features))[0]
 
         # Filter arrays
-        valid_refs = np.array(valid_refs, dtype=np.int64)
+        valid_refs = valid_refs.astype(np.int64)
 
         best_rel_feature_idxs = best_rel_feature_idxs[valid_refs]
         best_similarity_scores = best_similarity_scores[valid_refs]
@@ -186,101 +183,55 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
 
         num_ref_features = len(reference_features)
 
-    pairs = [(ref_feature_idx, best_rel_feature_idxs[ref_feature_idx][best_matches_idx], best_similarity_scores[ref_feature_idx][best_matches_idx]) 
-             for ref_feature_idx in range(num_ref_features) 
-             for best_matches_idx in range(num_best_matches)]
-    
-    pairs_sorted = sorted(pairs, key= lambda x: -x[2] if similarity_higher_is_better else x[2])
+    # Precompute softmax over top-k scores for all ref features at once
+    if calculate_match_properties:
+        s_block = best_similarity_scores[:, :num_scores_for_distinctivess].astype(np.float64)
+        shifted = -(s_block - s_block.min(axis=1, keepdims=True)) / 10.0
+        exps = np.exp(shifted)
+        softmax_matrix = exps / exps.sum(axis=1, keepdims=True)  # (n_ref, num_scores_for_dist)
+
+    # Convert to Python lists for zero-overhead element access in the hot loop
+    best_rel_py = best_rel_feature_idxs.tolist()
+    best_scores_py = best_similarity_scores.tolist()
+
+    # Heap-based greedy matching: start with each ref feature's rank-0 candidate.
+    # When a candidate's rel feature is already taken, push rank+1 for that ref.
+    # This visits only the pairs actually needed regardless of NUM_BEST_MATCHES.
+    heap: list = []
+    sign = -1 if similarity_higher_is_better else 1
+    for ref_idx in range(num_ref_features):
+        heapq.heappush(heap, (sign * best_scores_py[ref_idx][0], ref_idx, best_rel_py[ref_idx][0], 0))
 
     matched_reference_feature_idxs = set()
     matched_related_feature_idxs = set()
     matches: list[Match] = []
 
-    for ref_feature_idx, rel_feature_idx, similarity_score in pairs_sorted:
-        if ref_feature_idx in matched_reference_feature_idxs or rel_feature_idx in matched_related_feature_idxs:
+    while heap:
+        key, ref_feature_idx, rel_feature_idx, rank_in_row = heapq.heappop(heap)
+
+        if rel_feature_idx in matched_related_feature_idxs:
+            next_rank = rank_in_row + 1
+            if next_rank < num_best_matches:
+                heapq.heappush(heap, (sign * best_scores_py[ref_feature_idx][next_rank], ref_feature_idx, best_rel_py[ref_feature_idx][next_rank], next_rank))
             continue
+
         matched_reference_feature_idxs.add(ref_feature_idx)
         matched_related_feature_idxs.add(rel_feature_idx)
         match = Match(reference_features[ref_feature_idx], related_features[rel_feature_idx])
         matches.append(match)
-        #Only when used as matching approach and only works for distance, no higher_is_better here
+
         if calculate_match_properties:
-            match.match_properties["distance"] = float(similarity_score)
-            match.match_properties["average_response"] = (match.reference_feature.keypoint.response + match.related_feature.keypoint.response)/2
-
-            scores = best_similarity_scores[ref_feature_idx][:num_scores_for_distinctivess].astype(np.float64)
-
-
-            # BAD LINEAR
-            # scores = scores[scores != similarity_score]
-            # N = len(scores)
-            # pref = (np.max(scores) - scores)
-            # pref = np.clip(pref, 0.0, None)
-            # if pref.sum() == 0:
-            #     pref = np.ones_like(scores)
-            # pref /= pref.sum()  # normalize to sum=1
-
-            # # Fair weights: mean = 1
-            # strength = 1  # adjust emphasis (0 = uniform, 1 = strong)
-            # w_fair = 1.0 + strength * N * (pref - 1.0 / N)
-
-            # # Weighted average with fair weights
-            # fair_avg = np.mean(w_fair * scores)
-            # distinctiveness = fair_avg/(similarity_score+1e-12)
-            # match.match_properties["distinctiveness"] = distinctiveness
-
-
-
-            idxs = np.where(scores == similarity_score)[0]
-            if (idxs.size > 0):
-                similarity_score_rank = idxs[0]
-
-                #CA method
-                #distinctiveness = (1/(scores[similarity_score_rank]+1e-12))/np.sum(1/(scores+1e-12))
-
-
-                # #SOFTMAX
-                temperature = 10
-                shifted = -(scores - np.min(scores)) / temperature
-                exps = np.exp(shifted)
-                distinctiveness = exps[similarity_score_rank]/np.sum(exps)
-
-                #LOWES RATIO
-                # if (similarity_score_rank == 0):
-                #     distinctiveness = scores[1]/(scores[0]+1e-12)
-                # else:
-                #     distinctiveness = scores[0]/scores[similarity_score_rank]
-
+            match.match_properties["distance"] = best_scores_py[ref_feature_idx][rank_in_row]
+            match.match_properties["average_response"] = (match.reference_feature.keypoint.response + match.related_feature.keypoint.response) / 2.0
+            if rank_in_row < num_scores_for_distinctivess:
+                match.match_properties["distinctiveness"] = float(softmax_matrix[ref_feature_idx, rank_in_row])
+                match.match_properties["match rank"] = rank_in_row
             else:
-                #match not within top num_scores_for_distinctiveness matches
-                distinctiveness = 0
-            match.match_properties["distinctiveness"] = distinctiveness
-    
-
-            #HÅVARD DIDNT COOK ON THIS ONE
-            # scores = scores[scores != similarity_score]
-            # eps = 1e-12
-            # temperature = 10
-            # # Softmax weights over negative distances with temperature.
-            # # Shift by min(scores) to keep exps in a safe numeric range.
-            # shifted = -(scores - np.min(scores)) / temperature
-            # exps = np.exp(shifted)
-            # w = exps / (np.sum(exps) + eps)
-            # #print(w)
-
-            # weighted_alt = float(np.sum(w * scores))
-            # #print(w*scores)
-
-            # # Distinctiveness high when alternatives are (on average) farther than the chosen match.
-            # # Guard against near-zero chosen distance.
-            # distinctiveness = float(weighted_alt / (float(similarity_score) + eps))
-            # #print(distinctiveness)
-            # match.match_properties["distinctiveness"] = distinctiveness
-
-            if len(idxs) != 0:
-                match.match_properties["match rank"] = idxs[0]
-            else:
+                match.match_properties["distinctiveness"] = 0.0
                 match.match_properties["match rank"] = NUM_BEST_MATCHES
+
+        if len(matches) == num_ref_features:
+            break
 
     return matches
 
@@ -466,8 +417,7 @@ def greedy_maximum_bipartite_matching_descriptor_distance(reference_features: li
 
     # Compute full distance matrix once
     if distance_type == cv2.NORM_L2:
-        differences = reference_feature_descriptions[:, None, :] - related_feature_descriptions[None, :, :]
-        distance_matrix = np.linalg.norm(differences, axis=2)
+        distance_matrix = cdist(reference_feature_descriptions, related_feature_descriptions, metric='euclidean')
     elif distance_type == cv2.NORM_HAMMING:
         xor = np.bitwise_xor(reference_feature_descriptions[:, None, :], related_feature_descriptions[None, :, :])
         distance_matrix = np.unpackbits(xor, axis=2).sum(axis=2)
