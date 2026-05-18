@@ -43,16 +43,16 @@ if APPLY_NOISE:
 
 features2d = {
     # "SIFT":      cv2.SIFT_create(),
-    # "ORB_default":       cv2.ORB_create(nfeatures=5000),
+    "ORB_default":       cv2.ORB_create(nfeatures=5000),
     # "BRISK":     cv2.BRISK_create(),
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
     "SIFT":      cv2.SIFT_create(contrastThreshold = 0.001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
-    # "BRISK":     cv2.BRISK_create(thresh = 5),
-    # "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
-    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
+    "BRISK":     cv2.BRISK_create(thresh = 5),
+    "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
+    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
 }
 
 ONLY_SELF = True #Forces no mixing
@@ -183,7 +183,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
                     ratio_possible_found = total_correct_matches / total_possible_correct_matches 
 
                     # --- Rank-based stats ---
-                    max_rank = NUM_BEST_MATCHES
+                    max_rank = max_features
                     match_rank_totals = np.bincount(match_rank, minlength=max_rank)
                     match_rank_correct = np.bincount(match_rank[correct_mask], minlength=max_rank)
 
@@ -428,15 +428,15 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
 
                     combined_results = [results_illumination, results_viewpoint]
 
-                ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
-                for results in combined_results:
-                    for metric, result in results.items():
-                        print(metric, result)
-                    df = pd.DataFrame(results, index=[0])
-                    if not os.path.isfile("results/" +FILE_NAME):
-                        df.to_csv("results/" + FILE_NAME, index = False, header = True, mode='a') # Create header if file does not exist
-                    else:
-                        df.to_csv("results/" + FILE_NAME, index = False, header = False, mode='a') # If exists skip header
+                    ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
+                    for results in combined_results:
+                        # for metric, result in results.items():
+                        #     print(metric, result)
+                        df = pd.DataFrame(results, index=[0])
+                        if not os.path.isfile("results/" +FILE_NAME):
+                            df.to_csv("results/" + FILE_NAME, index = False, header = True, mode='a') # Create header if file does not exist
+                        else:
+                            df.to_csv("results/" + FILE_NAME, index = False, header = False, mode='a') # If exists skip header
 
 
 

@@ -145,8 +145,7 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
         return []
 
     num_ref_features, num_rel_features = similarity_score_matrix.shape
-    num_best_matches = min(NUM_BEST_MATCHES, num_rel_features, num_ref_features)
-    num_scores_for_distinctivess = min(NUM_SCORES_DISTINCTIVNESS, num_best_matches)
+    num_best_matches = min(num_rel_features, num_ref_features)
 
 
     row_idx = np.arange(num_ref_features)[:, None]  # (n_ref, 1) for advanced indexing
@@ -187,7 +186,7 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
 
     # Precompute softmax over top-k scores for all ref features at once
     if calculate_match_properties:
-        s_block = best_similarity_scores[:, :num_scores_for_distinctivess].astype(np.float64)
+        s_block = best_similarity_scores[:, :num_best_matches].astype(np.float64)
         shifted = -(s_block - s_block.min(axis=1, keepdims=True)) / 10.0
         exps = np.exp(shifted)
         softmax_matrix = exps / exps.sum(axis=1, keepdims=True)  # (n_ref, num_scores_for_dist)
@@ -225,12 +224,12 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
         if calculate_match_properties:
             match.match_properties["distance"] = best_scores_py[ref_feature_idx][rank_in_row]
             match.match_properties["average_response"] = (match.reference_feature.keypoint.response + match.related_feature.keypoint.response) / 2.0
-            if rank_in_row < num_scores_for_distinctivess:
+            if rank_in_row < num_best_matches:
                 match.match_properties["distinctiveness"] = float(softmax_matrix[ref_feature_idx, rank_in_row])
                 match.match_properties["match rank"] = rank_in_row
             else:
                 match.match_properties["distinctiveness"] = 0.0
-                match.match_properties["match rank"] = NUM_BEST_MATCHES
+                match.match_properties["match rank"] = num_best_matches
 
         if len(matches) == num_ref_features:
             break

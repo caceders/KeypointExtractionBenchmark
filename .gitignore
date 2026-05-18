@@ -7,3 +7,5 @@ __pycache__/
 KITTI/data_odometry_gray/
 KITTI/results/
 results/
+mma_results/
+results_old

@@ -11,26 +11,36 @@ CSV_PATH = "results/max_keypoint_threshold.csv"
 PLOTS = [
 
     {
-        "y":        "Matching distance mAP illumination",
-        "x":        "max features",
+        "y":        "Matching distance mAP",
+        "x":        "max_keypoints",
         "lines": ["method", "tag", "initial_sigma"],
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "threshold": {"values": np.arange(0,6), "fn": "auc"},
+            "distance_threshold": {"values": np.arange(0,6), "fn": "auc"},
+            
+        },
+    },
+
+        {
+        "y":        "Matching distance mAP",
+        "x":        "distance_threshold",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
             
         },
     },
 
     {
-        "y":        "total num keypoints",
-        "x":        "max features",
+        "y":        "avg_num_keypoints",
+        "x":        "max_keypoints",
         "lines": ["method", "tag", "initial_sigma"],
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "threshold": {"values": np.arange(0,6), "fn": "auc"},
-
+            "distance_threshold": {"values": np.arange(0,6), "fn": "auc"},
             
         },
     },

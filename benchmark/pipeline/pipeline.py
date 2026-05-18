@@ -122,6 +122,10 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
         reference_features = image_feature_sequence.reference_image_features
 
         ref_pts = np.array([f.keypoint.pt for f in reference_features], dtype=np.float64)  # (n_ref, 2)
+        if len(ref_pts) == 0:
+                set_numbers_of_possible_correct_matches.append([0]*5)
+                set_repeatabilities.append([0.0]*5)
+                continue
         if not USE_DISTANCE:
             ref_radii = np.array([f.keypoint.size / 2 for f in reference_features], dtype=np.float64)  # (n_ref,)
 

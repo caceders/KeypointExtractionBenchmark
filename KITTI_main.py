@@ -383,8 +383,8 @@ def main():
                             }
 
                             # ---- print results immediately ----
-                            for k, v in results.items():
-                                print(f"    {k}: {v}")
+                            # for k, v in results.items():
+                            #     print(f"    {k}: {v}")
 
                             # ---- append to CSV safely ----
                             df = pd.DataFrame(results, index=[0])

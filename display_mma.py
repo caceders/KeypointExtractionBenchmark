@@ -6,14 +6,24 @@ import matplotlib.pyplot as plt
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "mma_results/keypoint_threshold.csv"
+CSV_PATH = "mma_results/mnn_ratio_order_test.csv"
 
 
 PLOTS = [
 
         {
+        "y":        "mma_matches_mean",
+        "x":        "tag",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "distance_threshold": {"values": np.arange(0,6), "fn": "auc"},
+            "use_mnn" : True,
+        },
+    },
+
+        {
         "y":        "hom_acc_mean",
-        "x":        "threshold",
+        "x":        "distance_threshold",
         "lines": ["method", "tag", "initial_sigma"],
         "subplots": "downsample_level",
         "select": {
@@ -22,22 +32,23 @@ PLOTS = [
             
         },
     },
+    
 
     {
         "y":        "mma_matches_mean",
-        "x":        "max_features",
+        "x":        "max_keypoints",
         "lines": ["method", "tag", "initial_sigma"],
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "threshold": {"values": np.arange(0,6), "fn": "auc"},
+            "distance_threshold": {"values": np.arange(0,6), "fn": "auc"},
             
         },
     },
 
         {
         "y":        "mma_matches_mean",
-        "x":        "threshold",
+        "x":        "distance_threshold",
         "lines": ["method", "tag", "initial_sigma"],
         "subplots": "downsample_level",
         "select": {
@@ -47,13 +58,13 @@ PLOTS = [
     },
 
     {
-        "y":        "avg_num_features",
-        "x":        "max_features",
+        "y":        "avg_num_matches",
+        "x":        "max_keypoints",
         "lines": ["method", "tag", "initial_sigma"],
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "threshold": {"values": np.arange(0,6), "fn": "auc"},
+            "distance_threshold": {"values": np.arange(0,6), "fn": "auc"},
             
         },
     },
@@ -69,7 +80,7 @@ PLOTS = [
 #   y        — CSV column to use as the y-value, e.g.:
 #                 "mma_kps_mean"    "mma_matches_mean"
 #                 "rep_mean"        "hom_acc_mean"
-#                 "avg_num_features"  "avg_num_matches"  ...
+#                 "avg_num_keypoints"  "avg_num_matches"  ...
 #   lines    — CSV column(s) whose unique values become separate lines (omit → bar chart)
 #   subplots — CSV column that creates subplot panels (default: None → one panel)
 #
@@ -91,11 +102,11 @@ PLOTS = [
 #   subplot_label — title for each subplot panel
 #
 # ── CSV column reference ──────────────────────────────────────────────────────
-#   Identity:        method, tag, downsample_level, max_features,
-#                    ratio_threshold, ransac_reproj
-#   Summaries:       avg_num_features, frac_below_max_features, avg_num_matches
-#   Dimensions:      scope, difficulty, threshold
-#   Per-metric stats (wide format — one row per scope/difficulty/threshold):
+#   Identity:        method, tag, downsample_level, max_keypoints,
+#                    ratio_distance_threshold, ransac_reproj
+#   Summaries:       avg_num_keypoints, frac_below_max_keypoints, avg_num_matches
+#   Dimensions:      scope, difficulty, distance_threshold
+#   Per-metric stats (wide format — one row per scope/difficulty/distance_threshold):
 #     mma_kps_mean,     mma_kps_std,     mma_kps_min,     mma_kps_max       — correct / n_ref_keypoints
 #     mma_matches_mean, mma_matches_std, mma_matches_min, mma_matches_max   — correct / n_putative_matches
 #     rep_mean,         rep_std,         rep_min,         rep_max

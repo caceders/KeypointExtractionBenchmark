@@ -37,10 +37,10 @@ features2d = {
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
     "SIFT":      cv2.SIFT_create(contrastThreshold = 0.001),
-    # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
-    # "BRISK":     cv2.BRISK_create(thresh = 5),
-    # "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
-    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
+    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
+    "BRISK":     cv2.BRISK_create(thresh = 5),
+    "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
+    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
 }
 
 ONLY_SELF             = True
@@ -55,14 +55,15 @@ DISTANCE_THRESHOLDS = list(range(1, 31))
 # Each parameter is a list; all combinations are benchmarked and stored in the CSV.
 MAX_KEYPOINTS    = [500]
 USE_MNN         = [True]    # mutual nearest-neighbour filter on/off
+RATIO_FIRST = False
 RATIO_THRESHOLDS = [0.8]     # Lowe's ratio test threshold
 RANSAC_THRESHOLDS   = [3.0]     # RANSAC reprojection error threshold (px)
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0]
+DOWNSAMPLE_LEVELS             = [0,1]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
-INITIAL_SIGMAS                 = [0]
+INITIAL_SIGMAS                 = [0,2]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
@@ -374,12 +375,9 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                         k_nn    = min(2, n_rel)
                         knn_raw = bf.knnMatch(desc_ref, desc_rel, k=k_nn)
 
-                        RATIO_FIRST = False  # toggle this to switch ordering
-
                         for use_mnn in USE_MNN:
                             for ratio_th in RATIO_THRESHOLDS:
 
-                                # helper: ratio filter
                                 def apply_ratio(knn_pairs):
                                     if ratio_th is not None and k_nn >= 2:
                                         return [
@@ -389,25 +387,45 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                     else:
                                         return list(knn_pairs)
 
-                                # helper: MNN filter
                                 def apply_mnn(knn_pairs):
                                     if not use_mnn:
                                         return knn_pairs
 
-                                    nn21 = {m.queryIdx: m.trainIdx for m in bf.match(desc_rel, desc_ref)}
+                                    # Build NN maps from CURRENT candidate set
+                                    nn12 = {}  # queryIdx -> best trainIdx
+                                    nn21 = {}  # trainIdx -> best queryIdx
 
+                                    for pair in knn_pairs:
+                                        if len(pair) == 0:
+                                            continue
+                                        m = pair[0]
+
+                                        # forward NN
+                                        if m.queryIdx not in nn12 or m.distance < nn12[m.queryIdx][1]:
+                                            nn12[m.queryIdx] = (m.trainIdx, m.distance)
+
+                                        # reverse NN
+                                        if m.trainIdx not in nn21 or m.distance < nn21[m.trainIdx][1]:
+                                            nn21[m.trainIdx] = (m.queryIdx, m.distance)
+
+                                    # keep only mutual matches
                                     return [
                                         pair for pair in knn_pairs
-                                        if nn21.get(pair[0].trainIdx) == pair[0].queryIdx
+                                        if (
+                                            len(pair) > 0
+                                            and nn12.get(pair[0].queryIdx, (None,))[0] == pair[0].trainIdx
+                                            and nn21.get(pair[0].trainIdx, (None,))[0] == pair[0].queryIdx
+                                        )
                                     ]
 
-                                # ── Order switch ───────────────────────────────────────────────
+                                # ordering switch
                                 if RATIO_FIRST:
                                     knn_tmp = apply_ratio(knn_raw)
                                     knn_filtered = apply_mnn(knn_tmp)
                                 else:
                                     knn_tmp = apply_mnn(knn_raw)
                                     knn_filtered = apply_ratio(knn_tmp)
+
 
                                 # if not knn_ratio:
                                 #     for ransac_threshold in RANSAC_THRESHOLDS:
