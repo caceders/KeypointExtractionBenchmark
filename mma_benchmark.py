@@ -21,26 +21,26 @@ except ImportError:
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HPATCHES_PATH = r"hpatches-sequences-release"
-RESULTS_FILE  = "mma_results/BIG_TRIAL.csv"
+RESULTS_FILE  = "mma_results/mnn_ratio_order_test.csv"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
 # Label for this entire benchmark run. All combinations share this tag.
 # Use a different tag for each run you want to compare in display_mma.py.
-RUN_TAG = "default"
+RUN_TAG = "ratio_last"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
     # "SIFT":      cv2.SIFT_create(),
-    "ORB_default":       cv2.ORB_create(nfeatures=5000),
+    #"ORB_default":       cv2.ORB_create(nfeatures=5000),
     # "BRISK":     cv2.BRISK_create(),
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
     "SIFT":      cv2.SIFT_create(contrastThreshold = 0.001),
-    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
-    "BRISK":     cv2.BRISK_create(thresh = 5),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
+    # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
+    # "BRISK":     cv2.BRISK_create(thresh = 5),
+    # "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
 }
 
 ONLY_SELF             = True
@@ -53,16 +53,16 @@ DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
 # Each parameter is a list; all combinations are benchmarked and stored in the CSV.
-MAX_KEYPOINTS    = [250,500,1000]
-USE_MNN         = [False, True]    # mutual nearest-neighbour filter on/off
+MAX_KEYPOINTS    = [500]
+USE_MNN         = [True]    # mutual nearest-neighbour filter on/off
 RATIO_THRESHOLDS = [0.8]     # Lowe's ratio test threshold
 RANSAC_THRESHOLDS   = [3.0]     # RANSAC reprojection error threshold (px)
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0,1,2]
+DOWNSAMPLE_LEVELS             = [0]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
-INITIAL_SIGMAS                 = [0,1,2,3,5]
+INITIAL_SIGMAS                 = [0]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
@@ -374,36 +374,49 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                         k_nn    = min(2, n_rel)
                         knn_raw = bf.knnMatch(desc_ref, desc_rel, k=k_nn)
 
+                        RATIO_FIRST = False  # toggle this to switch ordering
+
                         for use_mnn in USE_MNN:
                             for ratio_th in RATIO_THRESHOLDS:
-                                # ── Ratio filtering FIRST (always applied) ─────────
-                                if ratio_th is not None and k_nn >= 2:
-                                    knn_ratio = [
-                                        pair for pair in knn_raw
-                                        if (len(pair) >= 2 and pair[0].distance < ratio_th * pair[1].distance)
-                                    ]
-                                else:
-                                    knn_ratio = list(knn_raw)
 
-                                if not knn_ratio:
-                                    for ransac_threshold in RANSAC_THRESHOLDS:
-                                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
-                                        raw_by_sweep[sk].append(
-                                            (seq_type, img_idx, zero_mma, zero_mma, rep, zero_hom)
-                                        )
-                                        match_cnt_by[sk].append(0)
-                                    continue
+                                # helper: ratio filter
+                                def apply_ratio(knn_pairs):
+                                    if ratio_th is not None and k_nn >= 2:
+                                        return [
+                                            pair for pair in knn_pairs
+                                            if (len(pair) >= 2 and pair[0].distance < ratio_th * pair[1].distance)
+                                        ]
+                                    else:
+                                        return list(knn_pairs)
 
-                                # ── Matcher-specific filtering (AFTER ratio) ────────
-                                if use_mnn:
+                                # helper: MNN filter
+                                def apply_mnn(knn_pairs):
+                                    if not use_mnn:
+                                        return knn_pairs
+
                                     nn21 = {m.queryIdx: m.trainIdx for m in bf.match(desc_rel, desc_ref)}
 
-                                    knn_filtered = [
-                                        pair for pair in knn_ratio
+                                    return [
+                                        pair for pair in knn_pairs
                                         if nn21.get(pair[0].trainIdx) == pair[0].queryIdx
                                     ]
+
+                                # ── Order switch ───────────────────────────────────────────────
+                                if RATIO_FIRST:
+                                    knn_tmp = apply_ratio(knn_raw)
+                                    knn_filtered = apply_mnn(knn_tmp)
                                 else:
-                                    knn_filtered = knn_ratio  # fallback
+                                    knn_tmp = apply_mnn(knn_raw)
+                                    knn_filtered = apply_ratio(knn_tmp)
+
+                                # if not knn_ratio:
+                                #     for ransac_threshold in RANSAC_THRESHOLDS:
+                                #         sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
+                                #         raw_by_sweep[sk].append(
+                                #             (seq_type, img_idx, zero_mma, zero_mma, rep, zero_hom)
+                                #         )
+                                #         match_cnt_by[sk].append(0)
+                                #     continue
 
                                 if not knn_filtered:
                                     for ransac_threshold in RANSAC_THRESHOLDS:
@@ -442,72 +455,20 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                 for ransac_threshold in RANSAC_THRESHOLDS:
                                     # ── Homography estimation ───────────────────────
                                     if can_ransac:
-                                        H_est, _  = cv2.findHomography(dst, src, cv2.RANSAC, ransac_threshold)  # rel → ref
-                                        H_est_2, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_threshold) # ref → rel
-
-                                        if H_est is not None and H_est_2 is not None:
-                                            # --- Try inversion safely ---
-                                            try:
-                                                H_inv = np.linalg.inv(H_est)
-
-                                                # Compare matrices (useful but not the main metric)
-                                                mat_diff = np.linalg.norm(H_inv - H_est_2)
-
-                                            except np.linalg.LinAlgError:
-                                                print("⚠️ H_est is singular, cannot invert")
-                                                H_inv = None
-                                                mat_diff = float('inf')
-
-                                            # --- Compute projected corners for BOTH methods ---
-                                            corners_est_inv = None
-                                            err_inv = None
-
-                                            if H_inv is not None:
-                                                corners_est_inv = np.array([
-                                                    _project(pt, H_inv) for pt in corners
-                                                ])
-                                                err_inv = float(np.mean(np.linalg.norm(
-                                                    corners_gt - corners_est_inv, axis=1
-                                                )))
-
-                                            # Non-inverting version (always safe if H_est_2 exists)
-                                            corners_est_direct = np.array([
-                                                _project(pt, H_est_2) for pt in corners
+                                        H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_threshold)
+                                        if H_est is not None:
+                                            corners_est = np.array([
+                                                _project(pt, H_est) for pt in corners
                                             ])
-                                            err_direct = float(np.mean(np.linalg.norm(
-                                                corners_gt - corners_est_direct, axis=1
+                                            mean_err = float(np.mean(np.linalg.norm(
+                                                corners_gt - corners_est, axis=1
                                             )))
-
-                                            # --- Print diagnostics ---
-                                            print("---- Homography Debug ----")
-                                            print(f"Matrix difference: {mat_diff:.6f}")
-
-                                            if err_inv is not None:
-                                                print(f"Error (inverted):   {err_inv:.6f}")
-                                            else:
-                                                print("Error (inverted):   FAILED (singular)")
-
-                                            print(f"Error (non-invert): {err_direct:.6f}")
-
-                                            if err_inv is not None:
-                                                print(f"Error difference:   {abs(err_inv - err_direct):.6f}")
-
-                                            # Optional: conditioning insight
-                                            cond = np.linalg.cond(H_est)
-                                            print(f"Condition number:   {cond:.2e}")
-                                            print("--------------------------")
-
-                                            # --- Choose one to use (recommended: non-inverting) ---
-                                            mean_err = err_direct
                                             hom_acc = {
                                                 th: 1.0 if mean_err < th else 0.0
                                                 for th in DISTANCE_THRESHOLDS
                                             }
-
                                         else:
-                                            print("⚠️ Homography estimation failed (None)")
                                             hom_acc = zero_hom
-
                                     else:
                                         hom_acc = zero_hom
 
