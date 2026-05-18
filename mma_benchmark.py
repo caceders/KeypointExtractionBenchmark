@@ -31,7 +31,7 @@ RUN_TAG = "ratio_last"
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
     # "SIFT":      cv2.SIFT_create(),
-    #"ORB_default":       cv2.ORB_create(nfeatures=5000),
+    # "ORB_default":       cv2.ORB_create(nfeatures=5000),
     # "BRISK":     cv2.BRISK_create(),
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),

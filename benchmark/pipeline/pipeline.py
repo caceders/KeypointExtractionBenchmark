@@ -1,4 +1,5 @@
 from tqdm import tqdm
+from scipy.spatial.distance import cdist
 from benchmark.utils import calculate_overlap_one_circle_to_many, downsample, visualize_matches_with_scale_change, non_maximal_supression
 from benchmark.feature import Feature
 from benchmark.feature_extractor import FeatureExtractor
@@ -105,16 +106,25 @@ def find_all_features_for_dataset(feature_extractor: FeatureExtractor, dataset_i
 
 #@beartype
 def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homography_sequence: list[list[np.ndarray]]):
-    
-    set_numbers_of_possible_correct_matches= []
+
+    set_numbers_of_possible_correct_matches = []
     set_repeatabilities = []
+
+    _angles = np.linspace(0, 2 * np.pi, NUM_SAMPLE_POINTS_SCALE_CHANGE_ESTIMATION, endpoint=False)
+    _cos_a = np.cos(_angles)
+    _sin_a = np.sin(_angles)
+    EPS = 1e-12
+
     for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating and ranking all valid matches")):
 
         numbers_of_possible_correct_matches = []
         repeatabilities = []
-
         reference_features = image_feature_sequence.reference_image_features
-        
+
+        ref_pts = np.array([f.keypoint.pt for f in reference_features], dtype=np.float64)  # (n_ref, 2)
+        if not USE_DISTANCE:
+            ref_radii = np.array([f.keypoint.size / 2 for f in reference_features], dtype=np.float64)  # (n_ref,)
+
         for related_image_index, related_images_features in enumerate(image_feature_sequence.related_images_features):
 
             homography = dataset_homography_sequence[sequence_index][related_image_index]
@@ -124,54 +134,94 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
                 repeatabilities.append(0.0)
                 continue
 
-            # transform position 
-            related_features_position_transformed = np.array([feature.get_pt_after_homography_transform(homography) for feature in related_images_features])
+            n_rel = len(related_images_features)
 
-            # transform sizes
-            related_features_size_transformed = np.array([feature.get_size_after_homography_transform(homography) for feature in related_images_features])
-            closeness_matrix = []
-            for reference_feature in reference_features:
-                
-                # Check distances
-                distances = np.linalg.norm(related_features_position_transformed - reference_feature.pt, axis=1)
-                
-                if USE_DISTANCE:
-                    closeness_matrix.append(distances)
-                    mask = (distances <= DISTANCE_THRESHOLD)
-                else:
-                    overlaps = calculate_overlap_one_circle_to_many(reference_feature.keypoint.size, related_features_size_transformed, distances)
-                    closeness_matrix.append(overlaps)
-                    mask = (overlaps >= FEATURE_OVERLAP_THRESHOLD)
+            # Batch position transform for all related features
+            rel_pts = np.array([f.keypoint.pt for f in related_images_features], dtype=np.float64)  # (n_rel, 2)
+            rel_pts_h = np.column_stack([rel_pts, np.ones(n_rel)])                                   # (n_rel, 3)
+            rel_t_h = rel_pts_h @ homography.T                                                       # (n_rel, 3)
+            related_pos_t = rel_t_h[:, :2] / rel_t_h[:, 2:3]                                        # (n_rel, 2)
 
-
-                valid_feature_indexes = np.nonzero(mask)[0]
-                if valid_feature_indexes.size == 0:
-                    continue
-
-                # Store valid features for that check mask
-                for index in valid_feature_indexes:
-                    related_feature = related_images_features[index]
-                    reference_feature.store_valid_match_for_image(related_image_index, related_feature)
-                    related_feature.store_valid_match_for_image(0, reference_feature)
-
-            # Run matching
-            closeness_matrix_np = np.array(closeness_matrix)
+            # Full distance matrix in one call
+            distance_matrix = cdist(ref_pts, related_pos_t)  # (n_ref, n_rel)
 
             if USE_DISTANCE:
-                matches = greedy_maximum_bipartite_matching(reference_features, related_images_features, closeness_matrix_np, False, False)
+                closeness_matrix_np = distance_matrix
+                valid_mask = distance_matrix <= DISTANCE_THRESHOLD
             else:
-                matches = greedy_maximum_bipartite_matching(reference_features, related_images_features, closeness_matrix_np, True, False)
+                # Batch size transform: sample circle points around every related keypoint
+                rel_radii_orig = np.array([f.keypoint.size / 2 for f in related_images_features], dtype=np.float64)
+                sx = rel_pts[:, 0:1] + rel_radii_orig[:, None] * _cos_a  # (n_rel, n_sample)
+                sy = rel_pts[:, 1:2] + rel_radii_orig[:, None] * _sin_a
+                sample_h = np.stack([sx, sy, np.ones_like(sx)], axis=2)  # (n_rel, n_sample, 3)
+                sample_t_h = sample_h @ homography.T                      # (n_rel, n_sample, 3)
+                sample_t = sample_t_h[:, :, :2] / sample_t_h[:, :, 2:3]  # (n_rel, n_sample, 2)
+                diffs = sample_t - related_pos_t[:, None, :]              # (n_rel, n_sample, 2)
+                rel_radii_t = np.linalg.norm(diffs, axis=2).mean(axis=1)  # (n_rel,)
 
-            number_of_possible_correct_matches = sum(1 for match in matches
-                                                        if (valid_matches:=match.reference_feature.get_valid_matches_for_image(related_image_index)) is not None and 
-                                                        match.related_feature in valid_matches)
+                # Vectorized overlap matrix
+                r1 = ref_radii[:, None]    # (n_ref, 1)
+                r2 = rel_radii_t[None, :]  # (1, n_rel)
+                d = distance_matrix
+
+                intersection = np.zeros_like(d)
+                disjoint  = d >= r1 + r2
+                contained = (~disjoint) & (d <= np.abs(r1 - r2))
+                partial   = (~disjoint) & (~contained)
+
+                if contained.any():
+                    intersection[contained] = np.pi * np.minimum(
+                        np.broadcast_to(r1, d.shape)[contained],
+                        np.broadcast_to(r2, d.shape)[contained],
+                    ) ** 2
+
+                if partial.any():
+                    r1b = np.broadcast_to(r1, d.shape)
+                    r2b = np.broadcast_to(r2, d.shape)
+                    dp, r1p, r2p = d[partial], r1b[partial], r2b[partial]
+                    cos1 = np.clip((dp**2 + r1p**2 - r2p**2) / (2*dp*r1p + EPS), -1, 1)
+                    cos2 = np.clip((dp**2 + r2p**2 - r1p**2) / (2*dp*r2p + EPS), -1, 1)
+                    sq   = np.clip((-dp+r1p+r2p)*(dp+r1p-r2p)*(dp-r1p+r2p)*(dp+r1p+r2p), 0, None)
+                    intersection[partial] = r1p**2 * np.arccos(cos1) + r2p**2 * np.arccos(cos2) - 0.5*np.sqrt(sq)
+
+                frac_ref = intersection / (np.pi * ref_radii[:, None]**2 + EPS)
+                frac_rel = intersection / (np.pi * rel_radii_t[None, :]**2 + EPS)
+                closeness_matrix_np = np.minimum(frac_ref, frac_rel)
+                valid_mask = closeness_matrix_np >= FEATURE_OVERLAP_THRESHOLD
+
+            # Store valid match pairs
+            valid_ref_idxs, valid_rel_idxs = np.where(valid_mask)
+            for ref_idx, rel_idx in zip(valid_ref_idxs.tolist(), valid_rel_idxs.tolist()):
+                ref_f = reference_features[ref_idx]
+                rel_f = related_images_features[rel_idx]
+                ref_f.store_valid_match_for_image(related_image_index, rel_f)
+                rel_f.store_valid_match_for_image(0, ref_f)
+
+            # Sparse greedy over valid pairs only — equivalent to full-matrix greedy because
+            # valid pairs (dist ≤ threshold or overlap ≥ threshold) always rank ahead of
+            # invalid pairs in the greedy ordering, so the assignment among valid pairs
+            # is unaffected by including invalid pairs in the matrix.
+            if valid_ref_idxs.size == 0:
+                number_of_possible_correct_matches = 0
+            else:
+                if USE_DISTANCE:
+                    order = np.argsort(distance_matrix[valid_ref_idxs, valid_rel_idxs])
+                else:
+                    order = np.argsort(-closeness_matrix_np[valid_ref_idxs, valid_rel_idxs])
+                sorted_refs = valid_ref_idxs[order].tolist()
+                sorted_rels = valid_rel_idxs[order].tolist()
+                matched_refs: set = set()
+                matched_rels: set = set()
+                number_of_possible_correct_matches = 0
+                for r, q in zip(sorted_refs, sorted_rels):
+                    if r not in matched_refs and q not in matched_rels:
+                        matched_refs.add(r)
+                        matched_rels.add(q)
+                        number_of_possible_correct_matches += 1
 
             numbers_of_possible_correct_matches.append(number_of_possible_correct_matches)
-
-            number_of_reference_features = len(reference_features)
-
             repeatability = (
-                number_of_possible_correct_matches / number_of_reference_features if number_of_reference_features > 0 else 0.0
+                number_of_possible_correct_matches / len(reference_features) if reference_features else 0.0
             )
             repeatabilities.append(repeatability)
 
