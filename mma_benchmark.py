@@ -21,7 +21,7 @@ except ImportError:
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HPATCHES_PATH = r"hpatches-sequences-release"
-RESULTS_FILE  = "mma_results/BIG_TRIAL.csv"
+RESULTS_FILE  = "mma_results/test_homography.csv"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
 # Label for this entire benchmark run. All combinations share this tag.
@@ -31,16 +31,16 @@ RUN_TAG = "default"
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
     # "SIFT":      cv2.SIFT_create(),
-    "ORB_default":       cv2.ORB_create(nfeatures=5000),
+    # "ORB_default":       cv2.ORB_create(nfeatures=5000),
     # "BRISK":     cv2.BRISK_create(),
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
     "SIFT":      cv2.SIFT_create(contrastThreshold = 0.001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
-    "BRISK":     cv2.BRISK_create(thresh = 5),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
+    # "BRISK":     cv2.BRISK_create(thresh = 5),
+    # "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
 }
 
 ONLY_SELF             = True
@@ -53,16 +53,16 @@ DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
 # Each parameter is a list; all combinations are benchmarked and stored in the CSV.
-MAX_KEYPOINTS    = [250,500,1000]
+MAX_KEYPOINTS    = [300,700]
 USE_MNN         = [False, True]    # mutual nearest-neighbour filter on/off
 RATIO_THRESHOLDS = [0.8]     # Lowe's ratio test threshold
 RANSAC_THRESHOLDS   = [3.0]     # RANSAC reprojection error threshold (px)
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0,1,2]
+DOWNSAMPLE_LEVELS             = [0,2]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
-INITIAL_SIGMAS                 = [0,1,2,3,5]
+INITIAL_SIGMAS                 = [0,2,5]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
@@ -442,70 +442,20 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                 for ransac_threshold in RANSAC_THRESHOLDS:
                                     # ── Homography estimation ───────────────────────
                                     if can_ransac:
-                                        H_est, _  = cv2.findHomography(dst, src, cv2.RANSAC, ransac_threshold)  # rel → ref
-                                        H_est_2, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_threshold) # ref → rel
+                                        H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_threshold)
 
-                                        if H_est is not None and H_est_2 is not None:
-                                            # --- Try inversion safely ---
-                                            try:
-                                                H_inv = np.linalg.inv(H_est)
-
-                                                # Compare matrices (useful but not the main metric)
-                                                mat_diff = np.linalg.norm(H_inv - H_est_2)
-
-                                            except np.linalg.LinAlgError:
-                                                print("⚠️ H_est is singular, cannot invert")
-                                                H_inv = None
-                                                mat_diff = float('inf')
-
-                                            # --- Compute projected corners for BOTH methods ---
-                                            corners_est_inv = None
-                                            err_inv = None
-
-                                            if H_inv is not None:
-                                                corners_est_inv = np.array([
-                                                    _project(pt, H_inv) for pt in corners
-                                                ])
-                                                err_inv = float(np.mean(np.linalg.norm(
-                                                    corners_gt - corners_est_inv, axis=1
-                                                )))
-
-                                            # Non-inverting version (always safe if H_est_2 exists)
-                                            corners_est_direct = np.array([
-                                                _project(pt, H_est_2) for pt in corners
+                                        if H_est is not None:
+                                            corners_est = np.array([
+                                                _project(pt, H_est) for pt in corners
                                             ])
-                                            err_direct = float(np.mean(np.linalg.norm(
-                                                corners_gt - corners_est_direct, axis=1
+                                            mean_err = float(np.mean(np.linalg.norm(
+                                                corners_gt - corners_est, axis=1
                                             )))
-
-                                            # --- Print diagnostics ---
-                                            print("---- Homography Debug ----")
-                                            print(f"Matrix difference: {mat_diff:.6f}")
-
-                                            if err_inv is not None:
-                                                print(f"Error (inverted):   {err_inv:.6f}")
-                                            else:
-                                                print("Error (inverted):   FAILED (singular)")
-
-                                            print(f"Error (non-invert): {err_direct:.6f}")
-
-                                            if err_inv is not None:
-                                                print(f"Error difference:   {abs(err_inv - err_direct):.6f}")
-
-                                            # Optional: conditioning insight
-                                            cond = np.linalg.cond(H_est)
-                                            print(f"Condition number:   {cond:.2e}")
-                                            print("--------------------------")
-
-                                            # --- Choose one to use (recommended: non-inverting) ---
-                                            mean_err = err_direct
                                             hom_acc = {
                                                 th: 1.0 if mean_err < th else 0.0
                                                 for th in DISTANCE_THRESHOLDS
                                             }
-
                                         else:
-                                            print("⚠️ Homography estimation failed (None)")
                                             hom_acc = zero_hom
 
                                     else:

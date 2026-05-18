@@ -43,16 +43,16 @@ if APPLY_NOISE:
 
 features2d = {
     # "SIFT":      cv2.SIFT_create(),
-    "ORB_default":       cv2.ORB_create(nfeatures=5000),
+    # "ORB_default":       cv2.ORB_create(nfeatures=5000),
     # "BRISK":     cv2.BRISK_create(),
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
     "SIFT":      cv2.SIFT_create(contrastThreshold = 0.001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
-    "BRISK":     cv2.BRISK_create(thresh = 5),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
+    # "BRISK":     cv2.BRISK_create(thresh = 5),
+    # "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
 }
 
 ONLY_SELF = True #Forces no mixing
@@ -118,8 +118,6 @@ elif MATCHER == "default":
     matching_approach = greedy_maximum_bipartite_matching_descriptor_distance
 
 #############################################################################################################################
-combined_results = []
-
 warnings.filterwarnings("once", category=UserWarning)
 
 
@@ -428,8 +426,7 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
 
                     
 
-                    combined_results.append(results_illumination)
-                    combined_results.append(results_viewpoint)
+                    combined_results = [results_illumination, results_viewpoint]
 
                 ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
                 for results in combined_results:
