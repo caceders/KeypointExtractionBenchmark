@@ -21,25 +21,26 @@ except ImportError:
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HPATCHES_PATH = r"hpatches-sequences-release"
-RESULTS_FILE  = "results/mma_results_num_keypoints_scale_dependency.csv"
+RESULTS_FILE  = "mma_results/BIG_TRIAL.csv"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
 # Label for this entire benchmark run. All combinations share this tag.
 # Use a different tag for each run you want to compare in display_mma.py.
-RUN_TAG = "standard"
+RUN_TAG = "default"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
     # "SIFT":      cv2.SIFT_create(),
-    # "ORB":       cv2.ORB_create(nfeatures=2000),
+    "ORB_default":       cv2.ORB_create(nfeatures=5000),
     # "BRISK":     cv2.BRISK_create(),
     # "AKAZE":     cv2.AKAZE_create(),
-    # "GFTT":      cv2.GFTTDetector_create(maxCorners=2000),
-    "SIFT":  cv2.SIFT_create(contrastThreshold=0.004, edgeThreshold=100),
-    "ORB":   cv2.ORB_create(fastThreshold=2, edgeThreshold=3, nfeatures=2000),
-    "BRISK": cv2.BRISK_create(thresh=1),
-    "AKAZE": cv2.AKAZE_create(threshold=0.0001),
-    "GFTT":  cv2.GFTTDetector_create(qualityLevel=0.001, maxCorners=2000),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
+    ## LOW THRESH
+    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.001),
+    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
+    "BRISK":     cv2.BRISK_create(thresh = 5),
+    "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
+    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
 }
 
 ONLY_SELF             = True
@@ -48,24 +49,24 @@ ONLY_USED_AS_DETECTOR = ["GFTT"]
 
 # ── Evaluation thresholds ─────────────────────────────────────────────────────
 # Pixel-error thresholds used for MMA, repeatability, and homography accuracy.
-THRESHOLDS = list(range(1, 11))
+DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
 # Each parameter is a list; all combinations are benchmarked and stored in the CSV.
-MAX_FEATURES    = [100, 250, 500, 750, 1000, 1250, 1500]
-USE_MNN         = [True]    # mutual nearest-neighbour filter on/off
-RATIO_THRESHOLD = [0.8]     # Lowe's ratio test threshold
-RANSAC_REPROJ   = [3.0]     # RANSAC reprojection error threshold (px)
+MAX_KEYPOINTS    = [250,500,1000]
+USE_MNN         = [False, True]    # mutual nearest-neighbour filter on/off
+RATIO_THRESHOLDS = [0.8]     # Lowe's ratio test threshold
+RANSAC_THRESHOLDS   = [3.0]     # RANSAC reprojection error threshold (px)
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [2]
+DOWNSAMPLE_LEVELS             = [0,1,2]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
-INITIAL_SIGMA                 = [1]
+INITIAL_SIGMAS                 = [0,1,2,3,5]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
-SKIP_AT_ERROR = True
+SKIP_AT_ERROR = False
 
 
 # ============================================================
@@ -201,7 +202,7 @@ def aggregate(raw):
                 | set(buckets_rep.keys()) | set(buckets_hom_acc.keys()))
     rows = []
     for (scope, difficulty, threshold) in all_keys:
-        row: dict = {"scope": scope, "difficulty": difficulty, "threshold": threshold}
+        row: dict = {"transformation": scope, "difficulty": difficulty, "distance_threshold": threshold}
         for prefix, buckets in [
             ("mma_kps",     buckets_mma_kps),
             ("mma_matches", buckets_mma_matches),
@@ -232,12 +233,12 @@ def aggregate(raw):
 warnings.filterwarnings("once", category=UserWarning)
 os.makedirs("results", exist_ok=True)
 
-_max_k = max(MAX_FEATURES)
+_max_k = max(MAX_KEYPOINTS)
 
 _ds_configs = list(itertools.product(
     DOWNSAMPLE_LEVELS,
     DOWNSAMPLE_FACTOR,
-    INITIAL_SIGMA,
+    INITIAL_SIGMAS,
     INTRINSIC_SIGMA,
     APPLY_PROGRESSIVE_BLUR,
     DOWNSAMPLE_INTERPOLATION_TYPE,
@@ -253,14 +254,14 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
         # ── Initialize sweep accumulators ─────────────────────────────────────
         raw_by_sweep = {}
         match_cnt_by = {}
-        for max_features in MAX_FEATURES:
+        for max_keypoints in MAX_KEYPOINTS:
             for use_mnn in USE_MNN:
-                for ratio_th in RATIO_THRESHOLD:
-                    for ransac_reproj in RANSAC_REPROJ:
-                        sk = (max_features, use_mnn, ratio_th, ransac_reproj)
+                for ratio_th in RATIO_THRESHOLDS:
+                    for ransac_threshold in RANSAC_THRESHOLDS:
+                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
                         raw_by_sweep[sk] = []
                         match_cnt_by[sk] = []
-        feature_cnts_by_mf = {mf: [] for mf in MAX_FEATURES}
+        keypoint_cnts_by_mf = {mf: [] for mf in MAX_KEYPOINTS}
 
         for name, seq_type, imgs, homos in tqdm(sequences, leave=False, desc="Sequences", position=2):
             h_ref, w_ref = imgs[0].shape[:2]
@@ -279,16 +280,16 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                     img_rel_ds   = downsample(img_rel_orig, ds_level, ds_factor,
                                               intr_sigma, init_sigma, prog_blur, interp_type)
 
-                    zero_mma = {th: 0.0 for th in THRESHOLDS}
-                    zero_rep = {th: 0.0 for th in THRESHOLDS}
-                    zero_hom = {th: 0.0 for th in THRESHOLDS}
+                    zero_mma = {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                    zero_rep = {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                    zero_hom = {th: 0.0 for th in DISTANCE_THRESHOLDS}
 
                     def _append_all_zeros(rep=zero_rep):
-                        for max_features in MAX_FEATURES:
+                        for max_keypoints in MAX_KEYPOINTS:
                             for use_mnn in USE_MNN:
-                                for ratio_th in RATIO_THRESHOLD:
-                                    for ransac_reproj in RANSAC_REPROJ:
-                                        sk = (max_features, use_mnn, ratio_th, ransac_reproj)
+                                for ratio_th in RATIO_THRESHOLDS:
+                                    for ransac_threshold in RANSAC_THRESHOLDS:
+                                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
                                         raw_by_sweep[sk].append(
                                             (seq_type, img_idx, zero_mma, zero_mma, rep, zero_hom)
                                         )
@@ -340,19 +341,19 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                     desc_rel_full = np.array(descs_rel_all, dtype=dtype)
                     bf            = cv2.BFMatcher(extractor.distance_type, crossCheck=False)
 
-                    for max_features in MAX_FEATURES:
-                        kps_ref  = kps_ref_all[:max_features]
-                        kps_rel  = kps_rel_all[:max_features]
+                    for max_keypoints in MAX_KEYPOINTS:
+                        kps_ref  = kps_ref_all[:max_keypoints]
+                        kps_rel  = kps_rel_all[:max_keypoints]
                         n_ref, n_rel = len(kps_ref), len(kps_rel)
                         desc_ref = desc_ref_full[:n_ref]
                         desc_rel = desc_rel_full[:n_rel]
-                        feature_cnts_by_mf[max_features].extend([n_ref, n_rel])
+                        keypoint_cnts_by_mf[max_keypoints].extend([n_ref, n_rel])
 
                         if not kps_ref or not kps_rel:
                             for use_mnn in USE_MNN:
-                                for ratio_th in RATIO_THRESHOLD:
-                                    for ransac_reproj in RANSAC_REPROJ:
-                                        sk = (max_features, use_mnn, ratio_th, ransac_reproj)
+                                for ratio_th in RATIO_THRESHOLDS:
+                                    for ransac_threshold in RANSAC_THRESHOLDS:
+                                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
                                         raw_by_sweep[sk].append(
                                             (seq_type, img_idx, zero_mma, zero_rep, zero_hom)
                                         )
@@ -367,78 +368,153 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                         dists_ref    = np.min(np.linalg.norm(ref_proj_rel[:, None] - rel_pts[None], axis=2), axis=1)
                         dists_rel    = np.min(np.linalg.norm(rel_proj_ref[:, None] - ref_pts[None], axis=2), axis=1)
                         rep = {th: float(np.sum(dists_ref < th) + np.sum(dists_rel < th)) / (n_ref + n_rel)
-                               for th in THRESHOLDS}
+                               for th in DISTANCE_THRESHOLDS}
 
-                        # ── KNN matching (k=2 enables ratio test) ─────────────
+                       # ── KNN matching (k=2 enables ratio test) ─────────────
                         k_nn    = min(2, n_rel)
                         knn_raw = bf.knnMatch(desc_ref, desc_rel, k=k_nn)
 
                         for use_mnn in USE_MNN:
-                            # ── MNN filter ────────────────────────────────────
-                            if use_mnn:
-                                nn21    = {m.queryIdx: m.trainIdx for m in bf.match(desc_rel, desc_ref)}
-                                knn_mnn = [pair for pair in knn_raw
-                                           if nn21.get(pair[0].trainIdx) == pair[0].queryIdx]
-                            else:
-                                knn_mnn = list(knn_raw)
+                            for ratio_th in RATIO_THRESHOLDS:
+                                # ── Ratio filtering FIRST (always applied) ─────────
+                                if ratio_th is not None and k_nn >= 2:
+                                    knn_ratio = [
+                                        pair for pair in knn_raw
+                                        if (len(pair) >= 2 and pair[0].distance < ratio_th * pair[1].distance)
+                                    ]
+                                else:
+                                    knn_ratio = list(knn_raw)
 
-                            if not knn_mnn:
-                                for ratio_th in RATIO_THRESHOLD:
-                                    for ransac_reproj in RANSAC_REPROJ:
-                                        sk = (max_features, use_mnn, ratio_th, ransac_reproj)
+                                if not knn_ratio:
+                                    for ransac_threshold in RANSAC_THRESHOLDS:
+                                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
                                         raw_by_sweep[sk].append(
                                             (seq_type, img_idx, zero_mma, zero_mma, rep, zero_hom)
                                         )
                                         match_cnt_by[sk].append(0)
-                                continue
+                                    continue
 
-                            # ── MMA ───────────────────────────────────────────
-                            errors = np.array([
-                                np.linalg.norm(
-                                    np.array(_project(kps_ref[pair[0].queryIdx].pt, H_ref_to_rel))
-                                    - np.array(kps_rel[pair[0].trainIdx].pt)
-                                )
-                                for pair in knn_mnn
-                            ])
-                            n_putative = len(errors)
-                            mma_kps     = {th: float(np.sum(errors < th)) / n_ref      for th in THRESHOLDS}
-                            mma_matches = {th: float(np.sum(errors < th)) / n_putative  for th in THRESHOLDS}
+                                # ── Matcher-specific filtering (AFTER ratio) ────────
+                                if use_mnn:
+                                    nn21 = {m.queryIdx: m.trainIdx for m in bf.match(desc_rel, desc_ref)}
 
-                            corners    = np.array([[0, 0], [w_ref-1, 0],
-                                                   [w_ref-1, h_ref-1], [0, h_ref-1]], dtype=np.float64)
-                            corners_gt = np.array([_project(pt, H_ref_to_rel) for pt in corners])
-
-                            for ratio_th in RATIO_THRESHOLD:
-                                # ── Lowe's ratio test ──────────────────────────
-                                if ratio_th is not None and k_nn >= 2:
-                                    matches = [pair[0] for pair in knn_mnn
-                                               if len(pair) >= 2 and pair[0].distance < ratio_th * pair[1].distance]
-                                    matches += [pair[0] for pair in knn_mnn if len(pair) == 1]
+                                    knn_filtered = [
+                                        pair for pair in knn_ratio
+                                        if nn21.get(pair[0].trainIdx) == pair[0].queryIdx
+                                    ]
                                 else:
-                                    matches = [pair[0] for pair in knn_mnn]
+                                    knn_filtered = knn_ratio  # fallback
+
+                                if not knn_filtered:
+                                    for ransac_threshold in RANSAC_THRESHOLDS:
+                                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
+                                        raw_by_sweep[sk].append(
+                                            (seq_type, img_idx, zero_mma, zero_mma, rep, zero_hom)
+                                        )
+                                        match_cnt_by[sk].append(0)
+                                    continue
+
+                                # ── MMA (computed on filtered pairs, consistent with pipeline) ─────
+                                errors = np.array([
+                                    np.linalg.norm(
+                                        np.array(_project(kps_ref[pair[0].queryIdx].pt, H_ref_to_rel))
+                                        - np.array(kps_rel[pair[0].trainIdx].pt)
+                                    )
+                                    for pair in knn_filtered
+                                ])
+
+                                n_putative = len(errors)
+                                mma_kps     = {th: float(np.sum(errors < th)) / n_ref      for th in DISTANCE_THRESHOLDS}
+                                mma_matches = {th: float(np.sum(errors < th)) / n_putative for th in DISTANCE_THRESHOLDS}
+
+                                corners    = np.array([[0, 0], [w_ref-1, 0],
+                                                    [w_ref-1, h_ref-1], [0, h_ref-1]], dtype=np.float64)
+                                corners_gt = np.array([_project(pt, H_ref_to_rel) for pt in corners])
+
+                                # ── Extract matches (ratio already applied!) ─────────
+                                matches = [pair[0] for pair in knn_filtered]
 
                                 can_ransac = len(matches) >= 4
                                 if can_ransac:
                                     src = np.float32([kps_ref[m.queryIdx].pt for m in matches])
                                     dst = np.float32([kps_rel[m.trainIdx].pt for m in matches])
 
-                                for ransac_reproj in RANSAC_REPROJ:
-                                    # ── Homography estimation ──────────────────
+                                for ransac_threshold in RANSAC_THRESHOLDS:
+                                    # ── Homography estimation ───────────────────────
                                     if can_ransac:
-                                        H_est, _ = cv2.findHomography(dst, src, cv2.RANSAC, ransac_reproj)
-                                        if H_est is not None:
-                                            corners_est = np.array([_project(pt, np.linalg.inv(H_est))
-                                                                    for pt in corners])
-                                            mean_err    = float(np.mean(np.linalg.norm(
-                                                corners_gt - corners_est, axis=1)))
-                                            hom_acc = {th: 1.0 if mean_err < th else 0.0 for th in THRESHOLDS}
+                                        H_est, _  = cv2.findHomography(dst, src, cv2.RANSAC, ransac_threshold)  # rel → ref
+                                        H_est_2, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_threshold) # ref → rel
+
+                                        if H_est is not None and H_est_2 is not None:
+                                            # --- Try inversion safely ---
+                                            try:
+                                                H_inv = np.linalg.inv(H_est)
+
+                                                # Compare matrices (useful but not the main metric)
+                                                mat_diff = np.linalg.norm(H_inv - H_est_2)
+
+                                            except np.linalg.LinAlgError:
+                                                print("⚠️ H_est is singular, cannot invert")
+                                                H_inv = None
+                                                mat_diff = float('inf')
+
+                                            # --- Compute projected corners for BOTH methods ---
+                                            corners_est_inv = None
+                                            err_inv = None
+
+                                            if H_inv is not None:
+                                                corners_est_inv = np.array([
+                                                    _project(pt, H_inv) for pt in corners
+                                                ])
+                                                err_inv = float(np.mean(np.linalg.norm(
+                                                    corners_gt - corners_est_inv, axis=1
+                                                )))
+
+                                            # Non-inverting version (always safe if H_est_2 exists)
+                                            corners_est_direct = np.array([
+                                                _project(pt, H_est_2) for pt in corners
+                                            ])
+                                            err_direct = float(np.mean(np.linalg.norm(
+                                                corners_gt - corners_est_direct, axis=1
+                                            )))
+
+                                            # --- Print diagnostics ---
+                                            print("---- Homography Debug ----")
+                                            print(f"Matrix difference: {mat_diff:.6f}")
+
+                                            if err_inv is not None:
+                                                print(f"Error (inverted):   {err_inv:.6f}")
+                                            else:
+                                                print("Error (inverted):   FAILED (singular)")
+
+                                            print(f"Error (non-invert): {err_direct:.6f}")
+
+                                            if err_inv is not None:
+                                                print(f"Error difference:   {abs(err_inv - err_direct):.6f}")
+
+                                            # Optional: conditioning insight
+                                            cond = np.linalg.cond(H_est)
+                                            print(f"Condition number:   {cond:.2e}")
+                                            print("--------------------------")
+
+                                            # --- Choose one to use (recommended: non-inverting) ---
+                                            mean_err = err_direct
+                                            hom_acc = {
+                                                th: 1.0 if mean_err < th else 0.0
+                                                for th in DISTANCE_THRESHOLDS
+                                            }
+
                                         else:
+                                            print("⚠️ Homography estimation failed (None)")
                                             hom_acc = zero_hom
+
                                     else:
                                         hom_acc = zero_hom
 
-                                    sk = (max_features, use_mnn, ratio_th, ransac_reproj)
-                                    raw_by_sweep[sk].append((seq_type, img_idx, mma_kps, mma_matches, rep, hom_acc))
+                                    sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
+                                    raw_by_sweep[sk].append(
+                                        (seq_type, img_idx, mma_kps, mma_matches, rep, hom_acc)
+                                    )
                                     match_cnt_by[sk].append(len(matches))
 
                 except Exception:
@@ -450,35 +526,37 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                         raise
 
         # ── Write results to CSV ──────────────────────────────────────────────
-        for max_features in MAX_FEATURES:
+        for max_keypoints in MAX_KEYPOINTS:
             for use_mnn in USE_MNN:
-                for ratio_th in RATIO_THRESHOLD:
-                    for ransac_reproj in RANSAC_REPROJ:
-                        sk           = (max_features, use_mnn, ratio_th, ransac_reproj)
+                for ratio_th in RATIO_THRESHOLDS:
+                    for ransac_threshold in RANSAC_THRESHOLDS:
+                        sk           = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
                         raw_pairs    = raw_by_sweep[sk]
                         match_counts = match_cnt_by[sk]
-                        feat_counts  = feature_cnts_by_mf[max_features]
+                        keypoint_counts  = keypoint_cnts_by_mf[max_keypoints]
 
                         common = {
                             # ── Identity ───────────────────────────────────────────────
-                            "combination":                   combo_key,
+                            "method":                   combo_key,
                             "tag":                           RUN_TAG,
                             # ── Downsampling ────────────────────────────────────────────
                             "downsample_level":              ds_level,
-                            "downsample_factor":             ds_factor,
+                            #"downsample_factor":             ds_factor,
                             "initial_sigma":                 init_sigma,
                             "intrinsic_sigma":               intr_sigma,
                             "apply_progressive_blur":        prog_blur,
-                            "downsample_interpolation_type": str(interp_type),
+                            #"downsample_interpolation_type": str(interp_type),
                             # ── Pipeline parameters ─────────────────────────────────────
-                            "max_features":                  max_features,
+                            "max_keypoints":                  max_keypoints,
                             "use_mnn":                       use_mnn,
                             "ratio_threshold":               ratio_th if ratio_th is not None else float("nan"),
-                            "ransac_reproj":                 ransac_reproj,
+                            "ransac_threshold":                 ransac_threshold,
                             # ── Run statistics ──────────────────────────────────────────
-                            "avg_num_features":        float(np.mean(feat_counts))  if feat_counts  else 0.0,
-                            "frac_below_max_features": float(np.mean([c < max_features for c in feat_counts])) if feat_counts else 0.0,
+                            "avg_num_keypoints":        float(np.mean(keypoint_counts))  if keypoint_counts  else 0.0,
+                            "avg_num_missing_keypoints": float(np.mean([max_keypoints - c for c in keypoint_counts])) if keypoint_counts else 0.0,
                             "avg_num_matches":         float(np.mean(match_counts)) if match_counts else 0.0,
+                            "avg_num_dropped_matches": float(np.mean([kp - m for kp, m in zip(keypoint_counts, match_counts)])) if match_counts else 0.0,
+
                         }
 
                         metric_rows = aggregate(raw_pairs)

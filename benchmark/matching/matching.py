@@ -117,7 +117,7 @@ class MatchSet:
 
 
 #@beartype
-def greedy_maximum_bipartite_matching(reference_features: list[Feature], related_features: list[Feature], similarity_score_matrix: np.ndarray, similarity_higher_is_better: bool, calculate_match_properties: bool) -> list[Match]:
+def greedy_maximum_bipartite_matching(reference_features: list[Feature], related_features: list[Feature], similarity_score_matrix: np.ndarray, similarity_higher_is_better: bool, calculate_match_properties: bool, use_mnn : bool = False) -> list[Match]:
     """
     Compute the greedy maximum bipartite matching between two sets of features based on a similarity matrix, with either low values indicating similarity, like distance or high values, like overlap
 
@@ -141,7 +141,7 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
         return []
 
     num_ref_features, num_rel_features = similarity_score_matrix.shape
-    num_best_matches = min(NUM_BEST_MATCHES, num_rel_features)
+    num_best_matches = min(NUM_BEST_MATCHES, num_rel_features, num_ref_features)
     num_scores_for_distinctivess = min(NUM_SCORES_DISTINCTIVNESS, num_best_matches)
 
 
@@ -160,6 +160,31 @@ def greedy_maximum_bipartite_matching(reference_features: list[Feature], related
         best_matches_ordered = best_matches_idxs[best_matches_idx_order]
         best_rel_feature_idxs[ref_feature_idx] = best_matches_ordered
         best_similarity_scores[ref_feature_idx] = similarity_scores[best_matches_ordered]
+    
+    if use_mnn:
+        # Forward: ref → best rel
+        forward_best = best_rel_feature_idxs[:, 0]
+
+        # Reverse: rel → best ref
+        if similarity_higher_is_better:
+            reverse_best = np.argmax(similarity_score_matrix, axis=0)
+        else:
+            reverse_best = np.argmin(similarity_score_matrix, axis=0)
+
+        # Keep only mutual matches
+        valid_refs = []
+        for ref_idx, rel_idx in enumerate(forward_best):
+            if reverse_best[rel_idx] == ref_idx:
+                valid_refs.append(ref_idx)
+
+        # Filter arrays
+        valid_refs = np.array(valid_refs, dtype=np.int64)
+
+        best_rel_feature_idxs = best_rel_feature_idxs[valid_refs]
+        best_similarity_scores = best_similarity_scores[valid_refs]
+        reference_features = [reference_features[i] for i in valid_refs]
+
+        num_ref_features = len(reference_features)
 
     pairs = [(ref_feature_idx, best_rel_feature_idxs[ref_feature_idx][best_matches_idx], best_similarity_scores[ref_feature_idx][best_matches_idx]) 
              for ref_feature_idx in range(num_ref_features) 
@@ -263,6 +288,7 @@ def knn_ratio_ransac_matching(
     reference_features: list[Feature],
     related_features: list[Feature],
     distance_type: int,
+    use_mnn: bool,
     ratio_threshold: float = 1,
     ransac_reproj_threshold: float = 10.0,
     calculate_match_properties: bool = True,
@@ -302,6 +328,11 @@ def knn_ratio_ransac_matching(
                 good_matches.append(m)
     else:
         good_matches = bf.match(ref_desc, rel_desc)
+
+    if use_mnn:
+        matches_reverse = bf.match(rel_desc, ref_desc)
+        nn_reverse = {m.queryIdx: m.trainIdx for m in matches_reverse}
+        good_matches= [m for m in good_matches if nn_reverse.get(m.trainIdx) == m.queryIdx]
 
     if len(good_matches) < 4:
         return []
@@ -344,7 +375,7 @@ def nearest_neighbor_matching(
     reference_features: list[Feature],
     related_features: list[Feature],
     distance_type: int,
-    use_mutual: bool = True,
+    use_mutual: bool = False,
     calculate_match_properties: bool = True,
 ) -> list[Match]:
     """
@@ -408,7 +439,7 @@ def nearest_neighbor_matching(
     return matches
 
 #@beartype
-def greedy_maximum_bipartite_matching_descriptor_distance(reference_features: list[Feature], related_features: list[Feature], distance_type: int) -> list[Match]:
+def greedy_maximum_bipartite_matching_descriptor_distance(reference_features: list[Feature], related_features: list[Feature], distance_type: int, use_mnn: bool = False) -> list[Match]:
     """
     Compute the greedy maximum bipartite matching between two sets of features based on the descriptor
     distance between the two.
@@ -443,4 +474,4 @@ def greedy_maximum_bipartite_matching_descriptor_distance(reference_features: li
     else:
         raise TypeError(f"Unknown distance type: {distance_type}")
 
-    return greedy_maximum_bipartite_matching(reference_features, related_features, distance_matrix, False, True)
+    return greedy_maximum_bipartite_matching(reference_features, related_features, distance_matrix, False, True, use_mnn)

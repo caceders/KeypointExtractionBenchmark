@@ -182,7 +182,7 @@ def calculate_valid_matches(image_feature_set: ImageFeatureSet, dataset_homograp
 
 
 #@beartype
-def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seqs_to_visualize: int, DOWNSAMPLE_LEVEL: int, DOWNSAMPLE_FACTOR: float, INTRINSIC_SIGMA: float, INITIAL_SIGMA: float, APPLY_PROGRESSIVE_BLUR: bool, DOWNSAMPLE_INTERPOLATION_TYPE) -> list[MatchSet]:
+def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, matching_approach : Callable, use_mnn : bool, dataset_image_sequences: list[list[np.ndarray]], dataset_homography_sequence: list[list[np.ndarray]], visualize: bool, seqs_to_visualize: int, DOWNSAMPLE_LEVEL: int, DOWNSAMPLE_FACTOR: float, INTRINSIC_SIGMA: float, INITIAL_SIGMA: float, APPLY_PROGRESSIVE_BLUR: bool, DOWNSAMPLE_INTERPOLATION_TYPE) -> list[MatchSet]:
     matching_match_sets: list[MatchSet] = []
     for seq_num, image_feature_sequence in enumerate(tqdm(image_feature_set, leave=False, desc="Calculating matching results")):
         matching_match_set = MatchSet()
@@ -190,7 +190,7 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
         reference_features = image_feature_sequence.reference_image_features
 
         for rel_idx, related_image_features in enumerate(image_feature_sequence.related_images_features):
-            matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type)
+            matches : list[Match] = matching_approach(reference_features, related_image_features, feature_extractor.distance_type, use_mnn)
             matching_match_set.add_match(matches)
 
             if visualize and seq_num in seqs_to_visualize:
@@ -204,7 +204,7 @@ def calculate_matching_evaluation(feature_extractor : FeatureExtractor, image_fe
 
 
 #@beartype
-def calculate_verification_evaluation(feature_extractor : FeatureExtractor, image_feature_set: ImageFeatureSet, correct_to_random_ratio: int, matching_approach : Callable) -> list[MatchSet]:
+def calculate_verification_evaluation(feature_extractor : FeatureExtractor, image_feature_set: ImageFeatureSet, correct_to_random_ratio: int, matching_approach : Callable, use_mnn : bool) -> list[MatchSet]:
     verification_match_sets: list [MatchSet] = []
 
     for sequence_index, image_feature_sequence in enumerate(tqdm(image_feature_set, leave = False, desc = "Calculating verification results")):
@@ -225,7 +225,7 @@ def calculate_verification_evaluation(feature_extractor : FeatureExtractor, imag
             # Match for all relevant related images
             for related_image_features in image_feature_sequence.related_images_features:
 
-                matches = matching_approach([reference_feature], related_image_features, feature_extractor.distance_type)
+                matches = matching_approach([reference_feature], related_image_features, feature_extractor.distance_type, use_mnn)
                 verification_match_set.add_match(matches)
 
             chosen_random_images = random.sample(choice_pool, num_random_images)
@@ -233,14 +233,14 @@ def calculate_verification_evaluation(feature_extractor : FeatureExtractor, imag
             # Match for all random images
             for random_sequence_index, random_image_index in chosen_random_images:
                 random_image_features = image_feature_set[random_sequence_index][random_image_index]
-                match = matching_approach([reference_feature], random_image_features, feature_extractor.distance_type)
+                match = matching_approach([reference_feature], random_image_features, feature_extractor.distance_type, use_mnn)
                 verification_match_set.add_match(match)
     
     return verification_match_sets
 
 
 #@beartype
-def calculate_retrieval_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, correct_to_random_ratio : int, max_num_retrieval_features : int, matching_approach : Callable) -> list[MatchSet]:
+def calculate_retrieval_evaluation(feature_extractor : FeatureExtractor, image_feature_set : ImageFeatureSet, correct_to_random_ratio : int, max_num_retrieval_features : int, matching_approach : Callable , use_mnn : bool) -> list[MatchSet]:
     retrieval_match_sets : list[MatchSet] = []
     all_features = [feature 
                     for image_feature_sequence in image_feature_set
@@ -289,6 +289,6 @@ def calculate_retrieval_evaluation(feature_extractor : FeatureExtractor, image_f
             features_to_chose_from = correct_features + list(random_features)
             
             # Match
-            match = matching_approach([reference_feature], features_to_chose_from, feature_extractor.distance_type)
+            match = matching_approach([reference_feature], features_to_chose_from, feature_extractor.distance_type, use_mnn)
             retrieval_match_set.add_match(match)
     return retrieval_match_sets

@@ -6,26 +6,13 @@ import matplotlib.pyplot as plt
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "mma_results/keypoint_threshold.csv"
-
+CSV_PATH = "results/max_keypoint_threshold.csv"
 
 PLOTS = [
 
-        {
-        "y":        "hom_acc_mean",
-        "x":        "threshold",
-        "lines": ["method", "tag", "initial_sigma"],
-        "subplots": "downsample_level",
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-
-            
-        },
-    },
-
     {
-        "y":        "mma_matches_mean",
-        "x":        "max_features",
+        "y":        "Matching distance mAP illumination",
+        "x":        "max features",
         "lines": ["method", "tag", "initial_sigma"],
         "subplots": "downsample_level",
         "select": {
@@ -35,32 +22,21 @@ PLOTS = [
         },
     },
 
-        {
-        "y":        "mma_matches_mean",
-        "x":        "threshold",
-        "lines": ["method", "tag", "initial_sigma"],
-        "subplots": "downsample_level",
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            
-        },
-    },
-
     {
-        "y":        "avg_num_features",
-        "x":        "max_features",
+        "y":        "total num keypoints",
+        "x":        "max features",
         "lines": ["method", "tag", "initial_sigma"],
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
             "threshold": {"values": np.arange(0,6), "fn": "auc"},
+
             
         },
     },
 
 
 ]
-
 # ──────────────────────────────────────────────────────────────────────────────
 # PLOTS — each entry produces one matplotlib figure.
 #
@@ -633,7 +609,7 @@ df["method"] = df["method"].astype(str).str.strip()
 if "tag" not in df.columns:
     df["tag"] = df["method"]
 
-all_combos  = list(df["method"].unique()) 
+all_combos  = list(df["method"].unique())
 combo_color = dict(zip(all_combos, _distinct_colors(len(all_combos))))
 
 all_tags  = list(df["tag"].unique())
