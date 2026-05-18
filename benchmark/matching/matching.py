@@ -8,6 +8,8 @@ import numpy as np
 from beartype import beartype
 from config import *
 
+_POPCOUNT_LUT = np.array([bin(i).count('1') for i in range(256)], dtype=np.uint8)
+
 
 
 class Match:
@@ -419,8 +421,15 @@ def greedy_maximum_bipartite_matching_descriptor_distance(reference_features: li
     if distance_type == cv2.NORM_L2:
         distance_matrix = cdist(reference_feature_descriptions, related_feature_descriptions, metric='euclidean')
     elif distance_type == cv2.NORM_HAMMING:
-        xor = np.bitwise_xor(reference_feature_descriptions[:, None, :], related_feature_descriptions[None, :, :])
-        distance_matrix = np.unpackbits(xor, axis=2).sum(axis=2)
+        desc_len = reference_feature_descriptions.shape[1]
+        if desc_len % 8 == 0:
+            ref64 = np.ascontiguousarray(reference_feature_descriptions).view(np.uint64)
+            rel64 = np.ascontiguousarray(related_feature_descriptions).view(np.uint64)
+            xor64 = np.bitwise_xor(ref64[:, None, :], rel64[None, :, :])
+            distance_matrix = np.bitwise_count(xor64).sum(axis=-1).astype(np.int32)
+        else:
+            xor = np.bitwise_xor(reference_feature_descriptions[:, None, :], related_feature_descriptions[None, :, :])
+            distance_matrix = np.bitwise_count(xor).sum(axis=-1).astype(np.int32)
     else:
         raise TypeError(f"Unknown distance type: {distance_type}")
 
