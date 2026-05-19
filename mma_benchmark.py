@@ -59,10 +59,10 @@ RATIO_THRESHOLDS = [0.8]     # Lowe's ratio test threshold
 RANSAC_THRESHOLDS   = [3.0]     # RANSAC reprojection error threshold (px)
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0,1]
+DOWNSAMPLE_LEVELS             = [0]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
-INITIAL_SIGMAS                 = [0,2]
+INITIAL_SIGMAS                 = [0]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
@@ -151,6 +151,33 @@ def _project(pt, H):
 def _in_bounds(pt, w, h):
     x, y = pt
     return 0 <= x < w and 0 <= y < h
+
+
+def _project_batch(pts_xy, H):
+    """Project (N,2) array through 3x3 homography. Returns (N,2); inf for degenerate points."""
+    n = len(pts_xy)
+    pts_h = np.empty((n, 3), dtype=np.float64)
+    pts_h[:, :2] = pts_xy
+    pts_h[:, 2] = 1.0
+    proj = pts_h @ H.T
+    w = proj[:, 2]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        xy = proj[:, :2] / w[:, np.newaxis]
+    xy[np.abs(w) < 1e-10] = np.inf
+    return xy
+
+
+def _top_k_keypoints(kps, k):
+    """Return up to k keypoints with highest response, in descending order."""
+    if not kps:
+        return kps
+    resp = np.fromiter((kp.response for kp in kps), dtype=np.float32, count=len(kps))
+    if len(kps) > k:
+        part = np.argpartition(resp, -k)[-k:]
+        idx  = part[np.argsort(resp[part])[::-1]]
+    else:
+        idx  = np.argsort(resp)[::-1]
+    return [kps[i] for i in idx]
 
 
 def _difficulty_tags(rel_idx):
@@ -300,37 +327,46 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                     kps_rel_all = extractor.detect_keypoints(img_rel_ds)
 
                     # Scale to original coords for geometric filtering
-                    for kp in kps_ref_all:
-                        kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
-                    for kp in kps_rel_all:
-                        kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
+                    if scale != 1:
+                        for kp in kps_ref_all:
+                            kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
+                        for kp in kps_rel_all:
+                            kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
 
-                    # Keep only keypoints visible in the other image
-                    kps_ref_all = [kp for kp in kps_ref_all
-                                   if _in_bounds(_project(kp.pt, H_ref_to_rel), w_rel, h_rel)]
-                    kps_rel_all = [kp for kp in kps_rel_all
-                                   if _in_bounds(_project(kp.pt, H_rel_to_ref), w_ref, h_ref)]
-                    kps_ref_all = sorted(kps_ref_all, key=lambda k: -k.response)[:_max_k]
-                    kps_rel_all = sorted(kps_rel_all, key=lambda k: -k.response)[:_max_k]
+                    # Keep only keypoints visible in the other image (vectorized)
+                    if kps_ref_all:
+                        _pts = np.array([kp.pt for kp in kps_ref_all], dtype=np.float64)
+                        _proj = _project_batch(_pts, H_ref_to_rel)
+                        _mask = (_proj[:, 0] >= 0) & (_proj[:, 0] < w_rel) & (_proj[:, 1] >= 0) & (_proj[:, 1] < h_rel)
+                        kps_ref_all = [kp for kp, m in zip(kps_ref_all, _mask) if m]
+                    if kps_rel_all:
+                        _pts = np.array([kp.pt for kp in kps_rel_all], dtype=np.float64)
+                        _proj = _project_batch(_pts, H_rel_to_ref)
+                        _mask = (_proj[:, 0] >= 0) & (_proj[:, 0] < w_ref) & (_proj[:, 1] >= 0) & (_proj[:, 1] < h_ref)
+                        kps_rel_all = [kp for kp, m in zip(kps_rel_all, _mask) if m]
+                    kps_ref_all = _top_k_keypoints(kps_ref_all, _max_k)
+                    kps_rel_all = _top_k_keypoints(kps_rel_all, _max_k)
 
                     if not kps_ref_all or not kps_rel_all:
                         _append_all_zeros()
                         continue
 
                     # Scale back to downsampled coords for description
-                    for kp in kps_ref_all:
-                        kp.pt = (kp.pt[0] / scale, kp.pt[1] / scale)
-                    for kp in kps_rel_all:
-                        kp.pt = (kp.pt[0] / scale, kp.pt[1] / scale)
+                    if scale != 1:
+                        for kp in kps_ref_all:
+                            kp.pt = (kp.pt[0] / scale, kp.pt[1] / scale)
+                        for kp in kps_rel_all:
+                            kp.pt = (kp.pt[0] / scale, kp.pt[1] / scale)
 
                     kps_ref_all, descs_ref_all = extractor.describe_keypoints(img_ref_ds, kps_ref_all)
                     kps_rel_all, descs_rel_all = extractor.describe_keypoints(img_rel_ds, kps_rel_all)
 
                     # Scale back to original coords for all downstream math
-                    for kp in kps_ref_all:
-                        kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
-                    for kp in kps_rel_all:
-                        kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
+                    if scale != 1:
+                        for kp in kps_ref_all:
+                            kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
+                        for kp in kps_rel_all:
+                            kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
 
                     if not descs_ref_all or not descs_rel_all:
                         _append_all_zeros()
@@ -340,6 +376,10 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                     desc_ref_full = np.array(descs_ref_all, dtype=dtype)
                     desc_rel_full = np.array(descs_rel_all, dtype=dtype)
                     bf            = cv2.BFMatcher(extractor.distance_type, crossCheck=False)
+
+                    corners    = np.array([[0, 0], [w_ref-1, 0],
+                                           [w_ref-1, h_ref-1], [0, h_ref-1]], dtype=np.float64)
+                    corners_gt = _project_batch(corners, H_ref_to_rel)
 
                     for max_keypoints in MAX_KEYPOINTS:
                         kps_ref  = kps_ref_all[:max_keypoints]
@@ -361,10 +401,10 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                             continue
 
                         # ── Repeatability (descriptor-free, once per max_features) ──
-                        ref_pts      = np.array([kp.pt for kp in kps_ref])
-                        rel_pts      = np.array([kp.pt for kp in kps_rel])
-                        ref_proj_rel = np.array([_project(kp.pt, H_ref_to_rel) for kp in kps_ref])
-                        rel_proj_ref = np.array([_project(kp.pt, H_rel_to_ref) for kp in kps_rel])
+                        ref_pts      = np.array([kp.pt for kp in kps_ref], dtype=np.float64)
+                        rel_pts      = np.array([kp.pt for kp in kps_rel], dtype=np.float64)
+                        ref_proj_rel = _project_batch(ref_pts, H_ref_to_rel)
+                        rel_proj_ref = _project_batch(rel_pts, H_rel_to_ref)
                         dists_ref    = np.min(np.linalg.norm(ref_proj_rel[:, None] - rel_pts[None], axis=2), axis=1)
                         dists_rel    = np.min(np.linalg.norm(rel_proj_ref[:, None] - ref_pts[None], axis=2), axis=1)
                         rep = {th: float(np.sum(dists_ref < th) + np.sum(dists_rel < th)) / (n_ref + n_rel)
@@ -418,21 +458,15 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                     continue
 
                                 # ── MMA (computed on filtered pairs, consistent with pipeline) ─────
-                                errors = np.array([
-                                    np.linalg.norm(
-                                        np.array(_project(kps_ref[pair[0].queryIdx].pt, H_ref_to_rel))
-                                        - np.array(kps_rel[pair[0].trainIdx].pt)
-                                    )
-                                    for pair in knn_filtered
-                                ])
+                                _q = [pair[0].queryIdx for pair in knn_filtered]
+                                _t = [pair[0].trainIdx for pair in knn_filtered]
+                                _src = np.array([kps_ref[i].pt for i in _q], dtype=np.float64)
+                                _dst = np.array([kps_rel[i].pt for i in _t], dtype=np.float64)
+                                errors = np.linalg.norm(_project_batch(_src, H_ref_to_rel) - _dst, axis=1)
 
                                 n_putative = len(errors)
                                 mma_kps     = {th: float(np.sum(errors < th)) / n_ref      for th in DISTANCE_THRESHOLDS}
                                 mma_matches = {th: float(np.sum(errors < th)) / n_putative for th in DISTANCE_THRESHOLDS}
-
-                                corners    = np.array([[0, 0], [w_ref-1, 0],
-                                                    [w_ref-1, h_ref-1], [0, h_ref-1]], dtype=np.float64)
-                                corners_gt = np.array([_project(pt, H_ref_to_rel) for pt in corners])
 
                                 # ── Extract matches (ratio already applied!) ─────────
                                 matches = [pair[0] for pair in knn_filtered]
@@ -445,11 +479,9 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                 for ransac_threshold in RANSAC_THRESHOLDS:
                                     # ── Homography estimation ───────────────────────
                                     if can_ransac:
-                                        H_est, _ = cv2.findHomography(dst, src, cv2.RANSAC, ransac_threshold)
+                                        H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_threshold)
                                         if H_est is not None:
-                                            corners_est = np.array([
-                                                _project(pt, np.linalg.inv(H_est)) for pt in corners
-                                            ])
+                                            corners_est = _project_batch(corners, H_est)
                                             mean_err = float(np.mean(np.linalg.norm(
                                                 corners_gt - corners_est, axis=1
                                             )))
