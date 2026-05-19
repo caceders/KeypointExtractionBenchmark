@@ -26,21 +26,21 @@ RESULTS_FILE  = "mma_results/mnn_ratio_order_test.csv"
 # ── Run tag ───────────────────────────────────────────────────────────────────
 # Label for this entire benchmark run. All combinations share this tag.
 # Use a different tag for each run you want to compare in display_mma.py.
-RUN_TAG = "ratio_last"
+RUN_TAG = "default"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
     # "SIFT":      cv2.SIFT_create(),
-    # "ORB_default":       cv2.ORB_create(nfeatures=5000),
+    # "ORB":       cv2.ORB_create(nfeatures=5000),
     # "BRISK":     cv2.BRISK_create(),
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.001),
-    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
-    "BRISK":     cv2.BRISK_create(thresh = 5),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
+    # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001, edgeThreshold = 500),
+    # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 15, fastThreshold = 1),
+    # "BRISK":     cv2.BRISK_create(thresh = 1),
+    # "AKAZE":     cv2.AKAZE_create(threshold=0.00000000001),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -55,7 +55,6 @@ DISTANCE_THRESHOLDS = list(range(1, 31))
 # Each parameter is a list; all combinations are benchmarked and stored in the CSV.
 MAX_KEYPOINTS    = [500]
 USE_MNN         = [True]    # mutual nearest-neighbour filter on/off
-RATIO_FIRST = False
 RATIO_THRESHOLDS = [0.8]     # Lowe's ratio test threshold
 RANSAC_THRESHOLDS   = [3.0]     # RANSAC reprojection error threshold (px)
 
@@ -376,65 +375,38 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                         knn_raw = bf.knnMatch(desc_ref, desc_rel, k=k_nn)
 
                         for use_mnn in USE_MNN:
+
                             for ratio_th in RATIO_THRESHOLDS:
+                                # ── Ratio filtering FIRST (always applied) ─────────
+                                if ratio_th is not None and k_nn >= 2:
+                                    knn_ratio = [
+                                        pair for pair in knn_raw
+                                        if (len(pair) >= 2 and pair[0].distance < ratio_th * pair[1].distance)
+                                        or (len(pair) == 1)  # keep single matches (same behavior as before)
+                                    ]
+                                else:
+                                    knn_ratio = list(knn_raw)
 
-                                def apply_ratio(knn_pairs):
-                                    if ratio_th is not None and k_nn >= 2:
-                                        return [
-                                            pair for pair in knn_pairs
-                                            if (len(pair) >= 2 and pair[0].distance < ratio_th * pair[1].distance)
-                                        ]
-                                    else:
-                                        return list(knn_pairs)
-
-                                def apply_mnn(knn_pairs):
-                                    if not use_mnn:
-                                        return knn_pairs
-
-                                    # Build NN maps from CURRENT candidate set
-                                    nn12 = {}  # queryIdx -> best trainIdx
-                                    nn21 = {}  # trainIdx -> best queryIdx
-
-                                    for pair in knn_pairs:
-                                        if len(pair) == 0:
-                                            continue
-                                        m = pair[0]
-
-                                        # forward NN
-                                        if m.queryIdx not in nn12 or m.distance < nn12[m.queryIdx][1]:
-                                            nn12[m.queryIdx] = (m.trainIdx, m.distance)
-
-                                        # reverse NN
-                                        if m.trainIdx not in nn21 or m.distance < nn21[m.trainIdx][1]:
-                                            nn21[m.trainIdx] = (m.queryIdx, m.distance)
-
-                                    # keep only mutual matches
-                                    return [
-                                        pair for pair in knn_pairs
-                                        if (
-                                            len(pair) > 0
-                                            and nn12.get(pair[0].queryIdx, (None,))[0] == pair[0].trainIdx
-                                            and nn21.get(pair[0].trainIdx, (None,))[0] == pair[0].queryIdx
+                                if not knn_ratio:
+                                    for ransac_threshold in RANSAC_THRESHOLDS:
+                                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
+                                        raw_by_sweep[sk].append(
+                                            (seq_type, img_idx, zero_mma, zero_mma, rep, zero_hom)
                                         )
+                                        match_cnt_by[sk].append(0)
+                                    continue
+
+                                # ── Matcher-specific filtering (AFTER ratio) ────────
+                                if use_mnn:
+                                    nn21 = {m.queryIdx: m.trainIdx for m in bf.match(desc_rel, desc_ref)}
+
+                                    knn_filtered = [
+                                        pair for pair in knn_ratio
+                                        if nn21.get(pair[0].trainIdx) == pair[0].queryIdx
                                     ]
 
-                                # ordering switch
-                                if RATIO_FIRST:
-                                    knn_tmp = apply_ratio(knn_raw)
-                                    knn_filtered = apply_mnn(knn_tmp)
                                 else:
-                                    knn_tmp = apply_mnn(knn_raw)
-                                    knn_filtered = apply_ratio(knn_tmp)
-
-
-                                # if not knn_ratio:
-                                #     for ransac_threshold in RANSAC_THRESHOLDS:
-                                #         sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
-                                #         raw_by_sweep[sk].append(
-                                #             (seq_type, img_idx, zero_mma, zero_mma, rep, zero_hom)
-                                #         )
-                                #         match_cnt_by[sk].append(0)
-                                #     continue
+                                    knn_filtered = knn_ratio  # fallback
 
                                 if not knn_filtered:
                                     for ransac_threshold in RANSAC_THRESHOLDS:
@@ -473,10 +445,10 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                 for ransac_threshold in RANSAC_THRESHOLDS:
                                     # ── Homography estimation ───────────────────────
                                     if can_ransac:
-                                        H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_threshold)
+                                        H_est, _ = cv2.findHomography(dst, src, cv2.RANSAC, ransac_threshold)
                                         if H_est is not None:
                                             corners_est = np.array([
-                                                _project(pt, H_est) for pt in corners
+                                                _project(pt, np.linalg.inv(H_est)) for pt in corners
                                             ])
                                             mean_err = float(np.mean(np.linalg.norm(
                                                 corners_gt - corners_est, axis=1
