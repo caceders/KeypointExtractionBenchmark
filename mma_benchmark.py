@@ -6,7 +6,7 @@ import warnings
 import cv2
 import numpy as np
 import pandas as pd
-from sklearn.metrics import average_precision_score
+
 from tqdm import tqdm
 
 from benchmark.feature_extractor import FeatureExtractor
@@ -29,7 +29,7 @@ RESULTS_FILE  = "mma_results/optimize.csv"
 # ── Run tag ───────────────────────────────────────────────────────────────────
 # Label for this entire benchmark run. All combinations share this tag.
 # Use a different tag for each run you want to compare in display_mma.py.
-RUN_TAG = "0"
+RUN_TAG = "1"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
@@ -173,7 +173,7 @@ def _top_k_keypoints(kps, k):
     """Return up to k keypoints with highest response, in descending order."""
     if not kps:
         return kps
-    resp = np.fromiter((kp.response for kp in kps), dtype=np.float32, count=len(kps))
+    resp = np.array([kp.response for kp in kps], dtype=np.float32)
     if len(kps) > k:
         part = np.argpartition(resp, -k)[-k:]
         idx  = part[np.argsort(resp[part])[::-1]]
@@ -197,15 +197,18 @@ def _difficulty_tags(rel_idx):
 # ============================================================
 
 def compute_ap(match_pool: list[tuple[float, float]], threshold: float) -> float:
-    """AP on matches ranked by descriptor distance, labelled correct if geo_error < threshold."""
+    """AP on matches ranked by ascending descriptor distance, labelled correct if geo_error < threshold."""
     if not match_pool:
         return 0.0
-    distances = np.array([d for d, _ in match_pool])
-    errors    = np.array([e for _, e in match_pool])
-    labels    = (errors < threshold).astype(int)
-    if labels.sum() == 0:
+    pool      = np.asarray(match_pool, dtype=np.float64)   # (N, 2): [distance, error]
+    y         = pool[:, 1] < threshold
+    if not y.any():
         return 0.0
-    return float(average_precision_score(labels, -distances))
+    order     = np.argsort(pool[:, 0])                     # ascending distance = descending score
+    y_sorted  = y[order].astype(np.float64)
+    n_pos     = y_sorted.sum()
+    precision = np.cumsum(y_sorted) / np.arange(1, len(y_sorted) + 1, dtype=np.float64)
+    return float((precision * y_sorted).sum() / n_pos)
 
 
 # ============================================================
@@ -344,15 +347,18 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                             n_ref   = len(kps_ref)
                             n_rel   = len(kps_rel)
 
+                            # ── Pre-extract keypoint coordinates once per (max_kp, vis_filter) ──
+                            ref_pts_arr = np.array([kp.pt for kp in kps_ref], dtype=np.float64) if n_ref else None
+                            rel_pts_arr = np.array([kp.pt for kp in kps_rel], dtype=np.float64) if n_rel else None
+
                             # ── Repeatability ─────────────────────────────────────────
                             if n_ref and n_rel:
-                                ref_pts      = np.array([kp.pt for kp in kps_ref], dtype=np.float64)
-                                rel_pts      = np.array([kp.pt for kp in kps_rel], dtype=np.float64)
-                                ref_proj_rel = _project_batch(ref_pts, H_ref_to_rel)
-                                dist_matrix  = np.linalg.norm(ref_proj_rel[:, None] - rel_pts[None], axis=2)
-                                dists_ref    = np.min(dist_matrix, axis=1)
-                                dists_rel    = np.min(dist_matrix, axis=0)
-                                rep = {th: float(np.sum(dists_ref < th) + np.sum(dists_rel < th)) / (n_ref + n_rel)
+                                ref_proj_rel = _project_batch(ref_pts_arr, H_ref_to_rel)
+                                diff         = ref_proj_rel[:, None, :] - rel_pts_arr[None, :, :]
+                                sq_dist      = (diff * diff).sum(axis=2)
+                                sq_dref      = sq_dist.min(axis=1)
+                                sq_drel      = sq_dist.min(axis=0)
+                                rep = {th: float(np.sum(sq_dref < th * th) + np.sum(sq_drel < th * th)) / (n_ref + n_rel)
                                        for th in DISTANCE_THRESHOLDS}
                             else:
                                 rep = {th: 0.0 for th in DISTANCE_THRESHOLDS}
@@ -375,27 +381,29 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                 n_matches = len(raw_matches)
 
                                 if n_matches > 0:
-                                    _q         = [m.query_idx for m in raw_matches]
-                                    _t         = [m.train_idx for m in raw_matches]
-                                    _src       = np.array([kps_ref[i].pt for i in _q], dtype=np.float64)
-                                    _dst       = np.array([kps_rel[i].pt for i in _t], dtype=np.float64)
+                                    q_arr      = np.array([m.query_idx for m in raw_matches], dtype=np.int32)
+                                    t_arr      = np.array([m.train_idx for m in raw_matches], dtype=np.int32)
+                                    _src       = ref_pts_arr[q_arr]   # float64, (N, 2)
+                                    _dst       = rel_pts_arr[t_arr]   # float64, (N, 2)
                                     geo_errors = np.linalg.norm(_project_batch(_src, H_ref_to_rel) - _dst, axis=1)
+                                    dists_arr  = np.array([m.distance for m in raw_matches], dtype=np.float64)
                                 else:
                                     geo_errors = np.array([], dtype=np.float64)
+                                    dists_arr  = geo_errors
 
                                 # ── Accumulate match pools for per-sequence mAP ────────
                                 pool_tot_key = (max_kp, matcher, ratio_th, vis_filter)
                                 if pool_tot_key not in match_pool_tot:
                                     match_pool_tot[pool_tot_key] = []
-                                for m, err in zip(raw_matches, geo_errors):
-                                    match_pool_tot[pool_tot_key].append((m.distance, float(err)))
+                                if n_matches > 0:
+                                    match_pool_tot[pool_tot_key].extend(zip(dists_arr.tolist(), geo_errors.tolist()))
 
                                 for diff in diffs:
                                     pool_key = (max_kp, matcher, ratio_th, vis_filter, diff)
                                     if pool_key not in match_pool:
                                         match_pool[pool_key] = []
-                                    for m, err in zip(raw_matches, geo_errors):
-                                        match_pool[pool_key].append((m.distance, float(err)))
+                                    if n_matches > 0:
+                                        match_pool[pool_key].extend(zip(dists_arr.tolist(), geo_errors.tolist()))
 
                                 # ── Per-pair metrics ───────────────────────────────────
                                 mma_kps = (
@@ -411,15 +419,14 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                 hom_accs: dict[float, dict[int, float]] = {}
                                 can_ransac = n_matches >= 4
                                 if can_ransac:
-                                    _q   = [m.query_idx for m in raw_matches]
-                                    _t   = [m.train_idx for m in raw_matches]
-                                    src  = np.float32([kps_ref[i].pt for i in _q])
-                                    dst  = np.float32([kps_rel[i].pt for i in _t])
+                                    src = _src.astype(np.float32)
+                                    dst = _dst.astype(np.float32)
                                     for ransac_th in RANSAC_THRESHOLDS:
                                         H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_th)
                                         if H_est is not None:
                                             corners_est = _project_batch(corners, H_est)
-                                            mean_err    = float(np.mean(np.linalg.norm(corners_gt - corners_est, axis=1)))
+                                            diff_c      = corners_gt - corners_est
+                                            mean_err    = float(np.sqrt((diff_c * diff_c).sum(axis=1)).mean())
                                             hom_accs[ransac_th] = {th: 1.0 if mean_err < th else 0.0
                                                                    for th in DISTANCE_THRESHOLDS}
                                         else:

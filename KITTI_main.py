@@ -20,7 +20,7 @@ DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
 RUN_NAME = "optimize"
-RUN_TAG = "0"
+RUN_TAG = "1"
 
 ACTIVE_FRAMES = (0, 1000)   # empty for full sequence
 MAX_KEYPOINTS    = [500]
@@ -185,7 +185,12 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
         if APPLY_NMS:
             kps = non_maximal_supression(kps, NMS_RADIUS, _max_kp)
         else:
-            kps = sorted(kps, key=lambda x: x.response, reverse=True)[:_max_kp]
+            if len(kps) > _max_kp:
+                resp = np.array([kp.response for kp in kps], dtype=np.float32)
+                part = np.argpartition(resp, -_max_kp)[-_max_kp:]
+                kps  = [kps[i] for i in part[np.argsort(resp[part])[::-1]]]
+            else:
+                kps = sorted(kps, key=lambda x: x.response, reverse=True)
         if not kps:
             return [], None
         kps, descs = extractor.compute(img, kps)

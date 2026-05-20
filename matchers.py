@@ -173,12 +173,9 @@ def match_keem(
         sorted_rel  = order
         sorted_dist = D[np.arange(n_ref)[:, None], order]
 
-    sorted_rel_list  = sorted_rel.tolist()
-    sorted_dist_list = sorted_dist.tolist()
-
     heap: list = []
     for i in range(n_ref):
-        heapq.heappush(heap, (sorted_dist_list[i][0], i, sorted_rel_list[i][0], 0))
+        heapq.heappush(heap, (float(sorted_dist[i, 0]), i, int(sorted_rel[i, 0]), 0))
 
     matched_ref: set[int] = set()
     matched_rel: set[int] = set()
@@ -191,7 +188,7 @@ def match_keem(
         if j in matched_rel:
             nxt = rank + 1
             if nxt < k:
-                heapq.heappush(heap, (sorted_dist_list[i][nxt], i, sorted_rel_list[i][nxt], nxt))
+                heapq.heappush(heap, (float(sorted_dist[i, nxt]), i, int(sorted_rel[i, nxt]), nxt))
             continue
         matched_ref.add(i)
         matched_rel.add(j)
