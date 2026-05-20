@@ -42,17 +42,17 @@ if APPLY_NOISE:
 # }
 
 features2d = {
-    # "SIFT":      cv2.SIFT_create(),
-    # "ORB":       cv2.ORB_create(nfeatures=5000),
-    # "BRISK":     cv2.BRISK_create(),
-    # "AKAZE":     cv2.AKAZE_create(),
+    # "SIFT_default":      cv2.SIFT_create(),
+    # "ORB_default":       cv2.ORB_create(nfeatures=5000),
+    # "BRISK_default":     cv2.BRISK_create(),
+    # "AKAZE_default":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001, edgeThreshold = 500),
-    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    "BRISK":     cv2.BRISK_create(thresh = 1),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.00000000001),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    #"SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    #"BRISK":     cv2.BRISK_create(thresh = 1),
+    # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF = True #Forces no mixing
@@ -125,7 +125,7 @@ warnings.filterwarnings("once", category=UserWarning)
 #for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Calculating for all sizes"):
 keypoint_size_scaling = KEYPOINT_SIZE_SCALINGS[0]
 
-for feature_extractor_key in tqdm(test_combinations.keys(), desc="Calculating for all combinations"):
+for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="Calculating for all combinations"):
     for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc=f" {feature_extractor_key} Calculating for all levels of downsampling"):
         for max_features in tqdm(MAX_FEATURES_LIST, leave=False, desc="Calculating for all max feature limits"):
             for initial_sigma in tqdm(INITIAL_SIGMAS, leave=False, desc="Calculating for all initial sigmas"):
@@ -140,6 +140,8 @@ for feature_extractor_key in tqdm(test_combinations.keys(), desc="Calculating fo
                     
                     
                     find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, max_features, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_level, DOWNSAMPLE_FACTOR, INTRINSIC_SIGMA, initial_sigma, APPLY_PROGRESSIVE_BLUR, DOWNSAMPLE_INTERPOLATION_TYPE)
+                    print(feature_extractor_key)
+                    print(f"Avg number keypoints: {np.mean([len(image) for sequence in image_feature_set for image in sequence])}")
                     set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
 
                     if "matching" not in SKIP:
@@ -384,6 +386,8 @@ for feature_extractor_key in tqdm(test_combinations.keys(), desc="Calculating fo
                     results_viewpoint = results.copy()
                     results_viewpoint["transformation"] = "viewpoint"
 
+                    mAP_to_print = 0
+
                     for match_ranking_property in match_properties:
                         APs = [match_set.get_average_precision_score(match_ranking_property) for match_set in matching_match_sets]
                         APs_illumination = APs[:NUM_ILLUMINATION_SEQUENCES]
@@ -393,6 +397,8 @@ for feature_extractor_key in tqdm(test_combinations.keys(), desc="Calculating fo
 
                         results_illumination[f"Matching {match_ranking_property.name} mAP"] =  mAP_illumination
                         results_viewpoint[f"Matching {match_ranking_property.name} mAP"] =  mAP_viewpoint
+                        if match_ranking_property.name == "distance":
+                            mAP_to_print = (mAP_illumination + mAP_viewpoint)/2
 
                     if "verification" not in SKIP:
                         verification_match_sets_illumination = verification_match_sets[:NUM_ILLUMINATION_SEQUENCES]
@@ -427,6 +433,8 @@ for feature_extractor_key in tqdm(test_combinations.keys(), desc="Calculating fo
                             results_viewpoint[f"Retrieval {match_ranking_property.name} mAP"] =  mAP_viewpoint
 
                     
+                    print(f"avg mAP = {mAP_to_print}")
+                    print(type(mAP_illumination))
                     combined_results = [results_illumination, results_viewpoint]
 
                     ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
@@ -438,7 +446,6 @@ for feature_extractor_key in tqdm(test_combinations.keys(), desc="Calculating fo
                             df.to_csv("results/" + FILE_NAME, index = False, header = True, mode='a') # Create header if file does not exist
                         else:
                             df.to_csv("results/" + FILE_NAME, index = False, header = False, mode='a') # If exists skip header
-
 print(f"results saved to results/{FILE_NAME}")
 
 
