@@ -29,7 +29,7 @@ RESULTS_FILE  = "mma_results/optimize.csv"
 # ── Run tag ───────────────────────────────────────────────────────────────────
 # Label for this entire benchmark run. All combinations share this tag.
 # Use a different tag for each run you want to compare in display_mma.py.
-RUN_TAG = "pos"
+RUN_TAG = "0"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
@@ -41,9 +41,9 @@ features2d = {
     ## LOW THRESH
     "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    "BRISK":     cv2.BRISK_create(thresh = 1),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    # "BRISK":     cv2.BRISK_create(thresh = 1),
+    # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True

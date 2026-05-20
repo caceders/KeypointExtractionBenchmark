@@ -19,8 +19,8 @@ from matchers import get_matches as _get_matches
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "omtimize"
-RUN_TAG = "pos"
+RUN_NAME = "optimize"
+RUN_TAG = "0"
 
 ACTIVE_FRAMES = (0, 1000)   # empty for full sequence
 MAX_KEYPOINTS    = [500]
@@ -61,9 +61,9 @@ features2d = {
     ## LOW THRESH
     "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    "BRISK":     cv2.BRISK_create(thresh = 1),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    # "BRISK":     cv2.BRISK_create(thresh = 1),
+    # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 # features2d = {
