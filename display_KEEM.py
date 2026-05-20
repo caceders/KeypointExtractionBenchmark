@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "results/max_keypoint_threshold.csv"
+CSV_PATH = "results/FINAL_low_thresh.csv"
 
 PLOTS = [
 
@@ -17,18 +17,19 @@ PLOTS = [
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "distance_threshold": {"values": np.arange(0,6), "fn": "auc"},
+            "matcher": "default",
             
         },
     },
 
         {
         "y":        "Matching distance mAP",
-        "x":        "distance_threshold",
-        "lines": ["method", "tag", "initial_sigma"],
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "matcher": "default",
             
         },
     },
@@ -40,7 +41,27 @@ PLOTS = [
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "distance_threshold": {"values": np.arange(0,6), "fn": "auc"},
+            
+        },
+    },
+
+        {
+        "y":        "avg_num_matches",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+            {
+        "y":        "avg_num_keypoints",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
             
         },
     },

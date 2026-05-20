@@ -6,18 +6,67 @@ import matplotlib.pyplot as plt
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "mma_results/mnn_ratio_order_test.csv"
+CSV_PATH = "mma_results/FINAL_low_thresh.csv"
 
 
 PLOTS = [
 
         {
-        "y":        "mma_matches_mean",
-        "x":        "tag",
+        "y":        "rep_mean",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "distance_threshold": {"values": np.arange(0,6), "fn": "auc"},
-            "use_mnn" : True,
+            "distance_threshold": {"values": np.arange(0,11), "fn": "auc"},
+            
+        },
+    },
+
+    {
+        "y":        "mma_matches_mean",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "distance_threshold": {"values": np.arange(0,11), "fn": "auc"},
+            
+        },
+    },
+
+        {
+        "y":        "mma_matches_mean",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "distance_threshold": {"values": np.arange(0,11), "fn": "auc"},
+            
+        },
+    },
+
+        {
+        "y":        "hom_acc_mean",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "distance_threshold": {"values": np.arange(0,21), "fn": "auc"},
+            
+        },
+    },
+
+            {
+        "y":        "mma_matches_mean",
+        "x":        "distance_threshold",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
         },
     },
 
@@ -28,49 +77,48 @@ PLOTS = [
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-
-            
-        },
-    },
-    
-
-    {
-        "y":        "mma_matches_mean",
-        "x":        "max_keypoints",
-        "lines": ["method", "tag", "initial_sigma"],
-        "subplots": "downsample_level",
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "distance_threshold": {"values": np.arange(0,6), "fn": "auc"},
             
         },
     },
 
         {
-        "y":        "mma_matches_mean",
-        "x":        "distance_threshold",
-        "lines": ["method", "tag", "initial_sigma"],
+        "y":        "hom_acc_mean",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "distance_threshold": {"values": np.arange(0,21), "fn": "auc"},
             
         },
     },
 
     {
-        "y":        "avg_num_matches",
+        "y":        "avg_num_keypoints",
         "x":        "max_keypoints",
         "lines": ["method", "tag", "initial_sigma"],
         "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "distance_threshold": {"values": np.arange(0,6), "fn": "auc"},
+            
+        },
+    },
+
+        {
+        "y":        "avg_num_keypoints",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
             
         },
     },
 
 
+
 ]
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # PLOTS — each entry produces one matplotlib figure.

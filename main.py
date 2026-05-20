@@ -43,16 +43,16 @@ if APPLY_NOISE:
 
 features2d = {
     # "SIFT":      cv2.SIFT_create(),
-    "ORB_default":       cv2.ORB_create(nfeatures=5000),
+    # "ORB":       cv2.ORB_create(nfeatures=5000),
     # "BRISK":     cv2.BRISK_create(),
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.001),
-    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
-    "BRISK":     cv2.BRISK_create(thresh = 5),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
+    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001, edgeThreshold = 500),
+    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    "BRISK":     cv2.BRISK_create(thresh = 1),
+    "AKAZE":     cv2.AKAZE_create(threshold=0.00000000001),
+    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF = True #Forces no mixing
@@ -125,7 +125,7 @@ warnings.filterwarnings("once", category=UserWarning)
 #for keypoint_size_scaling in tqdm(KEYPOINT_SIZE_SCALINGS, leave=False, desc="Calculating for all sizes"):
 keypoint_size_scaling = KEYPOINT_SIZE_SCALINGS[0]
 
-for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="Calculating for all combinations"):
+for feature_extractor_key in tqdm(test_combinations.keys(), desc="Calculating for all combinations"):
     for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc=f" {feature_extractor_key} Calculating for all levels of downsampling"):
         for max_features in tqdm(MAX_FEATURES_LIST, leave=False, desc="Calculating for all max feature limits"):
             for initial_sigma in tqdm(INITIAL_SIGMAS, leave=False, desc="Calculating for all initial sigmas"):
@@ -136,6 +136,8 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
                     speed = 0
                     if "speedtest" not in SKIP:
                         speed = speed_test(feature_extractor, dataset_image_sequences)
+                    
+                    
                     
                     find_all_features_for_dataset(feature_extractor, dataset_image_sequences, image_feature_set, max_features, keypoint_size_scaling, FORCE_CONSTANT_ANGLE, downsample_level, DOWNSAMPLE_FACTOR, INTRINSIC_SIGMA, initial_sigma, APPLY_PROGRESSIVE_BLUR, DOWNSAMPLE_INTERPOLATION_TYPE)
                     set_numbers_of_possible_correct_matches, set_repeatabilities =  calculate_valid_matches(image_feature_set, dataset_homography_sequence)
@@ -425,7 +427,6 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
                             results_viewpoint[f"Retrieval {match_ranking_property.name} mAP"] =  mAP_viewpoint
 
                     
-
                     combined_results = [results_illumination, results_viewpoint]
 
                     ################################################ STORE RESULTS AFTER EACH COMBINATION ###################################
@@ -437,6 +438,8 @@ for feature_extractor_key in tqdm(test_combinations.keys(), leave=False, desc="C
                             df.to_csv("results/" + FILE_NAME, index = False, header = True, mode='a') # Create header if file does not exist
                         else:
                             df.to_csv("results/" + FILE_NAME, index = False, header = False, mode='a') # If exists skip header
+
+print(f"results saved to results/{FILE_NAME}")
 
 
 

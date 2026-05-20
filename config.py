@@ -1,8 +1,8 @@
 from cv2 import INTER_LINEAR, INTER_NEAREST
 SKIP = ["speedtest", "verification", "retrieval"]
 #SKIP = ["speedtest"]
-FILE_NAME = "BIG_TRIAL.csv"
-RUN_TAG = "default"
+FILE_NAME = "FINAL_low_thresh.csv"
+RUN_TAG = "low_thresh"
 SKIP_AT_ERROR = True
 
 # Rotation, scale, gaussian blur, motion blur
@@ -15,20 +15,20 @@ NOISE_FILE_NAME = "noise_6060_052.json"
 
 FORCE_CONSTANT_ANGLE = False
 KEYPOINT_SIZE_SCALINGS = [1]
-REGISTER_OCTAVE_DATA = True
+REGISTER_OCTAVE_DATA = False
 REGISTER_DESCRIPTOR_DATA = False
 USE_MNN = False
-MATCHER = "NN" #NN, RANSAC or default 
+MATCHER = "default" #NN, RANSAC or default 
 
 DOWNSAMPLE_LEVELS = [0,1,2]
-INITIAL_SIGMAS = [0,1,2,3,5]
+INITIAL_SIGMAS = [0,1,2,3,4]
 
 APPLY_PROGRESSIVE_BLUR = False #If off, only initial sigma is applied
 INTRINSIC_SIGMA = 0.5
 DOWNSAMPLE_FACTOR = 2
 DOWNSAMPLE_INTERPOLATION_TYPE = None
 
-MAX_FEATURES_LIST = [250, 500, 1000]
+MAX_FEATURES_LIST = [250,500,750,1000]
 VISUALIZE = False
 SEQUENCE_TO_VISUALIZE = [14]
 

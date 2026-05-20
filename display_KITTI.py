@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "KITTI/results/max_keypoint_threshold/results.csv"
+CSV_PATH = "KITTI/results/FINAL_low_thresh/results.csv"
 
 
 PLOTS = [
@@ -14,29 +14,79 @@ PLOTS = [
     {
         "y":        "ATE_RMSE_STRICT",
         "x":        "max_keypoints",
-        "lines": ["method", "tag"],
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "threshold": {"values": np.arange(0,6), "fn": "auc"},
-            "initial_sigma": 0,
-            "downsample_level" : 0,
+            
+        },
+    },
+
+        {
+        "y":        "ATE_RMSE_STRICT",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+        {
+        "y":        "RPE1_trans_RMSE",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+        {
+        "y":        "RPE1_trans_RMSE",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
             
         },
     },
 
     {
-        "y":        "avg_keypoints",
+        "y":        "avg_num_keypoints",
         "x":        "max_keypoints",
-        "lines": ["method", "tag"],
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "threshold": {"values": np.arange(0,6), "fn": "auc"},
-            "initial_sigma": 0,
-            "downsample_level" : 0,
             
         },
     },
 
+        {
+        "y":        "avg_num_PnP_inliers",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+            {
+        "y":        "avg_num_PnP_inliers",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
 
 ]
 

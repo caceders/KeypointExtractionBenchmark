@@ -21,20 +21,20 @@ except ImportError:
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HPATCHES_PATH = r"hpatches-sequences-release"
-RESULTS_FILE  = "mma_results/mnn_ratio_order_test.csv"
+RESULTS_FILE  = "mma_results/FINAL_low_thresh.csv"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
 # Label for this entire benchmark run. All combinations share this tag.
 # Use a different tag for each run you want to compare in display_mma.py.
-RUN_TAG = "default"
+RUN_TAG = "high_thresh"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
-    # "SIFT":      cv2.SIFT_create(),
-    # "ORB":       cv2.ORB_create(nfeatures=5000),
-    # "BRISK":     cv2.BRISK_create(),
-    # "AKAZE":     cv2.AKAZE_create(),
-    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
+    "SIFT":      cv2.SIFT_create(),
+    "ORB":       cv2.ORB_create(nfeatures=5000),
+    "BRISK":     cv2.BRISK_create(),
+    "AKAZE":     cv2.AKAZE_create(),
+    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
     # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001, edgeThreshold = 500),
     # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 15, fastThreshold = 1),
@@ -53,16 +53,16 @@ DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
 # Each parameter is a list; all combinations are benchmarked and stored in the CSV.
-MAX_KEYPOINTS    = [500]
+MAX_KEYPOINTS    = [250,500,750,1000]
 USE_MNN         = [True]    # mutual nearest-neighbour filter on/off
 RATIO_THRESHOLDS = [0.8]     # Lowe's ratio test threshold
 RANSAC_THRESHOLDS   = [3.0]     # RANSAC reprojection error threshold (px)
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0]
+DOWNSAMPLE_LEVELS             = [0,1,2]
+INITIAL_SIGMAS                 = [0,1,2,3,4]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
-INITIAL_SIGMAS                 = [0]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 

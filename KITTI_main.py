@@ -19,17 +19,17 @@ from tqdm import tqdm
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "BIG_TRIAL"
-RUN_TAG = "default"
+RUN_NAME = "FINAL_low_thresh"
+RUN_TAG = "low_thresh"
 
 ACTIVE_FRAMES = (0,1000)  #empty for full sequence
-MAX_KEYPOINTS = [250,500,1000]
+MAX_KEYPOINTS = [250,500,750,1000]
 RATIO_THRESHOLD = 0.75
 RANSAC_THRESHOLD = 2
 EPIPOLAR_THRESHOLD = 1
 USE_MNN = False
 DOWNSAMPLE_LEVELS = [0,1,2]
-INITIAL_SIGMAS = [0,1,2,3,5]
+INITIAL_SIGMAS = [0,1,2,3,4]
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
@@ -54,16 +54,16 @@ TRAJ_DIR.mkdir(parents=True, exist_ok=True)
 
 features2d = {
     # "SIFT":      cv2.SIFT_create(),
-    "ORB_default":       cv2.ORB_create(nfeatures=5000),
+    # "ORB":       cv2.ORB_create(nfeatures=5000),
     # "BRISK":     cv2.BRISK_create(),
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.001),
-    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 10),
-    "BRISK":     cv2.BRISK_create(thresh = 5),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.0000005),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.001),
+    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001, edgeThreshold = 500),
+    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 15, fastThreshold = 1),
+    "BRISK":     cv2.BRISK_create(thresh = 1),
+    "AKAZE":     cv2.AKAZE_create(threshold=0.00000000001),
+    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 # features2d = {
@@ -315,7 +315,7 @@ def main():
         seq_root = Path(DATA_ROOT) / "sequences" / seq
         gt_path = Path(DATA_ROOT) / "poses" / f"{seq}.txt"
         gt_poses = read_gt_poses(gt_path)
-        for name, extractor in tqdm(test_combinations.items(), leave=False, desc=f"Methods", position=2):
+        for name, extractor in tqdm(test_combinations.items(), desc=f"Methods", position=2):
             for max_keypoints in tqdm(MAX_KEYPOINTS, leave=False, desc=f"{name} Max keypoints", position=3):
                 for initial_gaussian_blur_sigma in tqdm(INITIAL_SIGMAS, leave=False, desc="initial sigmas", position=4):
                     for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Downsample levels", position=5):
@@ -396,6 +396,8 @@ def main():
                                 header=write_header,
                                 index=False,
                             )
+    print(f"results saved to {CSV_PATH}")
+
 
 
 #########################################################
