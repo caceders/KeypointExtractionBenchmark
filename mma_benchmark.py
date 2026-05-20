@@ -1,14 +1,17 @@
 import os
-
-from benchmark.feature_extractor import FeatureExtractor
-from benchmark.utils import downsample
-from tqdm import tqdm
 import itertools
 import traceback
+import warnings
+
 import cv2
 import numpy as np
 import pandas as pd
-import warnings
+from sklearn.metrics import average_precision_score
+from tqdm import tqdm
+
+from benchmark.feature_extractor import FeatureExtractor
+from benchmark.utils import downsample
+from matchers import get_matches
 
 try:
     from shi_tomasi_sift import ShiTomasiSift
@@ -21,26 +24,26 @@ except ImportError:
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HPATCHES_PATH = r"hpatches-sequences-release"
-RESULTS_FILE  = "mma_results/FINAL_low_thresh.csv"
+RESULTS_FILE  = "mma_results/optimize.csv"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
 # Label for this entire benchmark run. All combinations share this tag.
 # Use a different tag for each run you want to compare in display_mma.py.
-RUN_TAG = "high_thresh"
+RUN_TAG = "pos"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
-    "SIFT":      cv2.SIFT_create(),
-    "ORB":       cv2.ORB_create(nfeatures=5000),
-    "BRISK":     cv2.BRISK_create(),
-    "AKAZE":     cv2.AKAZE_create(),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
+    # "SIFT":  cv2.SIFT_create(),
+    # "ORB":   cv2.ORB_create(nfeatures=5000),
+    # "BRISK": cv2.BRISK_create(),
+    # "AKAZE": cv2.AKAZE_create(),
+    # "GFTT":  cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001, edgeThreshold = 500),
-    # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 15, fastThreshold = 1),
-    # "BRISK":     cv2.BRISK_create(thresh = 1),
-    # "AKAZE":     cv2.AKAZE_create(threshold=0.00000000001),
-    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    "SIFT":  cv2.SIFT_create(contrastThreshold=0.0001, edgeThreshold=500),
+    "ORB":   cv2.ORB_create(nfeatures=5000, edgeThreshold=15, fastThreshold=1),
+    # "BRISK": cv2.BRISK_create(thresh=1),
+    # "AKAZE": cv2.AKAZE_create(threshold=0.00000000001),
+    # "GFTT":  cv2.GFTTDetector_create(maxCorners=5000, qualityLevel=0.0002),
 }
 
 ONLY_SELF             = True
@@ -48,23 +51,25 @@ ONLY_SELF_EXCEPTIONS  = [("GFTT", "SIFT")]
 ONLY_USED_AS_DETECTOR = ["GFTT"]
 
 # ── Evaluation thresholds ─────────────────────────────────────────────────────
-# Pixel-error thresholds used for MMA, repeatability, and homography accuracy.
-DISTANCE_THRESHOLDS = list(range(1, 31))
+# Pixel-error thresholds for MMA, repeatability, and homography accuracy.
+DISTANCE_THRESHOLDS = [10]
 
 # ── Matching parameters ───────────────────────────────────────────────────────
-# Each parameter is a list; all combinations are benchmarked and stored in the CSV.
-MAX_KEYPOINTS    = [250,500,750,1000]
-USE_MNN         = [True]    # mutual nearest-neighbour filter on/off
-RATIO_THRESHOLDS = [0.8]     # Lowe's ratio test threshold
-RANSAC_THRESHOLDS   = [3.0]     # RANSAC reprojection error threshold (px)
+# Each parameter is a list; combinations are benchmarked and stored in the CSV.
+MAX_KEYPOINTS    = [500]
+MATCHERS         = ["KEEM", "MNN"]  # "NN", "MNN", "KEEM"
+RATIO_THRESHOLDS = [0.8]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
+RANSAC_THRESHOLDS = [3.0]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0,1,2]
-INITIAL_SIGMAS                 = [0,1,2,3,4]
+DOWNSAMPLE_LEVELS             = [0]
+INITIAL_SIGMAS                = [0]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
+
+VISIBILITY_FILTERS = [False]  # sweepable; True removes kps that project outside the other image
 
 SKIP_AT_ERROR = False
 
@@ -97,13 +102,23 @@ for det_key in features2d:
             dist,
         )
 
+# (matcher, ratio_th) sweep: KEEM gets None (no ratio test), NN/MNN get each ratio threshold
+_matching_configs: list[tuple[str, float | None]] = []
+for _m in MATCHERS:
+    if _m == "KEEM":
+        _matching_configs.append(("KEEM", None))
+    else:
+        for _r in RATIO_THRESHOLDS:
+            _matching_configs.append((_m, _r))
+
+
 # ============================================================
 # DATASET LOADING
 # ============================================================
 
 def load_hpatches(path: str):
     """Load HPatches sequences. Returns list of (name, seq_type, images, homographies).
-    Homographies are stored as related -> reference (inverted from files on disk)."""
+    Homographies are stored as reference -> related (as on disk)."""
     sequences = []
     for name in sorted(os.listdir(path)):
         subfolder = os.path.join(path, name)
@@ -115,7 +130,6 @@ def load_hpatches(path: str):
             seq_type = "viewpoint"
         else:
             continue
-
         imgs, homos = [], []
         for filename in sorted(os.listdir(subfolder)):
             fp = os.path.join(subfolder, filename)
@@ -125,7 +139,7 @@ def load_hpatches(path: str):
                     imgs.append(img)
             elif filename.startswith("H_"):
                 H = np.loadtxt(fp)
-                homos.append(np.linalg.inv(H))
+                homos.append(H)
         if imgs and homos:
             sequences.append((name, seq_type, imgs, homos))
     return sequences
@@ -136,22 +150,10 @@ print(f"Loaded {len(sequences)} sequences "
       f"({sum(1 for s in sequences if s[1]=='illumination')} illumination, "
       f"{sum(1 for s in sequences if s[1]=='viewpoint')} viewpoint)")
 
+
 # ============================================================
 # GEOMETRY HELPERS
 # ============================================================
-
-def _project(pt, H):
-    x, y = pt
-    v = H @ np.array([x, y, 1.0])
-    if abs(v[2]) < 1e-10:
-        return float("inf"), float("inf")
-    return v[0] / v[2], v[1] / v[2]
-
-
-def _in_bounds(pt, w, h):
-    x, y = pt
-    return 0 <= x < w and 0 <= y < h
-
 
 def _project_batch(pts_xy, H):
     """Project (N,2) array through 3x3 homography. Returns (N,2); inf for degenerate points."""
@@ -181,84 +183,39 @@ def _top_k_keypoints(kps, k):
 
 
 def _difficulty_tags(rel_idx):
-    """Return all difficulty bucket names for a 0-based related-image index.
-    HPatches rel_idx 0-4 map to img2-6; img5 (rel_idx 3) is both normal and hard."""
+    """Return difficulty bucket names for a 0-based related-image index.
+    HPatches rel_idx 0-4 → img2-6; img5 (rel_idx 3) falls in both normal and hard."""
     diffs = []
     if rel_idx in (0, 1): diffs.append("easy")
     if rel_idx in (2, 3): diffs.append("normal")
     if rel_idx in (3, 4): diffs.append("hard")
     return diffs
 
+
 # ============================================================
-# AGGREGATION
+# mAP HELPERS
 # ============================================================
 
-def aggregate(raw):
-    """
-    raw: list of (seq_type, img_idx, mma_kps_dict, mma_matches_dict, rep_dict, hom_acc_dict)
-         seq_type in {'illumination', 'viewpoint'}
-         img_idx  in {2, 3, 4, 5, 6}
+def compute_ap(match_pool: list[tuple[float, float]], threshold: float) -> float:
+    """AP on matches ranked by descriptor distance, labelled correct if geo_error < threshold."""
+    if not match_pool:
+        return 0.0
+    distances = np.array([d for d, _ in match_pool])
+    errors    = np.array([e for _, e in match_pool])
+    labels    = (errors < threshold).astype(int)
+    if labels.sum() == 0:
+        return 0.0
+    return float(average_precision_score(labels, -distances))
 
-    Returns wide-format rows, one per (scope, difficulty, threshold), with columns:
-      mma_kps_mean/std/min/max/count      — correct / n_ref_keypoints
-      mma_matches_mean/std/min/max/count  — correct / n_putative_matches
-      rep_mean/std/min/max/count
-      hom_acc_mean/std/min/max/count
-    """
-    buckets_mma_kps:     dict[tuple, list[float]] = {}
-    buckets_mma_matches: dict[tuple, list[float]] = {}
-    buckets_rep:         dict[tuple, list[float]] = {}
-    buckets_hom_acc:     dict[tuple, list[float]] = {}
-
-    for seq_type, img_idx, mma_kps_dict, mma_matches_dict, rep_dict, hom_acc_dict in raw:
-        scope_tag = "illumination" if seq_type == "illumination" else "viewpoint"
-        diffs = _difficulty_tags(img_idx - 2)
-
-        for scope in [scope_tag]:
-            for diff in diffs:
-                for th, val in mma_kps_dict.items():
-                    buckets_mma_kps.setdefault((scope, diff, th), []).append(val)
-                for th, val in mma_matches_dict.items():
-                    buckets_mma_matches.setdefault((scope, diff, th), []).append(val)
-                for th, val in rep_dict.items():
-                    buckets_rep.setdefault((scope, diff, th), []).append(val)
-                for th, val in hom_acc_dict.items():
-                    buckets_hom_acc.setdefault((scope, diff, th), []).append(val)
-
-    all_keys = (set(buckets_mma_kps.keys()) | set(buckets_mma_matches.keys())
-                | set(buckets_rep.keys()) | set(buckets_hom_acc.keys()))
-    rows = []
-    for (scope, difficulty, threshold) in all_keys:
-        row: dict = {"transformation": scope, "difficulty": difficulty, "distance_threshold": threshold}
-        for prefix, buckets in [
-            ("mma_kps",     buckets_mma_kps),
-            ("mma_matches", buckets_mma_matches),
-            ("rep",         buckets_rep),
-            ("hom_acc",     buckets_hom_acc),
-        ]:
-            vals = buckets.get((scope, difficulty, threshold))
-            if vals is not None:
-                arr = np.array(vals, dtype=np.float64)
-                row[f"{prefix}_mean"]  = float(np.mean(arr))
-                row[f"{prefix}_std"]   = float(np.std(arr))
-                row[f"{prefix}_min"]   = float(np.min(arr))
-                row[f"{prefix}_max"]   = float(np.max(arr))
-                row[f"{prefix}_count"] = len(arr)
-            else:
-                row[f"{prefix}_mean"]  = float("nan")
-                row[f"{prefix}_std"]   = float("nan")
-                row[f"{prefix}_min"]   = float("nan")
-                row[f"{prefix}_max"]   = float("nan")
-                row[f"{prefix}_count"] = 0
-        rows.append(row)
-    return rows
 
 # ============================================================
 # MAIN BENCHMARK LOOP
 # ============================================================
 
 warnings.filterwarnings("once", category=UserWarning)
-os.makedirs("results", exist_ok=True)
+_results_dir = os.path.dirname(RESULTS_FILE)
+if _results_dir:
+    os.makedirs(_results_dir, exist_ok=True)
 
 _max_k = max(MAX_KEYPOINTS)
 
@@ -278,227 +235,239 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
 
         scale = ds_factor ** ds_level
 
-        # ── Initialize sweep accumulators ─────────────────────────────────────
-        raw_by_sweep = {}
-        match_cnt_by = {}
-        for max_keypoints in MAX_KEYPOINTS:
-            for use_mnn in USE_MNN:
-                for ratio_th in RATIO_THRESHOLDS:
-                    for ransac_threshold in RANSAC_THRESHOLDS:
-                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
-                        raw_by_sweep[sk] = []
-                        match_cnt_by[sk] = []
-        keypoint_cnts_by_mf = {mf: [] for mf in MAX_KEYPOINTS}
+        for seq_id, (seq_name, seq_type, imgs, homos) in enumerate(tqdm(
+                sequences, leave=False, desc="Sequences", position=2)):
 
-        for name, seq_type, imgs, homos in tqdm(sequences, leave=False, desc="Sequences", position=2):
             h_ref, w_ref = imgs[0].shape[:2]
             img_ref_ds   = downsample(imgs[0], ds_level, ds_factor,
                                       intr_sigma, init_sigma, prog_blur, interp_type)
 
-            for rel_idx, (img_rel_orig, H_rel_to_ref) in enumerate(tqdm(
+            # ── Detect + describe reference image ONCE for all pairs ──────────────────
+            dtype        = np.float32 if extractor.distance_type == cv2.NORM_L2 else np.uint8
+            kps_ref_base = extractor.detect_keypoints(img_ref_ds)
+            kps_ref_base = _top_k_keypoints(kps_ref_base, _max_k)
+            if kps_ref_base:
+                kps_ref_base, _dref = extractor.describe_keypoints(img_ref_ds, kps_ref_base)
+                descs_ref_np = np.array(_dref, dtype=dtype) if _dref else None
+                if scale != 1:
+                    for kp in kps_ref_base:
+                        kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
+            else:
+                descs_ref_np = None
+
+            _need_inv_h = any(VISIBILITY_FILTERS)
+
+            seq_rows: list[dict] = []
+            # match_pool[(max_kp, matcher, ratio_th, vis_filter, diff)] → per-difficulty pool
+            # match_pool_tot[(max_kp, matcher, ratio_th, vis_filter)]   → full-sequence pool
+            match_pool:     dict[tuple, list[tuple[float, float]]] = {}
+            match_pool_tot: dict[tuple, list[tuple[float, float]]] = {}
+
+            for rel_idx, (img_rel_orig, H_ref_to_rel) in enumerate(tqdm(
                     list(zip(imgs[1:], homos)), leave=False, desc="Image pairs", position=3)):
 
                 img_idx    = rel_idx + 2
-                pair_label = f"{combo_key} ds={ds_level} seq={name} img={img_idx}"
+                diffs      = _difficulty_tags(rel_idx)
+                pair_label = f"{combo_key} ds={ds_level} seq={seq_name} img={img_idx}"
 
                 try:
-                    H_ref_to_rel = np.linalg.inv(H_rel_to_ref)
                     h_rel, w_rel = img_rel_orig.shape[:2]
                     img_rel_ds   = downsample(img_rel_orig, ds_level, ds_factor,
                                               intr_sigma, init_sigma, prog_blur, interp_type)
 
-                    zero_mma = {th: 0.0 for th in DISTANCE_THRESHOLDS}
-                    zero_rep = {th: 0.0 for th in DISTANCE_THRESHOLDS}
-                    zero_hom = {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                    # ── Detect + describe related image ────────────────────────────────
+                    kps_rel_base = extractor.detect_keypoints(img_rel_ds)
+                    kps_rel_base = _top_k_keypoints(kps_rel_base, _max_k)
+                    if kps_rel_base:
+                        kps_rel_base, _drel = extractor.describe_keypoints(img_rel_ds, kps_rel_base)
+                        descs_rel_np = np.array(_drel, dtype=dtype) if _drel else None
+                        if scale != 1:
+                            for kp in kps_rel_base:
+                                kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
+                    else:
+                        descs_rel_np = None
 
-                    def _append_all_zeros(rep=zero_rep):
-                        for max_keypoints in MAX_KEYPOINTS:
-                            for use_mnn in USE_MNN:
-                                for ratio_th in RATIO_THRESHOLDS:
-                                    for ransac_threshold in RANSAC_THRESHOLDS:
-                                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
-                                        raw_by_sweep[sk].append(
-                                            (seq_type, img_idx, zero_mma, zero_mma, rep, zero_hom)
-                                        )
-                                        match_cnt_by[sk].append(0)
-
-                    # ── Detect keypoints in downsampled coords ────────────────
-                    kps_ref_all = extractor.detect_keypoints(img_ref_ds)
-                    kps_rel_all = extractor.detect_keypoints(img_rel_ds)
-
-                    # Scale to original coords for geometric filtering
-                    if scale != 1:
-                        for kp in kps_ref_all:
-                            kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
-                        for kp in kps_rel_all:
-                            kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
-
-                    # Keep only keypoints visible in the other image (vectorized)
-                    if kps_ref_all:
-                        _pts = np.array([kp.pt for kp in kps_ref_all], dtype=np.float64)
-                        _proj = _project_batch(_pts, H_ref_to_rel)
-                        _mask = (_proj[:, 0] >= 0) & (_proj[:, 0] < w_rel) & (_proj[:, 1] >= 0) & (_proj[:, 1] < h_rel)
-                        kps_ref_all = [kp for kp, m in zip(kps_ref_all, _mask) if m]
-                    if kps_rel_all:
-                        _pts = np.array([kp.pt for kp in kps_rel_all], dtype=np.float64)
-                        _proj = _project_batch(_pts, H_rel_to_ref)
-                        _mask = (_proj[:, 0] >= 0) & (_proj[:, 0] < w_ref) & (_proj[:, 1] >= 0) & (_proj[:, 1] < h_ref)
-                        kps_rel_all = [kp for kp, m in zip(kps_rel_all, _mask) if m]
-                    kps_ref_all = _top_k_keypoints(kps_ref_all, _max_k)
-                    kps_rel_all = _top_k_keypoints(kps_rel_all, _max_k)
-
-                    if not kps_ref_all or not kps_rel_all:
-                        _append_all_zeros()
-                        continue
-
-                    # Scale back to downsampled coords for description
-                    if scale != 1:
-                        for kp in kps_ref_all:
-                            kp.pt = (kp.pt[0] / scale, kp.pt[1] / scale)
-                        for kp in kps_rel_all:
-                            kp.pt = (kp.pt[0] / scale, kp.pt[1] / scale)
-
-                    kps_ref_all, descs_ref_all = extractor.describe_keypoints(img_ref_ds, kps_ref_all)
-                    kps_rel_all, descs_rel_all = extractor.describe_keypoints(img_rel_ds, kps_rel_all)
-
-                    # Scale back to original coords for all downstream math
-                    if scale != 1:
-                        for kp in kps_ref_all:
-                            kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
-                        for kp in kps_rel_all:
-                            kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
-
-                    if not descs_ref_all or not descs_rel_all:
-                        _append_all_zeros()
-                        continue
-
-                    dtype         = np.float32 if extractor.distance_type == cv2.NORM_L2 else np.uint8
-                    desc_ref_full = np.array(descs_ref_all, dtype=dtype)
-                    desc_rel_full = np.array(descs_rel_all, dtype=dtype)
-                    bf            = cv2.BFMatcher(extractor.distance_type, crossCheck=False)
-
-                    corners    = np.array([[0, 0], [w_ref-1, 0],
-                                           [w_ref-1, h_ref-1], [0, h_ref-1]], dtype=np.float64)
+                    corners    = np.array([[0, 0], [w_ref - 1, 0],
+                                           [w_ref - 1, h_ref - 1], [0, h_ref - 1]], dtype=np.float64)
                     corners_gt = _project_batch(corners, H_ref_to_rel)
 
-                    for max_keypoints in MAX_KEYPOINTS:
-                        kps_ref  = kps_ref_all[:max_keypoints]
-                        kps_rel  = kps_rel_all[:max_keypoints]
-                        n_ref, n_rel = len(kps_ref), len(kps_rel)
-                        desc_ref = desc_ref_full[:n_ref]
-                        desc_rel = desc_rel_full[:n_rel]
-                        keypoint_cnts_by_mf[max_keypoints].extend([n_ref, n_rel])
+                    # ── Pre-compute visibility masks once per pair ─────────────────────
+                    H_rel_to_ref = np.linalg.inv(H_ref_to_rel) if _need_inv_h else None
+                    _vis_ref: dict[bool, np.ndarray | None] = {}
+                    _vis_rel: dict[bool, np.ndarray | None] = {}
+                    for _vf in set(VISIBILITY_FILTERS):
+                        if _vf:
+                            if kps_ref_base:
+                                _pts = np.array([kp.pt for kp in kps_ref_base], dtype=np.float64)
+                                _proj = _project_batch(_pts, H_ref_to_rel)
+                                _vis_ref[_vf] = ((_proj[:, 0] >= 0) & (_proj[:, 0] < w_rel) &
+                                                 (_proj[:, 1] >= 0) & (_proj[:, 1] < h_rel))
+                            else:
+                                _vis_ref[_vf] = None
+                            if kps_rel_base:
+                                _pts = np.array([kp.pt for kp in kps_rel_base], dtype=np.float64)
+                                _proj = _project_batch(_pts, H_rel_to_ref)
+                                _vis_rel[_vf] = ((_proj[:, 0] >= 0) & (_proj[:, 0] < w_ref) &
+                                                 (_proj[:, 1] >= 0) & (_proj[:, 1] < h_ref))
+                            else:
+                                _vis_rel[_vf] = None
+                        else:
+                            _vis_ref[_vf] = None
+                            _vis_rel[_vf] = None
 
-                        if not kps_ref or not kps_rel:
-                            for use_mnn in USE_MNN:
-                                for ratio_th in RATIO_THRESHOLDS:
-                                    for ransac_threshold in RANSAC_THRESHOLDS:
-                                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
-                                        raw_by_sweep[sk].append(
-                                            (seq_type, img_idx, zero_mma, zero_rep, zero_hom)
-                                        )
-                                        match_cnt_by[sk].append(0)
-                            continue
+                    for vis_filter in VISIBILITY_FILTERS:
+                        # ── Select visible keypoint subset ─────────────────────────────
+                        ref_mask = _vis_ref[vis_filter]
+                        rel_mask = _vis_rel[vis_filter]
 
-                        # ── Repeatability (descriptor-free, once per max_features) ──
-                        ref_pts      = np.array([kp.pt for kp in kps_ref], dtype=np.float64)
-                        rel_pts      = np.array([kp.pt for kp in kps_rel], dtype=np.float64)
-                        ref_proj_rel = _project_batch(ref_pts, H_ref_to_rel)
-                        rel_proj_ref = _project_batch(rel_pts, H_rel_to_ref)
-                        dists_ref    = np.min(np.linalg.norm(ref_proj_rel[:, None] - rel_pts[None], axis=2), axis=1)
-                        dists_rel    = np.min(np.linalg.norm(rel_proj_ref[:, None] - ref_pts[None], axis=2), axis=1)
-                        rep = {th: float(np.sum(dists_ref < th) + np.sum(dists_rel < th)) / (n_ref + n_rel)
-                               for th in DISTANCE_THRESHOLDS}
+                        if ref_mask is not None:
+                            kps_ref_all  = [kp for kp, m in zip(kps_ref_base, ref_mask) if m]
+                            descs_ref_vf = descs_ref_np[ref_mask] if descs_ref_np is not None else None
+                        else:
+                            kps_ref_all  = kps_ref_base
+                            descs_ref_vf = descs_ref_np
 
-                       # ── KNN matching (k=2 enables ratio test) ─────────────
-                        k_nn    = min(2, n_rel)
-                        knn_raw = bf.knnMatch(desc_ref, desc_rel, k=k_nn)
+                        if rel_mask is not None:
+                            kps_rel_all  = [kp for kp, m in zip(kps_rel_base, rel_mask) if m]
+                            descs_rel_vf = descs_rel_np[rel_mask] if descs_rel_np is not None else None
+                        else:
+                            kps_rel_all  = kps_rel_base
+                            descs_rel_vf = descs_rel_np
 
-                        for use_mnn in USE_MNN:
+                        have_kps   = bool(kps_ref_all) and bool(kps_rel_all)
+                        have_descs = (descs_ref_vf is not None and len(descs_ref_vf) > 0 and
+                                      descs_rel_vf is not None and len(descs_rel_vf) > 0)
 
-                            for ratio_th in RATIO_THRESHOLDS:
-                                # ── Ratio filtering FIRST (always applied) ─────────
-                                if ratio_th is not None and k_nn >= 2:
-                                    knn_ratio = [
-                                        pair for pair in knn_raw
-                                        if (len(pair) >= 2 and pair[0].distance < ratio_th * pair[1].distance)
-                                        or (len(pair) == 1)  # keep single matches (same behavior as before)
-                                    ]
+                        for max_kp in MAX_KEYPOINTS:
+                            kps_ref = kps_ref_all[:max_kp] if have_kps else []
+                            kps_rel = kps_rel_all[:max_kp] if have_kps else []
+                            n_ref   = len(kps_ref)
+                            n_rel   = len(kps_rel)
+
+                            # ── Repeatability ─────────────────────────────────────────
+                            if n_ref and n_rel:
+                                ref_pts      = np.array([kp.pt for kp in kps_ref], dtype=np.float64)
+                                rel_pts      = np.array([kp.pt for kp in kps_rel], dtype=np.float64)
+                                ref_proj_rel = _project_batch(ref_pts, H_ref_to_rel)
+                                dist_matrix  = np.linalg.norm(ref_proj_rel[:, None] - rel_pts[None], axis=2)
+                                dists_ref    = np.min(dist_matrix, axis=1)
+                                dists_rel    = np.min(dist_matrix, axis=0)
+                                rep = {th: float(np.sum(dists_ref < th) + np.sum(dists_rel < th)) / (n_ref + n_rel)
+                                       for th in DISTANCE_THRESHOLDS}
+                            else:
+                                rep = {th: 0.0 for th in DISTANCE_THRESHOLDS}
+
+                            if have_descs and n_ref > 0 and n_rel > 0:
+                                desc_ref = descs_ref_vf[:n_ref]
+                                desc_rel = descs_rel_vf[:n_rel]
+                            else:
+                                desc_ref = None
+                                desc_rel = None
+
+                            for matcher, ratio_th in _matching_configs:
+                                # ── Match descriptors ──────────────────────────────────
+                                if desc_ref is not None:
+                                    raw_matches = get_matches(desc_ref, desc_rel,
+                                                              extractor.distance_type, matcher, ratio_th)
                                 else:
-                                    knn_ratio = list(knn_raw)
+                                    raw_matches = []
 
-                                if not knn_ratio:
-                                    for ransac_threshold in RANSAC_THRESHOLDS:
-                                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
-                                        raw_by_sweep[sk].append(
-                                            (seq_type, img_idx, zero_mma, zero_mma, rep, zero_hom)
-                                        )
-                                        match_cnt_by[sk].append(0)
-                                    continue
+                                n_matches = len(raw_matches)
 
-                                # ── Matcher-specific filtering (AFTER ratio) ────────
-                                if use_mnn:
-                                    nn21 = {m.queryIdx: m.trainIdx for m in bf.match(desc_rel, desc_ref)}
-
-                                    knn_filtered = [
-                                        pair for pair in knn_ratio
-                                        if nn21.get(pair[0].trainIdx) == pair[0].queryIdx
-                                    ]
-
+                                if n_matches > 0:
+                                    _q         = [m.query_idx for m in raw_matches]
+                                    _t         = [m.train_idx for m in raw_matches]
+                                    _src       = np.array([kps_ref[i].pt for i in _q], dtype=np.float64)
+                                    _dst       = np.array([kps_rel[i].pt for i in _t], dtype=np.float64)
+                                    geo_errors = np.linalg.norm(_project_batch(_src, H_ref_to_rel) - _dst, axis=1)
                                 else:
-                                    knn_filtered = knn_ratio  # fallback
+                                    geo_errors = np.array([], dtype=np.float64)
 
-                                if not knn_filtered:
-                                    for ransac_threshold in RANSAC_THRESHOLDS:
-                                        sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
-                                        raw_by_sweep[sk].append(
-                                            (seq_type, img_idx, zero_mma, zero_mma, rep, zero_hom)
-                                        )
-                                        match_cnt_by[sk].append(0)
-                                    continue
+                                # ── Accumulate match pools for per-sequence mAP ────────
+                                pool_tot_key = (max_kp, matcher, ratio_th, vis_filter)
+                                if pool_tot_key not in match_pool_tot:
+                                    match_pool_tot[pool_tot_key] = []
+                                for m, err in zip(raw_matches, geo_errors):
+                                    match_pool_tot[pool_tot_key].append((m.distance, float(err)))
 
-                                # ── MMA (computed on filtered pairs, consistent with pipeline) ─────
-                                _q = [pair[0].queryIdx for pair in knn_filtered]
-                                _t = [pair[0].trainIdx for pair in knn_filtered]
-                                _src = np.array([kps_ref[i].pt for i in _q], dtype=np.float64)
-                                _dst = np.array([kps_rel[i].pt for i in _t], dtype=np.float64)
-                                errors = np.linalg.norm(_project_batch(_src, H_ref_to_rel) - _dst, axis=1)
+                                for diff in diffs:
+                                    pool_key = (max_kp, matcher, ratio_th, vis_filter, diff)
+                                    if pool_key not in match_pool:
+                                        match_pool[pool_key] = []
+                                    for m, err in zip(raw_matches, geo_errors):
+                                        match_pool[pool_key].append((m.distance, float(err)))
 
-                                n_putative = len(errors)
-                                mma_kps     = {th: float(np.sum(errors < th)) / n_ref      for th in DISTANCE_THRESHOLDS}
-                                mma_matches = {th: float(np.sum(errors < th)) / n_putative for th in DISTANCE_THRESHOLDS}
+                                # ── Per-pair metrics ───────────────────────────────────
+                                mma_kps = (
+                                    {th: float(np.sum(geo_errors < th)) / n_ref for th in DISTANCE_THRESHOLDS}
+                                    if n_ref > 0 else {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                                )
+                                mma_matches = (
+                                    {th: float(np.sum(geo_errors < th)) / n_matches for th in DISTANCE_THRESHOLDS}
+                                    if n_matches > 0 else {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                                )
 
-                                # ── Extract matches (ratio already applied!) ─────────
-                                matches = [pair[0] for pair in knn_filtered]
-
-                                can_ransac = len(matches) >= 4
+                                # ── Homography estimation ──────────────────────────────
+                                hom_accs: dict[float, dict[int, float]] = {}
+                                can_ransac = n_matches >= 4
                                 if can_ransac:
-                                    src = np.float32([kps_ref[m.queryIdx].pt for m in matches])
-                                    dst = np.float32([kps_rel[m.trainIdx].pt for m in matches])
-
-                                for ransac_threshold in RANSAC_THRESHOLDS:
-                                    # ── Homography estimation ───────────────────────
-                                    if can_ransac:
-                                        H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_threshold)
+                                    _q   = [m.query_idx for m in raw_matches]
+                                    _t   = [m.train_idx for m in raw_matches]
+                                    src  = np.float32([kps_ref[i].pt for i in _q])
+                                    dst  = np.float32([kps_rel[i].pt for i in _t])
+                                    for ransac_th in RANSAC_THRESHOLDS:
+                                        H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_th)
                                         if H_est is not None:
                                             corners_est = _project_batch(corners, H_est)
-                                            mean_err = float(np.mean(np.linalg.norm(
-                                                corners_gt - corners_est, axis=1
-                                            )))
-                                            hom_acc = {
-                                                th: 1.0 if mean_err < th else 0.0
-                                                for th in DISTANCE_THRESHOLDS
-                                            }
+                                            mean_err    = float(np.mean(np.linalg.norm(corners_gt - corners_est, axis=1)))
+                                            hom_accs[ransac_th] = {th: 1.0 if mean_err < th else 0.0
+                                                                   for th in DISTANCE_THRESHOLDS}
                                         else:
-                                            hom_acc = zero_hom
-                                    else:
-                                        hom_acc = zero_hom
+                                            hom_accs[ransac_th] = {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                                else:
+                                    for ransac_th in RANSAC_THRESHOLDS:
+                                        hom_accs[ransac_th] = {th: 0.0 for th in DISTANCE_THRESHOLDS}
 
-                                    sk = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
-                                    raw_by_sweep[sk].append(
-                                        (seq_type, img_idx, mma_kps, mma_matches, rep, hom_acc)
-                                    )
-                                    match_cnt_by[sk].append(len(matches))
+                                ratio_th_csv = ratio_th if ratio_th is not None else float("nan")
+
+                                for ransac_th in RANSAC_THRESHOLDS:
+                                    for diff in diffs:
+                                        for dist_th in DISTANCE_THRESHOLDS:
+                                            seq_rows.append({
+                                                # Identity
+                                                "method":                 combo_key,
+                                                "tag":                    RUN_TAG,
+                                                # Matching parameters
+                                                "matcher":                matcher,
+                                                "ratio_threshold":        ratio_th_csv,
+                                                "ransac_threshold":       ransac_th,
+                                                # Pipeline parameters
+                                                "max_keypoints":          max_kp,
+                                                "downsample_level":       ds_level,
+                                                "initial_sigma":          init_sigma,
+                                                "intrinsic_sigma":        intr_sigma,
+                                                "apply_progressive_blur": prog_blur,
+                                                "visibility_filter":      vis_filter,
+                                                # Sequence
+                                                "seq_name":               seq_name,
+                                                "seq_id":                 seq_id,
+                                                "seq_type":               seq_type,
+                                                # Image pair
+                                                "img_idx":                img_idx,
+                                                "difficulty":             diff,
+                                                "distance_threshold":     dist_th,
+                                                # Metrics (mAP filled after full sequence)
+                                                "mma_kps":                mma_kps[dist_th],
+                                                "mma_matches":            mma_matches[dist_th],
+                                                "rep":                    rep[dist_th],
+                                                "hom_acc":                hom_accs[ransac_th][dist_th],
+                                                "mAP":                    None,
+                                                "mAP_tot":                None,
+                                                # Counts
+                                                "num_keypoints_ref":      n_ref,
+                                                "num_keypoints_rel":      n_rel,
+                                                "num_matches":            n_matches,
+                                            })
 
                 except Exception:
                     if SKIP_AT_ERROR:
@@ -508,45 +477,35 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                     else:
                         raise
 
-        # ── Write results to CSV ──────────────────────────────────────────────
-        for max_keypoints in MAX_KEYPOINTS:
-            for use_mnn in USE_MNN:
-                for ratio_th in RATIO_THRESHOLDS:
-                    for ransac_threshold in RANSAC_THRESHOLDS:
-                        sk           = (max_keypoints, use_mnn, ratio_th, ransac_threshold)
-                        raw_pairs    = raw_by_sweep[sk]
-                        match_counts = match_cnt_by[sk]
-                        keypoint_counts  = keypoint_cnts_by_mf[max_keypoints]
+            # ── Compute per-sequence mAP and fill into rows ───────────────────────────
+            mAP_cache:     dict[tuple, float] = {}
+            mAP_tot_cache: dict[tuple, float] = {}
 
-                        common = {
-                            # ── Identity ───────────────────────────────────────────────
-                            "method":                   combo_key,
-                            "tag":                           RUN_TAG,
-                            # ── Downsampling ────────────────────────────────────────────
-                            "downsample_level":              ds_level,
-                            #"downsample_factor":             ds_factor,
-                            "initial_sigma":                 init_sigma,
-                            "intrinsic_sigma":               intr_sigma,
-                            "apply_progressive_blur":        prog_blur,
-                            #"downsample_interpolation_type": str(interp_type),
-                            # ── Pipeline parameters ─────────────────────────────────────
-                            "max_keypoints":                  max_keypoints,
-                            "use_mnn":                       use_mnn,
-                            "ratio_threshold":               ratio_th if ratio_th is not None else float("nan"),
-                            "ransac_threshold":                 ransac_threshold,
-                            # ── Run statistics ──────────────────────────────────────────
-                            "avg_num_keypoints":        float(np.mean(keypoint_counts))  if keypoint_counts  else 0.0,
-                            "avg_num_missing_keypoints": float(np.mean([max_keypoints - c for c in keypoint_counts])) if keypoint_counts else 0.0,
-                            "avg_num_matches":         float(np.mean(match_counts)) if match_counts else 0.0,
-                            "avg_num_dropped_matches": float(np.mean([kp - m for kp, m in zip(keypoint_counts, match_counts)])) if match_counts else 0.0,
+            for (max_kp, matcher, ratio_th, vis_filter, diff), pool in match_pool.items():
+                for dist_th in DISTANCE_THRESHOLDS:
+                    mAP_cache[(max_kp, matcher, ratio_th, vis_filter, diff, dist_th)] = compute_ap(pool, dist_th)
 
-                        }
+            for (max_kp, matcher, ratio_th, vis_filter), pool in match_pool_tot.items():
+                for dist_th in DISTANCE_THRESHOLDS:
+                    mAP_tot_cache[(max_kp, matcher, ratio_th, vis_filter, dist_th)] = compute_ap(pool, dist_th)
 
-                        metric_rows = aggregate(raw_pairs)
-                        rows = [{**common, **row} for row in metric_rows]
+            for row in seq_rows:
+                _rt = row["ratio_threshold"]
+                _rt = None if (isinstance(_rt, float) and np.isnan(_rt)) else _rt
+                _vf = row["visibility_filter"]
+                row["mAP"] = mAP_cache.get(
+                    (row["max_keypoints"], row["matcher"], _rt, _vf, row["difficulty"], row["distance_threshold"]),
+                    float("nan"),
+                )
+                row["mAP_tot"] = mAP_tot_cache.get(
+                    (row["max_keypoints"], row["matcher"], _rt, _vf, row["distance_threshold"]),
+                    float("nan"),
+                )
 
-                        df_out = pd.DataFrame(rows)
-                        write_header = not os.path.isfile(RESULTS_FILE)
-                        df_out.to_csv(RESULTS_FILE, index=False, header=write_header, mode="a")
+            # ── Write this sequence's rows to CSV ─────────────────────────────────────
+            if seq_rows:
+                df_out = pd.DataFrame(seq_rows)
+                write_header = not os.path.isfile(RESULTS_FILE)
+                df_out.to_csv(RESULTS_FILE, index=False, header=write_header, mode="a")
 
 print("\nDone. Results written to", RESULTS_FILE)

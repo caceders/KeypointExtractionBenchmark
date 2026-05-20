@@ -1,8 +1,6 @@
-
 import cv2
 import numpy as np
 from pathlib import Path
-import csv
 import math
 from typing import Dict, List, Tuple, Optional
 from shi_tomasi_sift import ShiTomasiSift
@@ -10,6 +8,8 @@ from benchmark.utils import downsample, visualize_matches_with_scale_change, opt
 import os
 import pandas as pd
 from tqdm import tqdm
+
+from matchers import get_matches as _get_matches
 
 
 #########################################################
@@ -19,17 +19,17 @@ from tqdm import tqdm
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "FINAL_low_thresh"
-RUN_TAG = "low_thresh"
+RUN_NAME = "omtimize"
+RUN_TAG = "pos"
 
-ACTIVE_FRAMES = (0,1000)  #empty for full sequence
-MAX_KEYPOINTS = [250,500,750,1000]
-RATIO_THRESHOLD = 0.75
-RANSAC_THRESHOLD = 2
-EPIPOLAR_THRESHOLD = 1
-USE_MNN = False
-DOWNSAMPLE_LEVELS = [0,1,2]
-INITIAL_SIGMAS = [0,1,2,3,4]
+ACTIVE_FRAMES = (0, 1000)   # empty for full sequence
+MAX_KEYPOINTS    = [500]
+MATCHERS         = ["MNN", "KEEM"]   # "NN", "MNN", "KEEM"
+RATIO_THRESHOLDS = [0.75]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
+RANSAC_THRESHOLDS   = [2]
+EPIPOLAR_THRESHOLDS = [1]
+DOWNSAMPLE_LEVELS = [0]
+INITIAL_SIGMAS    = [0]
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
@@ -47,7 +47,7 @@ TRAJ_DIR = BASE_OUT / "trajectories"
 BASE_OUT.mkdir(parents=True, exist_ok=True)
 TRAJ_DIR.mkdir(parents=True, exist_ok=True)
 
- 
+
 #########################################################
 # ===========  YOUR FEATURE COMBINATIONS  ===============
 #########################################################
@@ -59,11 +59,11 @@ features2d = {
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001, edgeThreshold = 500),
-    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 15, fastThreshold = 1),
-    "BRISK":     cv2.BRISK_create(thresh = 1),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.00000000001),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    "SIFT":  cv2.SIFT_create(contrastThreshold=0.0001, edgeThreshold=500),
+    "ORB":   cv2.ORB_create(nfeatures=5000, edgeThreshold=15, fastThreshold=1),
+    # "BRISK": cv2.BRISK_create(thresh=1),
+    # "AKAZE": cv2.AKAZE_create(threshold=0.00000000001),
+    # "GFTT":  cv2.GFTTDetector_create(maxCorners=5000, qualityLevel=0.0002),
 }
 
 # features2d = {
@@ -71,33 +71,24 @@ features2d = {
 #     #"BRISK" : cv2.BRISK_create(),
 #     #"GFTT" : cv2.GFTTDetector_create(),
 #     "ORB" : cv2.ORB_create(),
-#     #"ORB_NO_PYRAMID" : cv2.ORB_create(nlevels=1),
-#     #"SIFT" : cv2.SIFT_create(),
-#     #"SIFT_LOW_THRESHOLD" : cv2.SIFT_create(contrastThreshold = 0.01, edgeThreshold = 100),
-#     #"SHIFT" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=5),
-#     #"SHIFT_NO_PYRAMID" : ShiTomasiSift(starting_level_scale_pyramid=0, num_octaves_in_scale_pyramid=1),
+#     ...
 # }
 
-
-ONLY_SELF = True #Forces no mixing
-ONLY_SELF_EXCEPTIONS = [("GFTT", "SIFT")]
-ONLY_USED_AS_DETECTOR = ["GFTT"]                     
-ONLY_USED_AS_DESCRIPTOR = []                     
-BLACKLIST = []                                 
+ONLY_SELF             = True
+ONLY_SELF_EXCEPTIONS  = [("GFTT", "SIFT")]
+ONLY_USED_AS_DETECTOR = ["GFTT"]
+ONLY_USED_AS_DESCRIPTOR = []
+BLACKLIST = []
 ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
-    # "FAST": "SIFT",
-    # "GFTT": "SIFT",
-    "ORB" : "ORB",
-    "SIFT" : "SIFT",
+    "ORB":   "ORB",
+    "SIFT":  "SIFT",
     "BRISK": "BRISK",
-    "SHIFT_5_octaves" : "SHIFT_5_octaves"
-}   
-ALLOWED_DETECTOR_FOR_DESCRIPTOR = {
-
 }
+ALLOWED_DETECTOR_FOR_DESCRIPTOR = {}
+
 
 #########################################################
-#   FeatureExtractor helper wrapper (simple version)
+#   FeatureExtractor helper wrapper
 #########################################################
 
 class FeatureExtractor:
@@ -115,12 +106,11 @@ class FeatureExtractor:
 
     def compute(self, img, kps):
         return self.compute_fn(img, kps)
-    
+
 
 test_combinations: dict[str, FeatureExtractor] = {}
-for detector_key in features2d.keys():
-    for descriptor_key in features2d.keys():
-
+for detector_key in features2d:
+    for descriptor_key in features2d:
         if ONLY_SELF and detector_key != descriptor_key and (detector_key, descriptor_key) not in ONLY_SELF_EXCEPTIONS:
             continue
         if (detector_key, descriptor_key) in BLACKLIST:
@@ -129,275 +119,295 @@ for detector_key in features2d.keys():
             continue
         if descriptor_key in ONLY_USED_AS_DETECTOR:
             continue
-
         if detector_key in ALLOWED_DESCRIPTOR_FOR_DETECTOR:
             if descriptor_key != ALLOWED_DESCRIPTOR_FOR_DETECTOR[detector_key]:
                 continue
-
-        if descriptor_key in ALLOWED_DETECTOR_FOR_DESCRIPTOR :
+        if descriptor_key in ALLOWED_DETECTOR_FOR_DESCRIPTOR:
             if detector_key != ALLOWED_DETECTOR_FOR_DESCRIPTOR[descriptor_key]:
                 continue
-
-        
-        binary_descriptors = (
-            cv2.ORB, cv2.BRISK, cv2.AKAZE, cv2.xfeatures2d.BriefDescriptorExtractor, cv2.xfeatures2d.FREAK, cv2.xfeatures2d.LATCH
+        try:
+            binary_descriptors = (
+                cv2.ORB, cv2.BRISK, cv2.AKAZE,
+                cv2.xfeatures2d.BriefDescriptorExtractor,
+                cv2.xfeatures2d.FREAK,
+                cv2.xfeatures2d.LATCH,
+            )
+        except AttributeError:
+            binary_descriptors = (cv2.ORB, cv2.BRISK, cv2.AKAZE)
+        distance_type = cv2.NORM_HAMMING if isinstance(features2d[descriptor_key], binary_descriptors) else cv2.NORM_L2
+        test_combinations[f"{detector_key}+{descriptor_key}"] = FeatureExtractor.from_opencv(
+            features2d[detector_key].detect,
+            features2d[descriptor_key].compute,
+            distance_type,
         )
 
-        if isinstance(features2d[descriptor_key], binary_descriptors):
-            distance_type = cv2.NORM_HAMMING
-        else:
-            distance_type = cv2.NORM_L2
-
-
-        test_combinations[detector_key + "+" + descriptor_key] = FeatureExtractor.from_opencv(features2d[detector_key].detect, features2d[descriptor_key].compute, distance_type)
+# (matcher, ratio_th) sweep: KEEM gets None (no ratio test), NN/MNN get each ratio threshold
+_matching_configs: list[tuple[str, float | None]] = []
+for _m in MATCHERS:
+    if _m == "KEEM":
+        _matching_configs.append(("KEEM", None))
+    else:
+        for _r in RATIO_THRESHOLDS:
+            _matching_configs.append((_m, _r))
 
 
 #########################################################
 # ==================== MAIN VO LOOP =====================
 #########################################################
 
-def run_stereo_vo(seq_root, extractor, downsample_level, MAX_KEYPOINTS, initial_gaussian_blur_sigma):
+def run_stereo_vo_multi(seq_root, extractor, downsample_level,
+                        initial_gaussian_blur_sigma, full_configs):
+    """
+    Process all (max_kp, matcher, ratio_th, ransac_th, epipolar_th) configs in one
+    pass over frames. Detects and describes each frame once; updates all VO states.
+    Returns {config: (poses, stats)}.
+    """
+    P0, P1 = read_kitti_P0P1(seq_root / "calib.txt")
+    K = P0[:, :3]
 
-    effective_PNP_thresh = RANSAC_THRESHOLD
-    #effective_PNP_thresh = PNP_REPROJ_THRESH + downsample_level
-    effective_EPIPOLAR_TOL = EPIPOLAR_THRESHOLD 
-    #effective_EPIPOLAR_TOL = EPIPOLAR_TOL + downsample_level
-
-    # Load calibration
-    P0,P1 = read_kitti_P0P1(seq_root/"calib.txt")
-    K = P0[:,:3]
-
-    left,right = load_stereo_images(seq_root)
+    left, right = load_stereo_images(seq_root)
     if ACTIVE_FRAMES:
-        left = left[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
+        left  = left[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
         right = right[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
 
-    # Extract first frame
-    L0=cv2.imread(str(left[0]),0)
-    R0=cv2.imread(str(right[0]),0)
+    _max_kp = max(mk for mk, *_ in full_configs)
+    scale   = downsample_factor ** downsample_level
+    max_kps = sorted(set(mk for mk, *_ in full_configs))
 
-    L0 = downsample(L0, downsample_level, downsample_factor, intrinsic_gaussian_blur_sigma, initial_gaussian_blur_sigma, apply_progressive_blur, downsample_interpolation_type)
-    R0 = downsample(R0, downsample_level, downsample_factor, intrinsic_gaussian_blur_sigma, initial_gaussian_blur_sigma, apply_progressive_blur, downsample_interpolation_type)
-    
+    def _read_ds(path):
+        img = cv2.imread(str(path), 0)
+        return downsample(img, downsample_level, downsample_factor,
+                          intrinsic_gaussian_blur_sigma, initial_gaussian_blur_sigma,
+                          apply_progressive_blur, downsample_interpolation_type)
 
-    kL0 = extractor.detect(L0)
-    kR0 = extractor.detect(R0)
-
-    if APPLY_NMS:
-        kL0 = non_maximal_supression(kL0, NMS_RADIUS, MAX_KEYPOINTS)
-        kR0 = non_maximal_supression(kR0, NMS_RADIUS, MAX_KEYPOINTS)
-    else:
-        kL0 = sorted(kL0, key=lambda x:x.response, reverse=True)[:MAX_KEYPOINTS]
-        kR0 = sorted(kR0, key=lambda x:x.response, reverse=True)[:MAX_KEYPOINTS]
-    
-    
-    kL0, dL0 = extractor.compute(L0,kL0)[:MAX_KEYPOINTS]
-    kR0, dR0 = extractor.compute(R0,kR0)[:MAX_KEYPOINTS]
-
-
-    for keypoint in kL0:
-        keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_level, keypoint.pt[1] * downsample_factor ** downsample_level)
-    for keypoint in kR0:
-        keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_level, keypoint.pt[1] * downsample_factor ** downsample_level)
-
-
-    matcher = cv2.BFMatcher(extractor.norm)
-
-    matchesLR0 = matcher.knnMatch(dL0, dR0, 2)
-    good = [m for m,n in matchesLR0 if m.distance < RATIO_THRESHOLD*n.distance]
-
-    if USE_MNN:
-        matchesRL0 = matcher.match(dR0, dL0)
-        nn_RL = {m.queryIdx: m.trainIdx for m in matchesRL0}
-        good = [m for m in good if nn_RL.get(m.trainIdx) == m.queryIdx]
-
-    tri_prev = triangulate_stereo(kL0,kR0,good,P0,P1,effective_EPIPOLAR_TOL)
-
-    poses=[np.eye(4)]  # world_T_cam
-    stats = {
-        "keypoints" : [],
-        "temporal_matches": [],
-        "stereo_matches": [],
-        "triangulated": [],
-        "temporal_tri_map_overlap": [],
-        "pnp_inliers": [],
-        "failures": 0
-    }
-
-    kLp, dLp = kL0, dL0
-    tri_map = tri_prev
-
-
-    for i in range(1,len(left)):
-        L=cv2.imread(str(left[i]),0)
-        R=cv2.imread(str(right[i]),0)
-
-        L = downsample(L, downsample_level, downsample_factor, intrinsic_gaussian_blur_sigma, initial_gaussian_blur_sigma, apply_progressive_blur, downsample_interpolation_type)
-        R = downsample(R, downsample_level, downsample_factor, intrinsic_gaussian_blur_sigma, initial_gaussian_blur_sigma, apply_progressive_blur, downsample_interpolation_type)
-
-        kpL = extractor.detect(L)
-        kpR = extractor.detect(R)
+    def _detect_describe(img):
+        kps = extractor.detect(img)
         if APPLY_NMS:
-            kpL = non_maximal_supression(kpL,NMS_RADIUS, MAX_KEYPOINTS)
-            kpR = non_maximal_supression(kpR,NMS_RADIUS, MAX_KEYPOINTS)
+            kps = non_maximal_supression(kps, NMS_RADIUS, _max_kp)
         else:
-            kpL = sorted(kpL, key=lambda x:x.response, reverse=True)[:MAX_KEYPOINTS]
-            kpR = sorted(kpR, key=lambda x:x.response, reverse=True)[:MAX_KEYPOINTS]
+            kps = sorted(kps, key=lambda x: x.response, reverse=True)[:_max_kp]
+        if not kps:
+            return [], None
+        kps, descs = extractor.compute(img, kps)
+        if scale != 1:
+            for kp in kps:
+                kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
+        return kps, descs
 
-        kpL, dL = extractor.compute(L,kpL)[:MAX_KEYPOINTS]
-        kpR, dR = extractor.compute(R,kpR)[:MAX_KEYPOINTS]
+    # ── Initialise per-config VO state ────────────────────────────────────────
+    def _empty_stats():
+        return {"keypoints": [], "temporal_matches": [], "stereo_matches": [],
+                "triangulated": [], "temporal_tri_map_overlap": [],
+                "pnp_inliers": [], "failures": 0}
 
-        for keypoint in kpL:
-            keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_level, keypoint.pt[1] * downsample_factor ** downsample_level)
-        for keypoint in kpR:
-            keypoint.pt = (keypoint.pt[0] * downsample_factor ** downsample_level, keypoint.pt[1] * downsample_factor ** downsample_level)
+    states = {cfg: {"poses": [np.eye(4)], "stats": _empty_stats(), "tri_map": {}}
+              for cfg in full_configs}
 
-        # temporal matches
-        ml = matcher.knnMatch(dLp, dL, 2)
-        good_temporal = [m for m,n in ml if m.distance < RATIO_THRESHOLD*n.distance]
-        if USE_MNN:
-            matchesLLp = matcher.match(dL, dLp)
-            nn_LLp = {m.queryIdx: m.trainIdx for m in matchesLLp}
-            good_temporal = [m for m in good_temporal if nn_LLp.get(m.trainIdx) == m.queryIdx]
+    # previous frame: {max_kp: (kps, descs)}
+    prev: dict[int, tuple] = {}
 
-        #visualize_matches_with_scale_change(13, np.stack([Lp, Lp, Lp], axis=2), np.stack([L, L, L], axis=2), np.eye(3), good_temporal)
-        stats["keypoints"].append((len(kpL)+len(kpR))/2)
-        stats["temporal_matches"].append(len(good_temporal))
-        stats["stereo_matches"].append(len(good))
+    # ── Frame 0: seed tri_maps ────────────────────────────────────────────────
+    kpL_all, dL_all = _detect_describe(_read_ds(left[0]))
+    kpR_all, dR_all = _detect_describe(_read_ds(right[0]))
 
-        # Build 3D-2D pairs
+    for max_kp in max_kps:
+        kpL0 = kpL_all[:max_kp]
+        dL0  = dL_all[:max_kp] if dL_all is not None else None
+        kpR0 = kpR_all[:max_kp]
+        dR0  = dR_all[:max_kp] if dR_all is not None else None
+        prev[max_kp] = (kpL0, dL0)
 
-        num_temporal_in_tri_map = 0
-        pts3d=[]; pts2d=[]
-        for m in good_temporal:
-            if m.queryIdx in tri_map:
-                pts3d.append(tri_map[m.queryIdx])
-                pts2d.append(kpL[m.trainIdx].pt)
-                num_temporal_in_tri_map += 1
+        stereo0_cache: dict[tuple, list] = {}
+        for cfg in full_configs:
+            mk, matcher, ratio_th, _, epipolar_th = cfg
+            if mk != max_kp:
+                continue
+            key = (matcher, ratio_th)
+            if key not in stereo0_cache:
+                stereo0_cache[key] = (
+                    _get_matches(dL0, dR0, extractor.norm, matcher, ratio_th)
+                    if (dL0 is not None and dR0 is not None) else []
+                )
+            states[cfg]["tri_map"] = triangulate_stereo(
+                kpL0, kpR0, stereo0_cache[key], P0, P1, epipolar_th)
 
-        stats["temporal_tri_map_overlap"].append(num_temporal_in_tri_map)
+    # ── Frame loop ────────────────────────────────────────────────────────────
+    for i in tqdm(range(1, len(left)), leave=False, desc="Frames", position=3):
+        kpL_all, dL_all = _detect_describe(_read_ds(left[i]))
+        kpR_all, dR_all = _detect_describe(_read_ds(right[i]))
 
-        # Solve PnP
-        res = solve_pnp(pts3d, pts2d, K, effective_PNP_thresh)
-        if res is None:
-            stats["pnp_inliers"].append(0)
-            stats["failures"]+=1
-            poses.append(poses[-1].copy())
-        else:
-            Rot,t,inl = res
-            stats["pnp_inliers"].append(len(inl))
+        for max_kp in max_kps:
+            kpL = kpL_all[:max_kp]
+            dL  = dL_all[:max_kp] if dL_all is not None else None
+            kpR = kpR_all[:max_kp]
+            dR  = dR_all[:max_kp] if dR_all is not None else None
+            _, prev_dL = prev[max_kp]
 
-            T = build_T(Rot,t)
-            # world_T_cam_next = world_T_cam * inv(T_cam_next_cam)
-            poses.append(poses[-1] @ T_inv(T))
+            # Cache temporal + stereo matches per (matcher, ratio_th)
+            temporal_cache: dict[tuple, list] = {}
+            stereo_cache:   dict[tuple, list] = {}
+            for cfg in full_configs:
+                mk, matcher, ratio_th, *_ = cfg
+                if mk != max_kp:
+                    continue
+                key = (matcher, ratio_th)
+                if key not in temporal_cache:
+                    temporal_cache[key] = (
+                        _get_matches(prev_dL, dL, extractor.norm, matcher, ratio_th)
+                        if (prev_dL is not None and dL is not None) else []
+                    )
+                    stereo_cache[key] = (
+                        _get_matches(dL, dR, extractor.norm, matcher, ratio_th)
+                        if (dL is not None and dR is not None) else []
+                    )
 
-        # recompute stereo for next step
-        matchesLR = matcher.knnMatch(dL, dR, 2)
-        good = [m for m,n in matchesLR if m.distance < RATIO_THRESHOLD*n.distance]
-        if USE_MNN:
-            matchesRL = matcher.match(dR, dL)
-            nn_RL = {m.queryIdx: m.trainIdx for m in matchesRL}
-            good = [m for m in good if nn_RL.get(m.trainIdx) == m.queryIdx]
+            for cfg in full_configs:
+                mk, matcher, ratio_th, ransac_th, epipolar_th = cfg
+                if mk != max_kp:
+                    continue
+                state         = states[cfg]
+                good_temporal = temporal_cache[(matcher, ratio_th)]
+                good_stereo   = stereo_cache[(matcher, ratio_th)]
 
-        tri_map = triangulate_stereo(kpL,kpR,good,P0,P1,effective_EPIPOLAR_TOL)
-        stats["triangulated"].append(len(tri_map))
+                state["stats"]["keypoints"].append((len(kpL) + len(kpR)) / 2)
+                state["stats"]["temporal_matches"].append(len(good_temporal))
+                state["stats"]["stereo_matches"].append(len(good_stereo))
 
-        kLp, dLp = kpL, dL
+                pts3d, pts2d, n_overlap = [], [], 0
+                for m in good_temporal:
+                    if m.query_idx in state["tri_map"]:
+                        pts3d.append(state["tri_map"][m.query_idx])
+                        pts2d.append(kpL[m.train_idx].pt)
+                        n_overlap += 1
+                state["stats"]["temporal_tri_map_overlap"].append(n_overlap)
 
-    return poses, stats
+                res = solve_pnp(pts3d, pts2d, K, ransac_th)
+                if res is None:
+                    state["stats"]["pnp_inliers"].append(0)
+                    state["stats"]["failures"] += 1
+                    state["poses"].append(state["poses"][-1].copy())
+                else:
+                    Rot, t, inl = res
+                    state["stats"]["pnp_inliers"].append(len(inl))
+                    T = build_T(Rot, t)
+                    state["poses"].append(state["poses"][-1] @ T_inv(T))
+
+                new_tri = triangulate_stereo(kpL, kpR, good_stereo, P0, P1, epipolar_th)
+                state["tri_map"] = new_tri
+                state["stats"]["triangulated"].append(len(new_tri))
+
+            prev[max_kp] = (kpL, dL)
+
+    return {cfg: (states[cfg]["poses"], states[cfg]["stats"]) for cfg in full_configs}
 
 
 #########################################################
 # ===================== MAIN RUN ========================
 #########################################################
+
 def main():
     for seq in tqdm(SEQUENCES, leave=False, desc="Sequences", position=1):
         seq_root = Path(DATA_ROOT) / "sequences" / seq
-        gt_path = Path(DATA_ROOT) / "poses" / f"{seq}.txt"
+        gt_path  = Path(DATA_ROOT) / "poses" / f"{seq}.txt"
         gt_poses = read_gt_poses(gt_path)
-        for name, extractor in tqdm(test_combinations.items(), desc=f"Methods", position=2):
-            for max_keypoints in tqdm(MAX_KEYPOINTS, leave=False, desc=f"{name} Max keypoints", position=3):
-                for initial_gaussian_blur_sigma in tqdm(INITIAL_SIGMAS, leave=False, desc="initial sigmas", position=4):
-                    for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Downsample levels", position=5):
-                    
-                        with optional_try(skip_at_error, f"{name}_{RUN_TAG}_{downsample_level}"):
 
-                            poses, stats = run_stereo_vo(seq_root, extractor, downsample_level, max_keypoints, initial_gaussian_blur_sigma)
-                            if ACTIVE_FRAMES:
-                                gt_poses = gt_poses[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
+        for name, extractor in tqdm(test_combinations.items(), desc="Methods", position=2):
+            for initial_gaussian_blur_sigma in tqdm(INITIAL_SIGMAS, leave=False, desc="Initial sigmas", position=3):
+                for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Downsample levels", position=4):
 
-                            traj_path = TRAJ_DIR / f"traj_{seq}_{name}_{RUN_TAG}_{downsample_level}.txt"
+                    full_configs = [
+                        (max_kp, matcher, ratio_th, ransac_th, epipolar_th)
+                        for max_kp      in MAX_KEYPOINTS
+                        for matcher, ratio_th in _matching_configs
+                        for ransac_th   in RANSAC_THRESHOLDS
+                        for epipolar_th in EPIPOLAR_THRESHOLDS
+                    ]
+
+                    with optional_try(skip_at_error, f"{name}_{RUN_TAG}_{downsample_level}"):
+                        all_results = run_stereo_vo_multi(
+                            seq_root, extractor, downsample_level,
+                            initial_gaussian_blur_sigma, full_configs,
+                        )
+
+                        _gt = gt_poses
+                        if ACTIVE_FRAMES and _gt is not None:
+                            _gt = _gt[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
+
+                        for cfg, (poses, stats) in all_results.items():
+                            max_kp, matcher_name, ratio_th, ransac_th, epipolar_th = cfg
+
+                            ratio_str = f"{ratio_th:.2f}" if ratio_th is not None else "none"
+                            traj_path = (TRAJ_DIR /
+                                         f"traj_{seq}_{name}_{RUN_TAG}_{matcher_name}"
+                                         f"_{ratio_str}_{downsample_level}"
+                                         f"_r{ransac_th}_e{epipolar_th}.txt")
                             save_trajectory_kitti(traj_path, poses)
 
-                            if gt_poses is None:
-                                ate_aligned = float("nan")
-                                ate_strict = float("nan")
+                            if _gt is None:
+                                ate_aligned = ate_strict = float("nan")
                                 rpe1_trans = rpe1_rot = float("nan")
                                 rpe10_trans = rpe10_rot = float("nan")
+                                rpe1_trans_max = rpe1_rot_max = float("nan")
+                                rpe10_trans_max = rpe10_rot_max = float("nan")
+                                rpe1_trans_std = rpe1_rot_std = float("nan")
+                                rpe10_trans_std = rpe10_rot_std = float("nan")
                             else:
-                                ate_aligned = compute_ate_aligned(poses, gt_poses)
-                                ate_strict = compute_ate_strict(poses, gt_poses)
-                                rpe1_trans, rpe1_rot, rpe1_trans_max, rpe1_rot_max, rpe1_trans_std, rpe1_rot_std = compute_rpe(poses, gt_poses, delta=1)
-                                rpe10_trans, rpe10_rot, rpe10_trans_max, rpe10_rot_max, rpe10_trans_std, rpe10_rot_std = compute_rpe(poses, gt_poses, delta=10)
+                                ate_aligned = compute_ate_aligned(poses, _gt)
+                                ate_strict  = compute_ate_strict(poses, _gt)
+                                rpe1_trans,  rpe1_rot,  rpe1_trans_max,  rpe1_rot_max,  rpe1_trans_std,  rpe1_rot_std  = compute_rpe(poses, _gt, delta=1)
+                                rpe10_trans, rpe10_rot, rpe10_trans_max, rpe10_rot_max, rpe10_trans_std, rpe10_rot_std = compute_rpe(poses, _gt, delta=10)
 
-
-                            # ---- build per-method result dict ----
                             results = {
-                                "sequence": seq,
-                                "method": name,
-                                "tag": RUN_TAG,
-                                "active_frames" : f"{ACTIVE_FRAMES[0]}-{ACTIVE_FRAMES[1]}" if ACTIVE_FRAMES else f"0-{len(gt_poses)-1}",
-                                "ATE_RMSE_STRICT": ate_strict,
-                                "ATE_RMSE_ALIGNED": ate_aligned,
-                                "RPE1_trans_RMSE": rpe1_trans,
-                                "RPE1_rot_RMSE": rpe1_rot,
-                                "RPE1_trans_std": rpe1_trans_std,
-                                "RPE1_rot_std": rpe1_rot_std,
-                                "RPE10_trans_std": rpe10_trans_std,
-                                "RPE10_rot_std": rpe10_rot_std,
-                                "RPE1_trans_max": rpe1_trans_max,
-                                "RPE1_rot_max": rpe1_rot_max,
-                                "RPE10_trans_RMSE": rpe10_trans,
-                                "RPE10_rot_RMSE": rpe10_rot,
-                                "RPE10_trans_max": rpe10_trans_max,
-                                "RPE10_rot_max": rpe10_rot_max,
+                                # Identity
+                                "sequence":      seq,
+                                "method":        name,
+                                "tag":           RUN_TAG,
+                                "active_frames": (f"{ACTIVE_FRAMES[0]}-{ACTIVE_FRAMES[1]}"
+                                                  if ACTIVE_FRAMES else f"0-{len(gt_poses)-1}"),
+                                # Matching parameters
+                                "matcher":            matcher_name,
+                                "ratio_threshold":    ratio_th if ratio_th is not None else float("nan"),
+                                "ransac_threshold":   ransac_th,
+                                "epipolar_threshold": epipolar_th,
+                                # Pipeline parameters
                                 "downsample_level": downsample_level,
-                                "initial_sigma": initial_gaussian_blur_sigma,
-                                "max_keypoints": max_keypoints,
-                                "use_mnn": USE_MNN,
-                                "ratio_threshold": RATIO_THRESHOLD,
-                                "ransac_threshold": RANSAC_THRESHOLD,
-                                "epipolar_threshold": EPIPOLAR_THRESHOLD,
-                                "avg_num_keypoints": float(np.mean(stats["keypoints"])),
-                                "avg_num_temporal_matches": float(np.mean(stats["temporal_matches"])),
-                                "avg_num_stereo_matches": float(np.mean(stats["stereo_matches"])),
-                                "avg_num_triangulated_matches": float(np.mean(stats["triangulated"])),
-                                "avg_num_temporal_tri_map_overlap": float(np.mean(stats["temporal_tri_map_overlap"])),
-                                "avg_num_PnP_inliers": float(np.mean(stats["pnp_inliers"])),
-                                "avg_num_dropped_temporal": float(np.mean(stats["keypoints"]))- float(np.mean(stats["temporal_matches"])),
-                                "avg_num_dropped_stereo": float(np.mean(stats["keypoints"]))- float(np.mean(stats["stereo_matches"])),
-                                "avg_num_dropped_stereo->tri": float(np.mean(stats["stereo_matches"]))- float(np.mean(stats["triangulated"])),
-                                "avg_num_dropped_temporal->tri_map_overlap": float(np.mean(stats["temporal_matches"]))- float(np.mean(stats["temporal_tri_map_overlap"])),
-                                "avg_num_dropped_tri_map_overlap->PNP_inliers": float(np.mean(stats["temporal_tri_map_overlap"]))- float(np.mean(stats["pnp_inliers"])),
+                                "initial_sigma":    initial_gaussian_blur_sigma,
+                                "max_keypoints":    max_kp,
+                                # Trajectory metrics
+                                "ATE_RMSE_STRICT":   ate_strict,
+                                "ATE_RMSE_ALIGNED":  ate_aligned,
+                                "RPE1_trans_RMSE":   rpe1_trans,
+                                "RPE1_rot_RMSE":     rpe1_rot,
+                                "RPE1_trans_std":    rpe1_trans_std,
+                                "RPE1_rot_std":      rpe1_rot_std,
+                                "RPE10_trans_RMSE":  rpe10_trans,
+                                "RPE10_rot_RMSE":    rpe10_rot,
+                                "RPE10_trans_std":   rpe10_trans_std,
+                                "RPE10_rot_std":     rpe10_rot_std,
+                                "RPE1_trans_max":    rpe1_trans_max,
+                                "RPE1_rot_max":      rpe1_rot_max,
+                                "RPE10_trans_max":   rpe10_trans_max,
+                                "RPE10_rot_max":     rpe10_rot_max,
+                                # Run statistics
+                                "avg_num_keypoints":                     float(np.mean(stats["keypoints"])),
+                                "avg_num_temporal_matches":              float(np.mean(stats["temporal_matches"])),
+                                "avg_num_stereo_matches":                float(np.mean(stats["stereo_matches"])),
+                                "avg_num_triangulated_matches":          float(np.mean(stats["triangulated"])),
+                                "avg_num_temporal_tri_map_overlap":      float(np.mean(stats["temporal_tri_map_overlap"])),
+                                "avg_num_PnP_inliers":                   float(np.mean(stats["pnp_inliers"])),
+                                "avg_num_dropped_temporal":              float(np.mean(stats["keypoints"])) - float(np.mean(stats["temporal_matches"])),
+                                "avg_num_dropped_stereo":                float(np.mean(stats["keypoints"])) - float(np.mean(stats["stereo_matches"])),
+                                "avg_num_dropped_stereo->tri":           float(np.mean(stats["stereo_matches"])) - float(np.mean(stats["triangulated"])),
+                                "avg_num_dropped_temporal->tri_overlap": float(np.mean(stats["temporal_matches"])) - float(np.mean(stats["temporal_tri_map_overlap"])),
+                                "avg_num_dropped_tri_overlap->PNP":      float(np.mean(stats["temporal_tri_map_overlap"])) - float(np.mean(stats["pnp_inliers"])),
                                 "failures": int(stats["failures"]),
                             }
 
-                            # ---- print results immediately ----
-                            # for k, v in results.items():
-                            #     print(f"    {k}: {v}")
-
-                            # ---- append to CSV safely ----
                             df = pd.DataFrame(results, index=[0])
-
                             write_header = not CSV_PATH.exists()
-                            df.to_csv(
-                                CSV_PATH,
-                                mode="a",
-                                header=write_header,
-                                index=False,
-                            )
-    print(f"results saved to {CSV_PATH}")
+                            df.to_csv(CSV_PATH, mode="a", header=write_header, index=False)
 
+    print(f"Results saved to {CSV_PATH}")
 
 
 #########################################################
@@ -410,6 +420,7 @@ def save_trajectory_kitti(path: Path, poses):
             line = " ".join(f"{v:.6f}" for v in T[:3, :].reshape(-1))
             f.write(line + "\n")
 
+
 def read_kitti_P0P1(calib_file):
     P = {}
     with open(calib_file, "r") as f:
@@ -417,75 +428,94 @@ def read_kitti_P0P1(calib_file):
             key, _, vals = line.partition(":")
             vals = np.fromstring(vals, sep=" ")
             if key in ("P0", "P1"):
-                P[key] = vals.reshape(3,4)
+                P[key] = vals.reshape(3, 4)
     return P["P0"], P["P1"]
 
+
 def load_stereo_images(seq_root):
-    L = sorted((seq_root/"image_0").glob("*.png"))
-    R = sorted((seq_root/"image_1").glob("*.png"))
+    L = sorted((seq_root / "image_0").glob("*.png"))
+    R = sorted((seq_root / "image_1").glob("*.png"))
     return L, R
 
+
 def read_gt_poses(path):
-    if not path.exists(): return None
+    if not path.exists():
+        return None
     out = []
     for line in open(path):
         v = list(map(float, line.split()))
-        T = np.eye(4); T[:3,:4]=np.array(v).reshape(3,4)
+        T = np.eye(4)
+        T[:3, :4] = np.array(v).reshape(3, 4)
         out.append(T)
     return out
 
+
 def T_inv(T):
-    R = T[:3,:3]
-    t = T[:3,3:4]
+    R = T[:3, :3]
+    t = T[:3, 3:4]
     Ti = np.eye(4)
-    Ti[:3,:3]=R.T
-    Ti[:3,3:4]= -R.T@t
+    Ti[:3, :3] = R.T
+    Ti[:3, 3:4] = -R.T @ t
     return Ti
 
-def build_T(R,t):
-    T=np.eye(4); T[:3,:3]=R; T[:3,3:4]=t
+
+def build_T(R, t):
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3:4] = t
     return T
+
 
 #########################################################
 # ============= Stereo + PnP Motion =====================
 #########################################################
 
-def triangulate_stereo(kL,kR,matches,P0,P1,epip_tol):
-    ptsL=[]; ptsR=[]; idx=[]
+def triangulate_stereo(kL, kR, matches, P0, P1, epip_tol):
+    ptsL = []; ptsR = []; idx = []
     for m in matches:
-        l=kL[m.queryIdx].pt; r=kR[m.trainIdx].pt
-        if abs(l[1]-r[1])>epip_tol: continue
-        if l[0]-r[0] <= 0: continue
-        idx.append(m.queryIdx)
-        ptsL.append(l); ptsR.append(r)
+        l = kL[m.query_idx].pt
+        r = kR[m.train_idx].pt
+        if abs(l[1] - r[1]) > epip_tol:
+            continue
+        if l[0] - r[0] <= 0:
+            continue
+        idx.append(m.query_idx)
+        ptsL.append(l)
+        ptsR.append(r)
 
-    if len(ptsL)<6: return {}
+    if len(ptsL) < 6:
+        return {}
 
-    pL=np.float32(ptsL).T
-    pR=np.float32(ptsR).T
+    pL = np.float32(ptsL).T
+    pR = np.float32(ptsR).T
 
-    Xh=cv2.triangulatePoints(P0,P1,pL,pR)
-    X=(Xh[:3]/(Xh[3]+1e-9)).T
+    Xh = cv2.triangulatePoints(P0, P1, pL, pR)
+    X  = (Xh[:3] / (Xh[3] + 1e-9)).T
 
-    out={}
-    for i,xyz in zip(idx,X):
-        if xyz[2]>0: out[i]=xyz
+    out = {}
+    for i, xyz in zip(idx, X):
+        if xyz[2] > 0:
+            out[i] = xyz
     return out
 
-def solve_pnp(X, pts2d, K, thresh):
-    if len(X)<6: return None
-    X=np.asarray(X).astype(np.float32)
-    pts2d=np.asarray(pts2d).astype(np.float32)
 
-    ok,r,t,inl=cv2.solvePnPRansac(
-        X,pts2d,K,None,
+def solve_pnp(X, pts2d, K, thresh):
+    if len(X) < 6:
+        return None
+    X     = np.asarray(X).astype(np.float32)
+    pts2d = np.asarray(pts2d).astype(np.float32)
+
+    ok, r, t, inl = cv2.solvePnPRansac(
+        X, pts2d, K, None,
         iterationsCount=1000,
         reprojectionError=thresh,
-        confidence=0.999)
-    if not ok or inl is None or len(inl)<6: return None
+        confidence=0.999,
+    )
+    if not ok or inl is None or len(inl) < 6:
+        return None
 
-    R,_=cv2.Rodrigues(r)
-    return R,t,inl.ravel()
+    R, _ = cv2.Rodrigues(r)
+    return R, t, inl.ravel()
 
 
 #########################################################
@@ -495,30 +525,35 @@ def solve_pnp(X, pts2d, K, thresh):
 #########################################################
 
 def positions(poses):
-    out=np.zeros((len(poses),3))
-    for i,T in enumerate(poses):
-        out[i]=T[:3,3]
+    out = np.zeros((len(poses), 3))
+    for i, T in enumerate(poses):
+        out[i] = T[:3, 3]
     return out
 
-def align_no_scale(est,gt):
-    E=positions(est); G=positions(gt)
-    muE=E.mean(0); muG=G.mean(0)
-    E0=E-muE; G0=G-muG
-    H=E0.T@G0
-    U,S,Vt=np.linalg.svd(H)
-    R=Vt.T@U.T
-    if np.linalg.det(R)<0: Vt[-1]*=-1; R=Vt.T@U.T
-    t=muG[:,None]-R@muE[:,None]
-    return R,t
 
-def compute_ate_aligned(est,gt):
-    n=min(len(est),len(gt))
-    est=est[:n]; gt=gt[:n]
-    R,t=align_no_scale(est,gt)
-    E=positions(est); E=(R@E.T).T+t.ravel()
-    G=positions(gt)
-    err=np.linalg.norm(E-G,axis=1)
-    return float(np.sqrt((err**2).mean()))
+def align_no_scale(est, gt):
+    E = positions(est); G = positions(gt)
+    muE = E.mean(0);    muG = G.mean(0)
+    E0  = E - muE;      G0  = G - muG
+    H   = E0.T @ G0
+    U, _, Vt = np.linalg.svd(H)
+    R = Vt.T @ U.T
+    if np.linalg.det(R) < 0:
+        Vt[-1] *= -1
+        R = Vt.T @ U.T
+    t = muG[:, None] - R @ muE[:, None]
+    return R, t
+
+
+def compute_ate_aligned(est, gt):
+    n = min(len(est), len(gt))
+    est = est[:n]; gt = gt[:n]
+    R, t = align_no_scale(est, gt)
+    E = positions(est)
+    E = (R @ E.T).T + t.ravel()
+    G = positions(gt)
+    err = np.linalg.norm(E - G, axis=1)
+    return float(np.sqrt((err ** 2).mean()))
 
 
 def compute_ate_strict(est, gt):
@@ -526,52 +561,32 @@ def compute_ate_strict(est, gt):
     E = positions(est[:n])
     G = positions(gt[:n])
     err = np.linalg.norm(E - G, axis=1)
-    return float(np.sqrt(np.mean(err**2)))
-
+    return float(np.sqrt(np.mean(err ** 2)))
 
 
 def relative_pose(T1, T2):
-    """Compute relative transform T1^{-1} * T2."""
     return np.linalg.inv(T1) @ T2
 
 
 def rotation_error_deg(R):
-    """Rotation error (degrees) from a rotation matrix."""
-    cos_angle = (np.trace(R) - 1) / 2
-    cos_angle = np.clip(cos_angle, -1.0, 1.0)
+    cos_angle = np.clip((np.trace(R) - 1) / 2, -1.0, 1.0)
     return np.degrees(np.arccos(cos_angle))
 
-def compute_rpe(est_poses, gt_poses, delta=1):
-    """
-    Frame-based Relative Pose Error (RPE).
-    Returns:
-      - translation RMSE (meters)
-      - rotation RMSE (degrees)
-    """
-    trans_err = []
-    rot_err = []
 
+def compute_rpe(est_poses, gt_poses, delta=1):
+    trans_err = []
+    rot_err   = []
     n = min(len(est_poses), len(gt_poses))
     for i in range(n - delta):
         T_est_rel = relative_pose(est_poses[i], est_poses[i + delta])
-        T_gt_rel  = relative_pose(gt_poses[i], gt_poses[i + delta])
-
-        T_err = relative_pose(T_gt_rel, T_est_rel)
-
-        t_err = np.linalg.norm(T_err[:3, 3])
-        r_err = rotation_error_deg(T_err[:3, :3])
-
-        trans_err.append(t_err)
-        rot_err.append(r_err)
+        T_gt_rel  = relative_pose(gt_poses[i],  gt_poses[i + delta])
+        T_err     = relative_pose(T_gt_rel, T_est_rel)
+        trans_err.append(np.linalg.norm(T_err[:3, 3]))
+        rot_err.append(rotation_error_deg(T_err[:3, :3]))
 
     trans_rmse = np.sqrt(np.mean(np.square(trans_err)))
     rot_rmse   = np.sqrt(np.mean(np.square(rot_err)))
-
     return trans_rmse, rot_rmse, max(trans_err), max(rot_err), np.std(trans_err), np.std(rot_err)
-
-
-
-
 
 
 if __name__ == "__main__":
