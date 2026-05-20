@@ -30,16 +30,16 @@ RUN_TAG = "high_thresh"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
-    "SIFT":      cv2.SIFT_create(),
-    "ORB":       cv2.ORB_create(nfeatures=5000),
-    "BRISK":     cv2.BRISK_create(),
-    "AKAZE":     cv2.AKAZE_create(),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
+    # "SIFT":      cv2.SIFT_create(),
+    # "ORB":       cv2.ORB_create(nfeatures=5000),
+    # "BRISK":     cv2.BRISK_create(),
+    # "AKAZE":     cv2.AKAZE_create(),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001, edgeThreshold = 500),
-    # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 15, fastThreshold = 1),
-    # "BRISK":     cv2.BRISK_create(thresh = 1),
-    # "AKAZE":     cv2.AKAZE_create(threshold=0.00000000001),
+    #"SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    #"BRISK":     cv2.BRISK_create(thresh = 1),
+    # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
