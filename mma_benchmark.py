@@ -23,11 +23,9 @@ except ImportError:
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HPATCHES_PATH = r"hpatches-sequences-release"
-RESULTS_FILE  = "mma_results/test.csv"
+RESULTS_FILE  = "mma_results/default.csv"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-# Label for this entire benchmark run. All combinations share this tag.
-# Use a different tag for each run you want to compare in display_mma.py.
 RUN_TAG = "default"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
@@ -38,11 +36,11 @@ features2d = {
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    # "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
-    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    # "BRISK":     cv2.BRISK_create(thresh = 1),
-    # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
-    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
+    "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    "BRISK":       cv2.BRISK_create(thresh = 1),
+    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
+    "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -57,8 +55,8 @@ DISTANCE_THRESHOLDS = list(range(1, 31))
 # Each parameter is a list; combinations are benchmarked and stored in the CSV.
 MAX_KEYPOINTS    = [250, 500, 750, 1000]
 MATCHERS         = ["KEEM", "MNN", "NN"]  # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
-# RATIO_THRESHOLDS = [0.8]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
+RATIO_THRESHOLDS  = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]  # applied to NN and MNN; ignored for KEEM
+MNN_BIDIRECTIONAL = [True]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS = [3.0]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
@@ -102,14 +100,18 @@ for det_key in features2d:
             dist,
         )
 
-# (matcher, ratio_th) sweep: KEEM gets None (no ratio test), NN/MNN get each ratio threshold
-_matching_configs: list[tuple[str, float | None]] = []
+# (matcher, ratio_th, bidirectional) — KEEM: no ratio test; MNN: sweeps MNN_BIDIRECTIONAL; NN: always unidirectional
+_matching_configs: list[tuple[str, float | None, bool | None]] = []
 for _m in MATCHERS:
     if _m == "KEEM":
-        _matching_configs.append(("KEEM", None))
+        _matching_configs.append(("KEEM", None, None))
+    elif _m == "MNN":
+        for _r in RATIO_THRESHOLDS:
+            for _bi in MNN_BIDIRECTIONAL:
+                _matching_configs.append(("MNN", _r, _bi))
     else:
         for _r in RATIO_THRESHOLDS:
-            _matching_configs.append((_m, _r))
+            _matching_configs.append((_m, _r, None))
 
 
 # ============================================================
@@ -374,7 +376,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                     desc_rel = None
 
                                 _raw_match_cache: dict[str, list] = {}
-                                for matcher, ratio_th in _matching_configs:
+                                for matcher, ratio_th, bidirectional in _matching_configs:
                                     # ── Match descriptors ──────────────────────────────────
                                     if desc_ref is not None:
                                         if matcher not in _raw_match_cache:
@@ -388,7 +390,8 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                         if matcher == "NN":
                                             raw_matches = apply_ratio_uni(_raw, ratio_th) if ratio_th is not None else [m.best for m in _raw]
                                         elif matcher == "MNN":
-                                            raw_matches = apply_ratio_bi(_raw, ratio_th) if ratio_th is not None else [m.best for m in _raw]
+                                            _apply = apply_ratio_bi if bidirectional else apply_ratio_uni
+                                            raw_matches = _apply(_raw, ratio_th) if ratio_th is not None else [m.best for m in _raw]
                                         else:
                                             raw_matches = _raw
                                     else:
@@ -408,7 +411,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                         dists_arr  = geo_errors
 
                                     # ── Accumulate match pool for mAP (per transformation) ─
-                                    pool_key = (seq_type, max_kp, matcher, ratio_th, vis_filter)
+                                    pool_key = (seq_type, max_kp, matcher, ratio_th, bidirectional, vis_filter)
                                     if pool_key not in agg_pool:
                                         agg_pool[pool_key] = []
                                     if n_matches > 0:
@@ -449,7 +452,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                     # ── Accumulate into per-transformation aggregates ───────
                                     for ransac_th in RANSAC_THRESHOLDS:
                                         for dist_th in DISTANCE_THRESHOLDS:
-                                            agg_key = (seq_type, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th)
+                                            agg_key = (seq_type, matcher, ratio_th_csv, bidirectional, ransac_th, max_kp, vis_filter, dist_th)
                                             if agg_key not in agg_sums:
                                                 agg_sums[agg_key]  = {
                                                     "mMA_kp_ref": 0.0, "mMA": 0.0,
@@ -482,13 +485,13 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
 
             # ── Compute mAP and write aggregated rows ─────────────────────────────────
             mAP_cache: dict[tuple, float] = {}
-            for (transformation, max_kp, matcher, ratio_th, vis_filter), pool in agg_pool.items():
+            for (transformation, max_kp, matcher, ratio_th, bidirectional, vis_filter), pool in agg_pool.items():
                 for dist_th in DISTANCE_THRESHOLDS:
-                    mAP_cache[(transformation, max_kp, matcher, ratio_th, vis_filter, dist_th)] = compute_ap(pool, dist_th)
+                    mAP_cache[(transformation, max_kp, matcher, ratio_th, bidirectional, vis_filter, dist_th)] = compute_ap(pool, dist_th)
 
             rows = []
             for agg_key, s in agg_sums.items():
-                transformation, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th = agg_key
+                transformation, matcher, ratio_th_csv, bidirectional, ransac_th, max_kp, vis_filter, dist_th = agg_key
                 count = agg_count[agg_key]
                 _rt   = None if (isinstance(ratio_th_csv, float) and np.isnan(ratio_th_csv)) else ratio_th_csv
                 rows.append({
@@ -498,6 +501,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                     # Matching parameters
                     "matcher":                matcher,
                     "ratio_threshold":        ratio_th_csv,
+                    "mnn_bidirectional":      bidirectional,
                     "ransac_threshold":       ransac_th,
                     # Pipeline parameters
                     "max_keypoints":          max_kp,
@@ -515,7 +519,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                     "mMA":                    s["mMA"]                  / count,
                     "repeatability":          s["repeatability"]        / count,
                     "homography_accuracy":    s["homography_accuracy"]  / count,
-                    "mAP":                    mAP_cache.get((transformation, max_kp, matcher, _rt, vis_filter, dist_th), float("nan")),
+                    "mAP":                    mAP_cache.get((transformation, max_kp, matcher, _rt, bidirectional, vis_filter, dist_th), float("nan")),
                     # Counts
                     "avg_num_matches":            s["avg_num_matches"]            / count,
                     "avg_num_keypoints":          s["avg_num_keypoints"]          / count,

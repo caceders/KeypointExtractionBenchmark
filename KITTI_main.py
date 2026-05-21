@@ -23,7 +23,7 @@ SEQUENCES = ["00"]
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
 RUN_NAME = "default"
-RUN_TAG = "deafault"
+RUN_TAG = "default"
 
 # ── Active frames ─────────────────────────────────────────────────────────────
 ACTIVE_FRAMES = (0, 500)   # empty for full sequence
@@ -31,7 +31,8 @@ ACTIVE_FRAMES = (0, 500)   # empty for full sequence
 # ── Matching parameters ───────────────────────────────────────────────────────
 MAX_KEYPOINTS    = [500]
 MATCHERS         = ["MNN", "NN", "KEEM"]   # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS = [0.8]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
+RATIO_THRESHOLDS  = [0.8]   # applied to NN and MNN; ignored for KEEM
+MNN_BIDIRECTIONAL = [True]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS   = [2]
 EPIPOLAR_THRESHOLDS = [1]
 
@@ -148,14 +149,18 @@ for detector_key in features2d:
             distance_type,
         )
 
-# (matcher, ratio_th) sweep: KEEM gets None (no ratio test), NN/MNN get each ratio threshold
-_matching_configs: list[tuple[str, float | None]] = []
+# (matcher, ratio_th, bidirectional) — KEEM: no ratio test; MNN: sweeps MNN_BIDIRECTIONAL; NN: always unidirectional
+_matching_configs: list[tuple[str, float | None, bool | None]] = []
 for _m in MATCHERS:
     if _m == "KEEM":
-        _matching_configs.append(("KEEM", None))
+        _matching_configs.append(("KEEM", None, None))
+    elif _m == "MNN":
+        for _r in RATIO_THRESHOLDS:
+            for _bi in MNN_BIDIRECTIONAL:
+                _matching_configs.append(("MNN", _r, _bi))
     else:
         for _r in RATIO_THRESHOLDS:
-            _matching_configs.append((_m, _r))
+            _matching_configs.append((_m, _r, None))
 
 
 # ============================================================
@@ -232,7 +237,7 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
         raw_stereo0:   dict[str, list] = {}
         stereo0_cache: dict[tuple, list] = {}
         for cfg in full_configs:
-            mk, matcher, ratio_th, _, epipolar_th = cfg
+            mk, matcher, ratio_th, bidirectional, _, epipolar_th = cfg
             if mk != max_kp:
                 continue
             if matcher not in raw_stereo0:
@@ -243,13 +248,14 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
                     raw_stereo0[matcher] = match_mnn(dL0, dR0, extractor.norm) if have else []
                 else:
                     raw_stereo0[matcher] = match_keem(dL0, dR0, extractor.norm) if have else []
-            key = (matcher, ratio_th)
+            key = (matcher, ratio_th, bidirectional)
             if key not in stereo0_cache:
                 raw = raw_stereo0[matcher]
                 if matcher == "NN":
                     stereo0_cache[key] = apply_ratio_uni(raw, ratio_th) if ratio_th is not None else [m.best for m in raw]
                 elif matcher == "MNN":
-                    stereo0_cache[key] = apply_ratio_bi(raw, ratio_th) if ratio_th is not None else [m.best for m in raw]
+                    _apply = apply_ratio_bi if bidirectional else apply_ratio_uni
+                    stereo0_cache[key] = _apply(raw, ratio_th) if ratio_th is not None else [m.best for m in raw]
                 else:
                     stereo0_cache[key] = raw
             states[cfg]["tri_map"] = triangulate_stereo(
@@ -273,7 +279,7 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
             temporal_cache: dict[tuple, list] = {}
             stereo_cache:   dict[tuple, list] = {}
             for cfg in full_configs:
-                mk, matcher, ratio_th, *_ = cfg
+                mk, matcher, ratio_th, bidirectional, *_ = cfg
                 if mk != max_kp:
                     continue
                 if matcher not in raw_temporal:
@@ -288,7 +294,7 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
                     else:
                         raw_temporal[matcher] = match_keem(prev_dL, dL, extractor.norm) if have_t else []
                         raw_stereo[matcher]   = match_keem(dL, dR, extractor.norm) if have_s else []
-                key = (matcher, ratio_th)
+                key = (matcher, ratio_th, bidirectional)
                 if key not in temporal_cache:
                     rt = raw_temporal[matcher]
                     rs = raw_stereo[matcher]
@@ -296,19 +302,20 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
                         temporal_cache[key] = apply_ratio_uni(rt, ratio_th) if ratio_th is not None else [m.best for m in rt]
                         stereo_cache[key]   = apply_ratio_uni(rs, ratio_th) if ratio_th is not None else [m.best for m in rs]
                     elif matcher == "MNN":
-                        temporal_cache[key] = apply_ratio_bi(rt, ratio_th) if ratio_th is not None else [m.best for m in rt]
-                        stereo_cache[key]   = apply_ratio_bi(rs, ratio_th) if ratio_th is not None else [m.best for m in rs]
+                        _apply = apply_ratio_bi if bidirectional else apply_ratio_uni
+                        temporal_cache[key] = _apply(rt, ratio_th) if ratio_th is not None else [m.best for m in rt]
+                        stereo_cache[key]   = _apply(rs, ratio_th) if ratio_th is not None else [m.best for m in rs]
                     else:
                         temporal_cache[key] = rt
                         stereo_cache[key]   = rs
 
             for cfg in full_configs:
-                mk, matcher, ratio_th, ransac_th, epipolar_th = cfg
+                mk, matcher, ratio_th, bidirectional, ransac_th, epipolar_th = cfg
                 if mk != max_kp:
                     continue
                 state         = states[cfg]
-                good_temporal = temporal_cache[(matcher, ratio_th)]
-                good_stereo   = stereo_cache[(matcher, ratio_th)]
+                good_temporal = temporal_cache[(matcher, ratio_th, bidirectional)]
+                good_stereo   = stereo_cache[(matcher, ratio_th, bidirectional)]
 
                 state["stats"]["keypoints"].append((len(kpL) + len(kpR)) / 2)
                 state["stats"]["keypoints_detected"].append((len(kpL_all) + len(kpR_all)) / 2)
@@ -358,9 +365,9 @@ def main():
                 for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Downsample levels", position=3):
 
                     full_configs = [
-                        (max_kp, matcher, ratio_th, ransac_th, epipolar_th)
+                        (max_kp, matcher, ratio_th, bidirectional, ransac_th, epipolar_th)
                         for max_kp      in MAX_KEYPOINTS
-                        for matcher, ratio_th in _matching_configs
+                        for matcher, ratio_th, bidirectional in _matching_configs
                         for ransac_th   in RANSAC_THRESHOLDS
                         for epipolar_th in EPIPOLAR_THRESHOLDS
                     ]
@@ -376,7 +383,7 @@ def main():
                             _gt = _gt[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
 
                         for cfg, (poses, stats) in all_results.items():
-                            max_kp, matcher_name, ratio_th, ransac_th, epipolar_th = cfg
+                            max_kp, matcher_name, ratio_th, bidirectional, ransac_th, epipolar_th = cfg
 
                             ratio_str = f"{ratio_th:.2f}" if ratio_th is not None else "none"
                             traj_path = (TRAJ_DIR /
@@ -409,6 +416,7 @@ def main():
                                 # Matching parameters
                                 "matcher":            matcher_name,
                                 "ratio_threshold":    ratio_th if ratio_th is not None else float("nan"),
+                                "mnn_bidirectional":  bidirectional,
                                 "ransac_threshold":   ransac_th,
                                 "epipolar_threshold": epipolar_th,
                                 # Pipeline parameters
