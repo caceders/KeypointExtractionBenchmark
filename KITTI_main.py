@@ -9,7 +9,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 
-from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_ratio_bi
+from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_ratio_fwd, apply_ratio_bi
 
 
 # ============================================================
@@ -29,16 +29,16 @@ RUN_TAG = "default"
 ACTIVE_FRAMES = (0, 500)   # empty for full sequence
 
 # ── Matching parameters ───────────────────────────────────────────────────────
-MAX_KEYPOINTS    = [500]
+MAX_KEYPOINTS    = [250, 500, 750, 1000]
 MATCHERS         = ["MNN", "NN", "KEEM"]   # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS  = [0.8]   # applied to NN and MNN; ignored for KEEM
-MNN_BIDIRECTIONAL = [True]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
+RATIO_THRESHOLDS  = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]   # applied to NN and MNN; ignored for KEEM
+MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS   = [2]
 EPIPOLAR_THRESHOLDS = [1]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS = [0]
-INITIAL_SIGMAS    = [0]
+DOWNSAMPLE_LEVELS = [0, 1, 2]
+INITIAL_SIGMAS    = [0, 1, 2, 3, 4, 5, 6, 7]
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
@@ -254,7 +254,7 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
                 if matcher == "NN":
                     stereo0_cache[key] = apply_ratio_uni(raw, ratio_th) if ratio_th is not None else [m.best for m in raw]
                 elif matcher == "MNN":
-                    _apply = apply_ratio_bi if bidirectional else apply_ratio_uni
+                    _apply = apply_ratio_bi if bidirectional else apply_ratio_fwd
                     stereo0_cache[key] = _apply(raw, ratio_th) if ratio_th is not None else [m.best for m in raw]
                 else:
                     stereo0_cache[key] = raw
@@ -302,7 +302,7 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
                         temporal_cache[key] = apply_ratio_uni(rt, ratio_th) if ratio_th is not None else [m.best for m in rt]
                         stereo_cache[key]   = apply_ratio_uni(rs, ratio_th) if ratio_th is not None else [m.best for m in rs]
                     elif matcher == "MNN":
-                        _apply = apply_ratio_bi if bidirectional else apply_ratio_uni
+                        _apply = apply_ratio_bi if bidirectional else apply_ratio_fwd
                         temporal_cache[key] = _apply(rt, ratio_th) if ratio_th is not None else [m.best for m in rt]
                         stereo_cache[key]   = _apply(rs, ratio_th) if ratio_th is not None else [m.best for m in rs]
                     else:

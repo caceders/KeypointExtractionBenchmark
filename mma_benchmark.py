@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.utils import downsample
-from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_ratio_bi
+from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_ratio_fwd, apply_ratio_bi
 
 try:
     from shi_tomasi_sift import ShiTomasiSift
@@ -56,12 +56,12 @@ DISTANCE_THRESHOLDS = list(range(1, 31))
 MAX_KEYPOINTS    = [250, 500, 750, 1000]
 MATCHERS         = ["KEEM", "MNN", "NN"]  # "NN", "MNN", "KEEM"
 RATIO_THRESHOLDS  = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]  # applied to NN and MNN; ignored for KEEM
-MNN_BIDIRECTIONAL = [True]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
+MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS = [3.0]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0]
-INITIAL_SIGMAS                = [0]
+DOWNSAMPLE_LEVELS             = [0, 1, 2]
+INITIAL_SIGMAS                = [0, 1, 2, 3, 4, 5, 6]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
 INTRINSIC_SIGMA               = [0.5]
@@ -390,7 +390,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                         if matcher == "NN":
                                             raw_matches = apply_ratio_uni(_raw, ratio_th) if ratio_th is not None else [m.best for m in _raw]
                                         elif matcher == "MNN":
-                                            _apply = apply_ratio_bi if bidirectional else apply_ratio_uni
+                                            _apply = apply_ratio_bi if bidirectional else apply_ratio_fwd
                                             raw_matches = _apply(_raw, ratio_th) if ratio_th is not None else [m.best for m in _raw]
                                         else:
                                             raw_matches = _raw
