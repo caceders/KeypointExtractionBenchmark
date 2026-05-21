@@ -439,7 +439,7 @@ def main():
                             "avg_num_dropped_tri_overlap->PNP":      float(np.mean(stats["temporal_tri_map_overlap"])) - float(np.mean(stats["pnp_inliers"])),
                             "failures": int(stats["failures"]),
                         }
-                        print(f" method: {name} matcher: {matcher_name} bidirect: {bidirectional} ratio_thresh: {ratio_th} ate: {ate_strict} rpe: {rpe1_trans} pnp_inliers: {float(np.mean(stats["pnp_inliers"]))}")
+                        #print(f" method: {name} matcher: {matcher_name} bidirect: {bidirectional} ratio_thresh: {ratio_th} ate: {ate_strict} rpe: {rpe1_trans} pnp_inliers: {float(np.mean(stats["pnp_inliers"]))}")
 
                         df = pd.DataFrame(results, index=[0])
                         write_header = not CSV_PATH.exists()
