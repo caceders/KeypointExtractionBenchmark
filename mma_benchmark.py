@@ -247,8 +247,9 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
 
             # ── Detect + describe reference image ONCE for all pairs ──────────────────
             dtype        = np.float32 if extractor.distance_type == cv2.NORM_L2 else np.uint8
-            kps_ref_base = extractor.detect_keypoints(img_ref_ds)
-            kps_ref_base = _top_k_keypoints(kps_ref_base, _max_k)
+            kps_ref_base     = extractor.detect_keypoints(img_ref_ds)
+            kps_ref_base     = _top_k_keypoints(kps_ref_base, _max_k)
+            n_kps_ref_pool   = len(kps_ref_base)
             if kps_ref_base:
                 kps_ref_base, _dref = extractor.describe_keypoints(img_ref_ds, kps_ref_base)
                 descs_ref_np = np.array(_dref, dtype=dtype) if _dref else None
@@ -279,8 +280,9 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                               intr_sigma, init_sigma, prog_blur, interp_type)
 
                     # ── Detect + describe related image ────────────────────────────────
-                    kps_rel_base = extractor.detect_keypoints(img_rel_ds)
-                    kps_rel_base = _top_k_keypoints(kps_rel_base, _max_k)
+                    kps_rel_base     = extractor.detect_keypoints(img_rel_ds)
+                    kps_rel_base     = _top_k_keypoints(kps_rel_base, _max_k)
+                    n_kps_rel_pool   = len(kps_rel_base)
                     if kps_rel_base:
                         kps_rel_base, _drel = extractor.describe_keypoints(img_rel_ds, kps_rel_base)
                         descs_rel_np = np.array(_drel, dtype=dtype) if _drel else None
@@ -471,6 +473,9 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                                 "mAP":                    None,
                                                 "mAP_tot":                None,
                                                 # Counts
+                                                "num_keypoints_ref_detected": n_kps_ref_pool,
+                                                "num_keypoints_rel_detected": n_kps_rel_pool,
+                                                "avg_num_keypoints_detected": (n_kps_ref_pool + n_kps_rel_pool) / 2,
                                                 "num_keypoints_ref":      n_ref,
                                                 "num_keypoints_rel":      n_rel,
                                                 "num_matches":            n_matches,
