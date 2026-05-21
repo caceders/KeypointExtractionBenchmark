@@ -35,8 +35,8 @@ def _distinct_colors(n):
         (0.863, 0.745, 1.000),  # lavender
     ]
     def _lighten(rgb, amount):
-        return tuple(min(1.0, c + amount) for c in rgb)
-    shifts = [0.0, 0.25, -0.15]
+        return tuple(min(1.0, max(0.0, c + amount)) for c in rgb)
+    shifts = [0.0, 0.15, -0.15]
     return [_lighten(palette[i % len(palette)], shifts[(i // len(palette)) % len(shifts)]) for i in range(n)]
 
 
