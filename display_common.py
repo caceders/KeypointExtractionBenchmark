@@ -1,4 +1,6 @@
 import math
+import inspect
+import re
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -245,9 +247,26 @@ def _bar_positions(x_vals, x_cols, gap=0.6):
     return positions
 
 
+def _lambda_label(fn):
+    """Extract a readable label from a lambda or named callable."""
+    if fn.__name__ != "<lambda>":
+        return fn.__name__.replace("_", " ")
+    try:
+        src = inspect.getsource(fn).strip()
+        m = re.search(r'lambda\s+\w+\s*:\s*(.+?)(?:,\s*$|\s*$)', src, re.DOTALL)
+        if m:
+            body = m.group(1).strip().rstrip(',').strip()
+            body = re.sub(r'df\["([^"]+)"\]', r'\1', body)
+            body = re.sub(r"df\['([^']+)'\]", r'\1', body)
+            return body
+    except Exception:
+        pass
+    return "derived"
+
+
 def _auto_title(cfg):
     y       = cfg.get("y", "mma_kps_mean")
-    y_str   = "derived" if callable(y) else y.replace("_", " ")
+    y_str   = _lambda_label(y) if callable(y) else y.replace("_", " ")
     x_cols  = _as_cols(cfg.get("x"))
     l_cols  = _as_cols(cfg.get("lines"))
     x_label = _cols_label(x_cols) if x_cols else (_cols_label(l_cols) if l_cols else "")
@@ -371,7 +390,7 @@ def make_plot(cfg, df, combo_color, tag_color):
     # ── Auto-generate labels (all overridable) ────────────────────────────────
     title   = cfg.get("title",   _auto_title(cfg))
     x_label = cfg.get("x_label", _cols_label(x_cols) if x_cols else (_cols_label(lines_cols) if lines_cols else ""))
-    y_label = cfg.get("y_label", "derived" if is_derived else y.replace("_", " "))
+    y_label = cfg.get("y_label", _lambda_label(y_raw) if is_derived else y.replace("_", " "))
 
     if dfs.empty:
         print(f"[{title}] No data after filter — skipping plot.")
