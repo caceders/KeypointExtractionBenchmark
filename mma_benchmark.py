@@ -18,8 +18,8 @@ from benchmark.feature_extractor import FeatureExtractor
 HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "default"
-RUN_TAG  = "default"
+RUN_NAME = "ransac_test"
+RUN_TAG  = "rho"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
@@ -31,9 +31,9 @@ features2d = {
     ## LOW THRESH
     "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    "BRISK":       cv2.BRISK_create(thresh = 1),
-    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
-    "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    # "BRISK":       cv2.BRISK_create(thresh = 1),
+    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
+    # "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -44,15 +44,16 @@ ONLY_USED_AS_DETECTOR = ["GFTT"]
 DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
-MAX_KEYPOINTS    = [250, 500, 750, 1000]
+MAX_KEYPOINTS    = [500]
 MATCHERS         = ["KEEM", "MNN", "NN"]  # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS  = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]  # applied to NN and MNN; ignored for KEEM
+# RATIO_THRESHOLDS  = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]  # applied to NN and MNN; ignored for KEEM
+RATIO_THRESHOLDS  = [1]  # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS = [3.0]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0, 1, 2]
-INITIAL_SIGMAS                = [0, 1, 2, 3, 4, 5, 6]
+DOWNSAMPLE_LEVELS             = [0]
+INITIAL_SIGMAS                = [1]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
 INTRINSIC_SIGMA               = [0.5]
@@ -425,7 +426,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                         src = _src.astype(np.float32)
                                         dst = _dst.astype(np.float32)
                                         for ransac_th in RANSAC_THRESHOLDS:
-                                            H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_th)
+                                            H_est, _ = cv2.findHomography(src, dst, cv2.RHO, ransac_th)
                                             if H_est is not None:
                                                 corners_est = _project_batch(corners, H_est)
                                                 diff_c      = corners_gt - corners_est
@@ -438,7 +439,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                         for ransac_th in RANSAC_THRESHOLDS:
                                             hom_accs[ransac_th] = {th: 0.0 for th in DISTANCE_THRESHOLDS}
 
-                                    ratio_th_csv = ratio_th if ratio_th is not None else float("nan")
+                                    ratio_th_csv = ratio_th if ratio_th is not None else "-"
 
                                     # ── Accumulate into per-transformation aggregates ───────
                                     for ransac_th in RANSAC_THRESHOLDS:
@@ -484,7 +485,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
             for agg_key, s in agg_sums.items():
                 transformation, matcher, ratio_th_csv, bidirectional, ransac_th, max_kp, vis_filter, dist_th = agg_key
                 count = agg_count[agg_key]
-                _rt   = None if (isinstance(ratio_th_csv, float) and np.isnan(ratio_th_csv)) else ratio_th_csv
+                _rt   = None if ratio_th_csv == "-" else ratio_th_csv
                 rows.append({
                     # Identity
                     "method":                 combo_key,
@@ -492,7 +493,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                     # Matching parameters
                     "matcher":                matcher,
                     "ratio_threshold":        ratio_th_csv,
-                    "mnn_bidirectional":      bidirectional,
+                    "mnn_bidirectional":      bidirectional if bidirectional is not None else "-",
                     "ransac_threshold":       ransac_th,
                     # Pipeline parameters
                     "max_keypoints":          max_kp,
