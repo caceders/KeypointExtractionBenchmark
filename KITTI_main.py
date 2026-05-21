@@ -19,17 +19,17 @@ from matchers import get_matches as _get_matches
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "FINAL_low_threshold"
-RUN_TAG = "default_threshold"
+RUN_NAME = "test"
+RUN_TAG = "NN_no_ratio"
 
 ACTIVE_FRAMES = (0, 500)   # empty for full sequence
-MAX_KEYPOINTS    = [500]
-MATCHERS         = ["MNN"]   # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS = [0.75]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
+MAX_KEYPOINTS    = [250, 500, 750, 1000]
+MATCHERS         = ["KEEM", "NN","MNN"]   # "NN", "MNN", "KEEM"
+RATIO_THRESHOLDS = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]  # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
 RANSAC_THRESHOLDS   = [2]
 EPIPOLAR_THRESHOLDS = [1]
-DOWNSAMPLE_LEVELS = [0]
-INITIAL_SIGMAS    = [0]
+DOWNSAMPLE_LEVELS = [0, 1, 2]
+INITIAL_SIGMAS    = [0, 1, 2]
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
@@ -59,8 +59,8 @@ features2d = {
     #"AKAZE":     cv2.AKAZE_create(),
     #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
-    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
     # "BRISK":     cv2.BRISK_create(thresh = 1),
     # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
@@ -237,7 +237,7 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
                 kpL0, kpR0, stereo0_cache[key], P0, P1, epipolar_th)
 
     # ── Frame loop ────────────────────────────────────────────────────────────
-    for i in tqdm(range(1, len(left)), leave=False, desc="Frames", position=3):
+    for i in tqdm(range(1, len(left)), leave=False, desc="Frames", position=4):
         kpL_all, dL_all = _detect_describe(_read_ds(left[i]))
         kpR_all, dR_all = _detect_describe(_read_ds(right[i]))
 
@@ -312,14 +312,14 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
 #########################################################
 
 def main():
-    for seq in tqdm(SEQUENCES, leave=False, desc="Sequences", position=1):
+    for seq in tqdm(SEQUENCES, leave=True, desc="Sequences", position=0):
         seq_root = Path(DATA_ROOT) / "sequences" / seq
         gt_path  = Path(DATA_ROOT) / "poses" / f"{seq}.txt"
         gt_poses = read_gt_poses(gt_path)
 
-        for name, extractor in tqdm(test_combinations.items(), desc="Methods", position=2):
-            for initial_gaussian_blur_sigma in tqdm(INITIAL_SIGMAS, leave=False, desc="Initial sigmas", position=3):
-                for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Downsample levels", position=4):
+        for name, extractor in tqdm(test_combinations.items(), leave=False, desc="Methods", position=1):
+            for initial_gaussian_blur_sigma in tqdm(INITIAL_SIGMAS, leave=False, desc="Initial sigmas", position=2):
+                for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Downsample levels", position=3):
 
                     full_configs = [
                         (max_kp, matcher, ratio_th, ransac_th, epipolar_th)
@@ -516,7 +516,7 @@ def solve_pnp(X, pts2d, K, thresh):
         X, pts2d, K, None,
         iterationsCount=100000,
         reprojectionError=thresh,
-        confidence=0.99999999999999,
+        confidence=0.99999,
     )
     if not ok or inl is None or len(inl) < 6:
         return None

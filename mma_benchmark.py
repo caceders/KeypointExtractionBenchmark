@@ -1,5 +1,4 @@
 import os
-import itertools
 import traceback
 import warnings
 
@@ -39,7 +38,7 @@ features2d = {
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    # "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
     # "BRISK":     cv2.BRISK_create(thresh = 1),
     # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
@@ -56,9 +55,10 @@ DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
 # Each parameter is a list; combinations are benchmarked and stored in the CSV.
-MAX_KEYPOINTS    = [500]
-MATCHERS         = ["KEEM", "MNN"]  # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS = [0.8]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
+MAX_KEYPOINTS    = [250, 500, 750, 1000]
+MATCHERS         = ["KEEM", "MNN", "NN"]  # "NN", "MNN", "KEEM"
+RATIO_THRESHOLDS = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
+# RATIO_THRESHOLDS = [0.8]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
 RANSAC_THRESHOLDS = [3.0]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
@@ -69,7 +69,7 @@ DOWNSAMPLE_INTERPOLATION_TYPE = [None]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
-VISIBILITY_FILTERS = [False]  # sweepable; True removes kps that project outside the other image
+VISIBILITY_FILTERS = [False, True]  # sweepable; True removes kps that project outside the other image
 
 SKIP_AT_ERROR = False
 
@@ -222,297 +222,298 @@ if _results_dir:
 
 _max_k = max(MAX_KEYPOINTS)
 
-_ds_configs = list(itertools.product(
-    DOWNSAMPLE_LEVELS,
-    DOWNSAMPLE_FACTOR,
-    INITIAL_SIGMAS,
-    INTRINSIC_SIGMA,
-    APPLY_PROGRESSIVE_BLUR,
-    DOWNSAMPLE_INTERPOLATION_TYPE,
-))
+_ds_factor   = DOWNSAMPLE_FACTOR[0]
+_intr_sigma  = INTRINSIC_SIGMA[0]
+_prog_blur   = APPLY_PROGRESSIVE_BLUR[0]
+_interp_type = DOWNSAMPLE_INTERPOLATION_TYPE[0]
 
-for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations", position=0):
+for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leave=True, position=0):
 
-    for (ds_level, ds_factor, init_sigma, intr_sigma, prog_blur, interp_type) in tqdm(
-            _ds_configs, desc="Downsample config", leave=False, position=1):
+    for init_sigma in tqdm(INITIAL_SIGMAS, desc="Initial sigmas", leave=False, position=1):
 
-        scale = ds_factor ** ds_level
+        for ds_level in tqdm(DOWNSAMPLE_LEVELS, desc="Downsample levels", leave=False, position=2):
 
-        # ── Aggregate across all sequences ────────────────────────────────────────
-        # key: (transformation, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th)
-        agg_sums:  dict[tuple, dict[str, float]] = {}
-        agg_count: dict[tuple, int]              = {}
-        # key: (transformation, max_kp, matcher, ratio_th, vis_filter)
-        agg_pool:  dict[tuple, list]             = {}
+            ds_factor   = _ds_factor
+            intr_sigma  = _intr_sigma
+            prog_blur   = _prog_blur
+            interp_type = _interp_type
+            scale = ds_factor ** ds_level
 
-        for seq_id, (seq_name, seq_type, imgs, homos) in enumerate(tqdm(
-                sequences, leave=False, desc="Sequences", position=2)):
+            # ── Aggregate across all sequences ────────────────────────────────────────
+            # key: (transformation, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th)
+            agg_sums:  dict[tuple, dict[str, float]] = {}
+            agg_count: dict[tuple, int]              = {}
+            # key: (transformation, max_kp, matcher, ratio_th, vis_filter)
+            agg_pool:  dict[tuple, list]             = {}
 
-            h_ref, w_ref = imgs[0].shape[:2]
-            img_ref_ds   = downsample(imgs[0], ds_level, ds_factor,
-                                      intr_sigma, init_sigma, prog_blur, interp_type)
+            for seq_id, (seq_name, seq_type, imgs, homos) in enumerate(tqdm(
+                    sequences, leave=False, desc="Sequences", position=3)):
 
-            # ── Detect + describe reference image ONCE for all pairs ──────────────────
-            dtype        = np.float32 if extractor.distance_type == cv2.NORM_L2 else np.uint8
-            kps_ref_base     = extractor.detect_keypoints(img_ref_ds)
-            kps_ref_base     = _top_k_keypoints(kps_ref_base, _max_k)
-            n_kps_ref_pool   = len(kps_ref_base)
-            if kps_ref_base:
-                kps_ref_base, _dref = extractor.describe_keypoints(img_ref_ds, kps_ref_base)
-                descs_ref_np = np.array(_dref, dtype=dtype) if _dref else None
-                if scale != 1:
-                    for kp in kps_ref_base:
-                        kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
-            else:
-                descs_ref_np = None
+                h_ref, w_ref = imgs[0].shape[:2]
+                img_ref_ds   = downsample(imgs[0], ds_level, ds_factor,
+                                          intr_sigma, init_sigma, prog_blur, interp_type)
 
-            _need_inv_h = any(VISIBILITY_FILTERS)
+                # ── Detect + describe reference image ONCE for all pairs ──────────────────
+                dtype        = np.float32 if extractor.distance_type == cv2.NORM_L2 else np.uint8
+                kps_ref_base     = extractor.detect_keypoints(img_ref_ds)
+                kps_ref_base     = _top_k_keypoints(kps_ref_base, _max_k)
+                n_kps_ref_pool   = len(kps_ref_base)
+                if kps_ref_base:
+                    kps_ref_base, _dref = extractor.describe_keypoints(img_ref_ds, kps_ref_base)
+                    descs_ref_np = np.array(_dref, dtype=dtype) if _dref else None
+                    if scale != 1:
+                        for kp in kps_ref_base:
+                            kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
+                else:
+                    descs_ref_np = None
 
-            for rel_idx, (img_rel_orig, H_ref_to_rel) in enumerate(tqdm(
-                    list(zip(imgs[1:], homos)), leave=False, desc="Image pairs", position=3)):
+                _need_inv_h = any(VISIBILITY_FILTERS)
 
-                img_idx    = rel_idx + 2
-                pair_label = f"{combo_key} ds={ds_level} seq={seq_name} img={img_idx}"
+                for rel_idx, (img_rel_orig, H_ref_to_rel) in enumerate(tqdm(
+                        list(zip(imgs[1:], homos)), leave=False, desc="Image pairs", position=4)):
 
-                try:
-                    h_rel, w_rel = img_rel_orig.shape[:2]
-                    img_rel_ds   = downsample(img_rel_orig, ds_level, ds_factor,
-                                              intr_sigma, init_sigma, prog_blur, interp_type)
+                    img_idx    = rel_idx + 2
+                    pair_label = f"{combo_key} ds={ds_level} seq={seq_name} img={img_idx}"
 
-                    # ── Detect + describe related image ────────────────────────────────
-                    kps_rel_base     = extractor.detect_keypoints(img_rel_ds)
-                    kps_rel_base     = _top_k_keypoints(kps_rel_base, _max_k)
-                    n_kps_rel_pool   = len(kps_rel_base)
-                    if kps_rel_base:
-                        kps_rel_base, _drel = extractor.describe_keypoints(img_rel_ds, kps_rel_base)
-                        descs_rel_np = np.array(_drel, dtype=dtype) if _drel else None
-                        if scale != 1:
-                            for kp in kps_rel_base:
-                                kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
-                    else:
-                        descs_rel_np = None
+                    try:
+                        h_rel, w_rel = img_rel_orig.shape[:2]
+                        img_rel_ds   = downsample(img_rel_orig, ds_level, ds_factor,
+                                                  intr_sigma, init_sigma, prog_blur, interp_type)
 
-                    corners    = np.array([[0, 0], [w_ref - 1, 0],
-                                           [w_ref - 1, h_ref - 1], [0, h_ref - 1]], dtype=np.float64)
-                    corners_gt = _project_batch(corners, H_ref_to_rel)
+                        # ── Detect + describe related image ────────────────────────────────
+                        kps_rel_base     = extractor.detect_keypoints(img_rel_ds)
+                        kps_rel_base     = _top_k_keypoints(kps_rel_base, _max_k)
+                        n_kps_rel_pool   = len(kps_rel_base)
+                        if kps_rel_base:
+                            kps_rel_base, _drel = extractor.describe_keypoints(img_rel_ds, kps_rel_base)
+                            descs_rel_np = np.array(_drel, dtype=dtype) if _drel else None
+                            if scale != 1:
+                                for kp in kps_rel_base:
+                                    kp.pt = (kp.pt[0] * scale, kp.pt[1] * scale)
+                        else:
+                            descs_rel_np = None
 
-                    # ── Pre-compute visibility masks once per pair ─────────────────────
-                    H_rel_to_ref = np.linalg.inv(H_ref_to_rel) if _need_inv_h else None
-                    _vis_ref: dict[bool, np.ndarray | None] = {}
-                    _vis_rel: dict[bool, np.ndarray | None] = {}
-                    for _vf in set(VISIBILITY_FILTERS):
-                        if _vf:
-                            if kps_ref_base:
-                                _pts = np.array([kp.pt for kp in kps_ref_base], dtype=np.float64)
-                                _proj = _project_batch(_pts, H_ref_to_rel)
-                                _vis_ref[_vf] = ((_proj[:, 0] >= 0) & (_proj[:, 0] < w_rel) &
-                                                 (_proj[:, 1] >= 0) & (_proj[:, 1] < h_rel))
+                        corners    = np.array([[0, 0], [w_ref - 1, 0],
+                                               [w_ref - 1, h_ref - 1], [0, h_ref - 1]], dtype=np.float64)
+                        corners_gt = _project_batch(corners, H_ref_to_rel)
+
+                        # ── Pre-compute visibility masks once per pair ─────────────────────
+                        H_rel_to_ref = np.linalg.inv(H_ref_to_rel) if _need_inv_h else None
+                        _vis_ref: dict[bool, np.ndarray | None] = {}
+                        _vis_rel: dict[bool, np.ndarray | None] = {}
+                        for _vf in set(VISIBILITY_FILTERS):
+                            if _vf:
+                                if kps_ref_base:
+                                    _pts = np.array([kp.pt for kp in kps_ref_base], dtype=np.float64)
+                                    _proj = _project_batch(_pts, H_ref_to_rel)
+                                    _vis_ref[_vf] = ((_proj[:, 0] >= 0) & (_proj[:, 0] < w_rel) &
+                                                     (_proj[:, 1] >= 0) & (_proj[:, 1] < h_rel))
+                                else:
+                                    _vis_ref[_vf] = None
+                                if kps_rel_base:
+                                    _pts = np.array([kp.pt for kp in kps_rel_base], dtype=np.float64)
+                                    _proj = _project_batch(_pts, H_rel_to_ref)
+                                    _vis_rel[_vf] = ((_proj[:, 0] >= 0) & (_proj[:, 0] < w_ref) &
+                                                     (_proj[:, 1] >= 0) & (_proj[:, 1] < h_ref))
+                                else:
+                                    _vis_rel[_vf] = None
                             else:
                                 _vis_ref[_vf] = None
-                            if kps_rel_base:
-                                _pts = np.array([kp.pt for kp in kps_rel_base], dtype=np.float64)
-                                _proj = _project_batch(_pts, H_rel_to_ref)
-                                _vis_rel[_vf] = ((_proj[:, 0] >= 0) & (_proj[:, 0] < w_ref) &
-                                                 (_proj[:, 1] >= 0) & (_proj[:, 1] < h_ref))
-                            else:
                                 _vis_rel[_vf] = None
-                        else:
-                            _vis_ref[_vf] = None
-                            _vis_rel[_vf] = None
 
-                    for vis_filter in VISIBILITY_FILTERS:
-                        # ── Select visible keypoint subset ─────────────────────────────
-                        ref_mask = _vis_ref[vis_filter]
-                        rel_mask = _vis_rel[vis_filter]
+                        for vis_filter in VISIBILITY_FILTERS:
+                            # ── Select visible keypoint subset ─────────────────────────────
+                            ref_mask = _vis_ref[vis_filter]
+                            rel_mask = _vis_rel[vis_filter]
 
-                        if ref_mask is not None:
-                            kps_ref_all  = [kp for kp, m in zip(kps_ref_base, ref_mask) if m]
-                            descs_ref_vf = descs_ref_np[ref_mask] if descs_ref_np is not None else None
-                        else:
-                            kps_ref_all  = kps_ref_base
-                            descs_ref_vf = descs_ref_np
-
-                        if rel_mask is not None:
-                            kps_rel_all  = [kp for kp, m in zip(kps_rel_base, rel_mask) if m]
-                            descs_rel_vf = descs_rel_np[rel_mask] if descs_rel_np is not None else None
-                        else:
-                            kps_rel_all  = kps_rel_base
-                            descs_rel_vf = descs_rel_np
-
-                        have_kps   = bool(kps_ref_all) and bool(kps_rel_all)
-                        have_descs = (descs_ref_vf is not None and len(descs_ref_vf) > 0 and
-                                      descs_rel_vf is not None and len(descs_rel_vf) > 0)
-
-                        for max_kp in MAX_KEYPOINTS:
-                            kps_ref = kps_ref_all[:max_kp] if have_kps else []
-                            kps_rel = kps_rel_all[:max_kp] if have_kps else []
-                            n_ref   = len(kps_ref)
-                            n_rel   = len(kps_rel)
-
-                            # ── Pre-extract keypoint coordinates once per (max_kp, vis_filter) ──
-                            ref_pts_arr = np.array([kp.pt for kp in kps_ref], dtype=np.float64) if n_ref else None
-                            rel_pts_arr = np.array([kp.pt for kp in kps_rel], dtype=np.float64) if n_rel else None
-
-                            # ── Repeatability ─────────────────────────────────────────
-                            if n_ref and n_rel:
-                                ref_proj_rel = _project_batch(ref_pts_arr, H_ref_to_rel)
-                                _d           = ref_proj_rel[:, None, :] - rel_pts_arr[None, :, :]
-                                sq_dist      = (_d * _d).sum(axis=2)
-                                sq_dref      = sq_dist.min(axis=1)
-                                sq_drel      = sq_dist.min(axis=0)
-                                rep = {th: float(np.sum(sq_dref < th * th) + np.sum(sq_drel < th * th)) / (n_ref + n_rel)
-                                       for th in DISTANCE_THRESHOLDS}
+                            if ref_mask is not None:
+                                kps_ref_all  = [kp for kp, m in zip(kps_ref_base, ref_mask) if m]
+                                descs_ref_vf = descs_ref_np[ref_mask] if descs_ref_np is not None else None
                             else:
-                                rep = {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                                kps_ref_all  = kps_ref_base
+                                descs_ref_vf = descs_ref_np
 
-                            if have_descs and n_ref > 0 and n_rel > 0:
-                                desc_ref = descs_ref_vf[:n_ref]
-                                desc_rel = descs_rel_vf[:n_rel]
+                            if rel_mask is not None:
+                                kps_rel_all  = [kp for kp, m in zip(kps_rel_base, rel_mask) if m]
+                                descs_rel_vf = descs_rel_np[rel_mask] if descs_rel_np is not None else None
                             else:
-                                desc_ref = None
-                                desc_rel = None
+                                kps_rel_all  = kps_rel_base
+                                descs_rel_vf = descs_rel_np
 
-                            for matcher, ratio_th in _matching_configs:
-                                # ── Match descriptors ──────────────────────────────────
-                                if desc_ref is not None:
-                                    raw_matches = get_matches(desc_ref, desc_rel,
-                                                              extractor.distance_type, matcher, ratio_th)
+                            have_kps   = bool(kps_ref_all) and bool(kps_rel_all)
+                            have_descs = (descs_ref_vf is not None and len(descs_ref_vf) > 0 and
+                                          descs_rel_vf is not None and len(descs_rel_vf) > 0)
+
+                            for max_kp in MAX_KEYPOINTS:
+                                kps_ref = kps_ref_all[:max_kp] if have_kps else []
+                                kps_rel = kps_rel_all[:max_kp] if have_kps else []
+                                n_ref   = len(kps_ref)
+                                n_rel   = len(kps_rel)
+
+                                # ── Pre-extract keypoint coordinates once per (max_kp, vis_filter) ──
+                                ref_pts_arr = np.array([kp.pt for kp in kps_ref], dtype=np.float64) if n_ref else None
+                                rel_pts_arr = np.array([kp.pt for kp in kps_rel], dtype=np.float64) if n_rel else None
+
+                                # ── Repeatability ─────────────────────────────────────────
+                                if n_ref and n_rel:
+                                    ref_proj_rel = _project_batch(ref_pts_arr, H_ref_to_rel)
+                                    _d           = ref_proj_rel[:, None, :] - rel_pts_arr[None, :, :]
+                                    sq_dist      = (_d * _d).sum(axis=2)
+                                    sq_dref      = sq_dist.min(axis=1)
+                                    sq_drel      = sq_dist.min(axis=0)
+                                    rep = {th: float(np.sum(sq_dref < th * th) + np.sum(sq_drel < th * th)) / (n_ref + n_rel)
+                                           for th in DISTANCE_THRESHOLDS}
                                 else:
-                                    raw_matches = []
+                                    rep = {th: 0.0 for th in DISTANCE_THRESHOLDS}
 
-                                n_matches = len(raw_matches)
-
-                                if n_matches > 0:
-                                    q_arr      = np.array([m.query_idx for m in raw_matches], dtype=np.int32)
-                                    t_arr      = np.array([m.train_idx for m in raw_matches], dtype=np.int32)
-                                    _src       = ref_pts_arr[q_arr]   # float64, (N, 2)
-                                    _dst       = rel_pts_arr[t_arr]   # float64, (N, 2)
-                                    geo_errors = np.linalg.norm(_project_batch(_src, H_ref_to_rel) - _dst, axis=1)
-                                    dists_arr  = np.array([m.distance for m in raw_matches], dtype=np.float64)
+                                if have_descs and n_ref > 0 and n_rel > 0:
+                                    desc_ref = descs_ref_vf[:n_ref]
+                                    desc_rel = descs_rel_vf[:n_rel]
                                 else:
-                                    geo_errors = np.array([], dtype=np.float64)
-                                    dists_arr  = geo_errors
+                                    desc_ref = None
+                                    desc_rel = None
 
-                                # ── Accumulate match pool for mAP (per transformation) ─
-                                pool_key = (seq_type, max_kp, matcher, ratio_th, vis_filter)
-                                if pool_key not in agg_pool:
-                                    agg_pool[pool_key] = []
-                                if n_matches > 0:
-                                    agg_pool[pool_key].extend(zip(dists_arr.tolist(), geo_errors.tolist()))
+                                for matcher, ratio_th in _matching_configs:
+                                    # ── Match descriptors ──────────────────────────────────
+                                    if desc_ref is not None:
+                                        raw_matches = get_matches(desc_ref, desc_rel,
+                                                                  extractor.distance_type, matcher, ratio_th)
+                                    else:
+                                        raw_matches = []
 
-                                # ── Per-pair metrics ───────────────────────────────────
-                                mma_kp_ref = (
-                                    {th: float(np.sum(geo_errors < th)) / n_ref for th in DISTANCE_THRESHOLDS}
-                                    if n_ref > 0 else {th: 0.0 for th in DISTANCE_THRESHOLDS}
-                                )
-                                mma = (
-                                    {th: float(np.sum(geo_errors < th)) / n_matches for th in DISTANCE_THRESHOLDS}
-                                    if n_matches > 0 else {th: 0.0 for th in DISTANCE_THRESHOLDS}
-                                )
+                                    n_matches = len(raw_matches)
 
-                                # ── Homography estimation ──────────────────────────────
-                                hom_accs: dict[float, dict[int, float]] = {}
-                                can_ransac = n_matches >= 4
-                                if can_ransac:
-                                    src = _src.astype(np.float32)
-                                    dst = _dst.astype(np.float32)
-                                    for ransac_th in RANSAC_THRESHOLDS:
-                                        H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_th)
-                                        if H_est is not None:
-                                            corners_est = _project_batch(corners, H_est)
-                                            diff_c      = corners_gt - corners_est
-                                            mean_err    = float(np.sqrt((diff_c * diff_c).sum(axis=1)).mean())
-                                            hom_accs[ransac_th] = {th: 1.0 if mean_err < th else 0.0
-                                                                   for th in DISTANCE_THRESHOLDS}
-                                        else:
+                                    if n_matches > 0:
+                                        q_arr      = np.array([m.query_idx for m in raw_matches], dtype=np.int32)
+                                        t_arr      = np.array([m.train_idx for m in raw_matches], dtype=np.int32)
+                                        _src       = ref_pts_arr[q_arr]   # float64, (N, 2)
+                                        _dst       = rel_pts_arr[t_arr]   # float64, (N, 2)
+                                        geo_errors = np.linalg.norm(_project_batch(_src, H_ref_to_rel) - _dst, axis=1)
+                                        dists_arr  = np.array([m.distance for m in raw_matches], dtype=np.float64)
+                                    else:
+                                        geo_errors = np.array([], dtype=np.float64)
+                                        dists_arr  = geo_errors
+
+                                    # ── Accumulate match pool for mAP (per transformation) ─
+                                    pool_key = (seq_type, max_kp, matcher, ratio_th, vis_filter)
+                                    if pool_key not in agg_pool:
+                                        agg_pool[pool_key] = []
+                                    if n_matches > 0:
+                                        agg_pool[pool_key].extend(zip(dists_arr.tolist(), geo_errors.tolist()))
+
+                                    # ── Per-pair metrics ───────────────────────────────────
+                                    mma_kp_ref = (
+                                        {th: float(np.sum(geo_errors < th)) / n_ref for th in DISTANCE_THRESHOLDS}
+                                        if n_ref > 0 else {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                                    )
+                                    mma = (
+                                        {th: float(np.sum(geo_errors < th)) / n_matches for th in DISTANCE_THRESHOLDS}
+                                        if n_matches > 0 else {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                                    )
+
+                                    # ── Homography estimation ──────────────────────────────
+                                    hom_accs: dict[float, dict[int, float]] = {}
+                                    can_ransac = n_matches >= 4
+                                    if can_ransac:
+                                        src = _src.astype(np.float32)
+                                        dst = _dst.astype(np.float32)
+                                        for ransac_th in RANSAC_THRESHOLDS:
+                                            H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_th)
+                                            if H_est is not None:
+                                                corners_est = _project_batch(corners, H_est)
+                                                diff_c      = corners_gt - corners_est
+                                                mean_err    = float(np.sqrt((diff_c * diff_c).sum(axis=1)).mean())
+                                                hom_accs[ransac_th] = {th: 1.0 if mean_err < th else 0.0
+                                                                       for th in DISTANCE_THRESHOLDS}
+                                            else:
+                                                hom_accs[ransac_th] = {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                                    else:
+                                        for ransac_th in RANSAC_THRESHOLDS:
                                             hom_accs[ransac_th] = {th: 0.0 for th in DISTANCE_THRESHOLDS}
-                                else:
+
+                                    ratio_th_csv = ratio_th if ratio_th is not None else float("nan")
+
+                                    # ── Accumulate into per-transformation aggregates ───────
                                     for ransac_th in RANSAC_THRESHOLDS:
-                                        hom_accs[ransac_th] = {th: 0.0 for th in DISTANCE_THRESHOLDS}
+                                        for dist_th in DISTANCE_THRESHOLDS:
+                                            agg_key = (seq_type, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th)
+                                            if agg_key not in agg_sums:
+                                                agg_sums[agg_key]  = {
+                                                    "mMA_kp_ref": 0.0, "mMA": 0.0,
+                                                    "repeatability": 0.0, "homography_accuracy": 0.0,
+                                                    "avg_num_matches": 0.0, "avg_num_keypoints": 0.0,
+                                                    "num_keypoints_ref_detected": 0.0,
+                                                    "num_keypoints_rel_detected": 0.0,
+                                                    "avg_num_keypoints_detected": 0.0,
+                                                }
+                                                agg_count[agg_key] = 0
+                                            s = agg_sums[agg_key]
+                                            s["mMA_kp_ref"]                 += mma_kp_ref[dist_th]
+                                            s["mMA"]                        += mma[dist_th]
+                                            s["repeatability"]              += rep[dist_th]
+                                            s["homography_accuracy"]        += hom_accs[ransac_th][dist_th]
+                                            s["avg_num_matches"]            += n_matches
+                                            s["avg_num_keypoints"]          += (n_ref + n_rel) / 2
+                                            s["num_keypoints_ref_detected"] += n_kps_ref_pool
+                                            s["num_keypoints_rel_detected"] += n_kps_rel_pool
+                                            s["avg_num_keypoints_detected"] += (n_kps_ref_pool + n_kps_rel_pool) / 2
+                                            agg_count[agg_key] += 1
 
-                                ratio_th_csv = ratio_th if ratio_th is not None else float("nan")
+                    except Exception:
+                        if SKIP_AT_ERROR:
+                            with open("failed_combinations.txt", "a") as f:
+                                f.write(f"{pair_label}\n")
+                                f.write(traceback.format_exc() + "\n\n")
+                        else:
+                            raise
 
-                                # ── Accumulate into per-transformation aggregates ───────
-                                for ransac_th in RANSAC_THRESHOLDS:
-                                    for dist_th in DISTANCE_THRESHOLDS:
-                                        agg_key = (seq_type, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th)
-                                        if agg_key not in agg_sums:
-                                            agg_sums[agg_key]  = {
-                                                "mMA_kp_ref": 0.0, "mMA": 0.0,
-                                                "repeatability": 0.0, "homography_accuracy": 0.0,
-                                                "avg_num_matches": 0.0, "avg_num_keypoints": 0.0,
-                                                "num_keypoints_ref_detected": 0.0,
-                                                "num_keypoints_rel_detected": 0.0,
-                                                "avg_num_keypoints_detected": 0.0,
-                                            }
-                                            agg_count[agg_key] = 0
-                                        s = agg_sums[agg_key]
-                                        s["mMA_kp_ref"]                 += mma_kp_ref[dist_th]
-                                        s["mMA"]                        += mma[dist_th]
-                                        s["repeatability"]              += rep[dist_th]
-                                        s["homography_accuracy"]        += hom_accs[ransac_th][dist_th]
-                                        s["avg_num_matches"]            += n_matches
-                                        s["avg_num_keypoints"]          += (n_ref + n_rel) / 2
-                                        s["num_keypoints_ref_detected"] += n_kps_ref_pool
-                                        s["num_keypoints_rel_detected"] += n_kps_rel_pool
-                                        s["avg_num_keypoints_detected"] += (n_kps_ref_pool + n_kps_rel_pool) / 2
-                                        agg_count[agg_key] += 1
+            # ── Compute mAP and write aggregated rows ─────────────────────────────────
+            mAP_cache: dict[tuple, float] = {}
+            for (transformation, max_kp, matcher, ratio_th, vis_filter), pool in agg_pool.items():
+                for dist_th in DISTANCE_THRESHOLDS:
+                    mAP_cache[(transformation, max_kp, matcher, ratio_th, vis_filter, dist_th)] = compute_ap(pool, dist_th)
 
-                except Exception:
-                    if SKIP_AT_ERROR:
-                        with open("failed_combinations.txt", "a") as f:
-                            f.write(f"{pair_label}\n")
-                            f.write(traceback.format_exc() + "\n\n")
-                    else:
-                        raise
+            rows = []
+            for agg_key, s in agg_sums.items():
+                transformation, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th = agg_key
+                count = agg_count[agg_key]
+                _rt   = None if (isinstance(ratio_th_csv, float) and np.isnan(ratio_th_csv)) else ratio_th_csv
+                rows.append({
+                    # Identity
+                    "method":                 combo_key,
+                    "tag":                    RUN_TAG,
+                    # Matching parameters
+                    "matcher":                matcher,
+                    "ratio_threshold":        ratio_th_csv,
+                    "ransac_threshold":       ransac_th,
+                    # Pipeline parameters
+                    "max_keypoints":          max_kp,
+                    "downsample_level":       ds_level,
+                    "initial_sigma":          init_sigma,
+                    "intrinsic_sigma":        intr_sigma,
+                    "apply_progressive_blur": prog_blur,
+                    "visibility_filter":      vis_filter,
+                    # Transformation type
+                    "transformation":         transformation,
+                    # Threshold
+                    "distance_threshold":     dist_th,
+                    # Metrics
+                    "mMA_kp_ref":             s["mMA_kp_ref"]          / count,
+                    "mMA":                    s["mMA"]                  / count,
+                    "repeatability":          s["repeatability"]        / count,
+                    "homography_accuracy":    s["homography_accuracy"]  / count,
+                    "mAP":                    mAP_cache.get((transformation, max_kp, matcher, _rt, vis_filter, dist_th), float("nan")),
+                    # Counts
+                    "avg_num_matches":            s["avg_num_matches"]            / count,
+                    "avg_num_keypoints":          s["avg_num_keypoints"]          / count,
+                    "num_keypoints_ref_detected": s["num_keypoints_ref_detected"] / count,
+                    "num_keypoints_rel_detected": s["num_keypoints_rel_detected"] / count,
+                    "avg_num_keypoints_detected": s["avg_num_keypoints_detected"] / count,
+                })
 
-        # ── Compute mAP and write aggregated rows ─────────────────────────────────
-        mAP_cache: dict[tuple, float] = {}
-        for (transformation, max_kp, matcher, ratio_th, vis_filter), pool in agg_pool.items():
-            for dist_th in DISTANCE_THRESHOLDS:
-                mAP_cache[(transformation, max_kp, matcher, ratio_th, vis_filter, dist_th)] = compute_ap(pool, dist_th)
-
-        rows = []
-        for agg_key, s in agg_sums.items():
-            transformation, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th = agg_key
-            count = agg_count[agg_key]
-            _rt   = None if (isinstance(ratio_th_csv, float) and np.isnan(ratio_th_csv)) else ratio_th_csv
-            rows.append({
-                # Identity
-                "method":                 combo_key,
-                "tag":                    RUN_TAG,
-                # Matching parameters
-                "matcher":                matcher,
-                "ratio_threshold":        ratio_th_csv,
-                "ransac_threshold":       ransac_th,
-                # Pipeline parameters
-                "max_keypoints":          max_kp,
-                "downsample_level":       ds_level,
-                "initial_sigma":          init_sigma,
-                "intrinsic_sigma":        intr_sigma,
-                "apply_progressive_blur": prog_blur,
-                "visibility_filter":      vis_filter,
-                # Transformation type
-                "transformation":         transformation,
-                # Threshold
-                "distance_threshold":     dist_th,
-                # Metrics
-                "mMA_kp_ref":             s["mMA_kp_ref"]          / count,
-                "mMA":                    s["mMA"]                  / count,
-                "repeatability":          s["repeatability"]        / count,
-                "homography_accuracy":    s["homography_accuracy"]  / count,
-                "mAP":                    mAP_cache.get((transformation, max_kp, matcher, _rt, vis_filter, dist_th), float("nan")),
-                # Counts
-                "avg_num_matches":            s["avg_num_matches"]            / count,
-                "avg_num_keypoints":          s["avg_num_keypoints"]          / count,
-                "num_keypoints_ref_detected": s["num_keypoints_ref_detected"] / count,
-                "num_keypoints_rel_detected": s["num_keypoints_rel_detected"] / count,
-                "avg_num_keypoints_detected": s["avg_num_keypoints_detected"] / count,
-            })
-
-        if rows:
-            df_out = pd.DataFrame(rows)
-            write_header = not os.path.isfile(RESULTS_FILE)
-            df_out.to_csv(RESULTS_FILE, index=False, header=write_header, mode="a")
+            if rows:
+                df_out = pd.DataFrame(rows)
+                write_header = not os.path.isfile(RESULTS_FILE)
+                df_out.to_csv(RESULTS_FILE, index=False, header=write_header, mode="a")
 
 print("\nDone. Results written to", RESULTS_FILE)
