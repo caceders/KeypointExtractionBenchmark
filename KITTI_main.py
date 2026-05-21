@@ -12,22 +12,30 @@ from tqdm import tqdm
 from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_ratio_bi
 
 
-#########################################################
-# ================= USER CONFIG =========================
-#########################################################
+# ============================================================
+# CONFIGURATION
+# ============================================================
 
+# ── Paths ─────────────────────────────────────────────────────────────────────
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "FINAL_low_threshold"
-RUN_TAG = "default_threshold"
 
+# ── Run tag ───────────────────────────────────────────────────────────────────
+RUN_NAME = "default"
+RUN_TAG = "deafault"
+
+# ── Active frames ─────────────────────────────────────────────────────────────
 ACTIVE_FRAMES = (0, 500)   # empty for full sequence
+
+# ── Matching parameters ───────────────────────────────────────────────────────
 MAX_KEYPOINTS    = [500]
-MATCHERS         = ["MNN"]   # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS = [0.75]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
+MATCHERS         = ["MNN", "NN", "KEEM"]   # "NN", "MNN", "KEEM"
+RATIO_THRESHOLDS = [0.8]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
 RANSAC_THRESHOLDS   = [2]
 EPIPOLAR_THRESHOLDS = [1]
+
+# ── Downsampling parameters ───────────────────────────────────────────────────
 DOWNSAMPLE_LEVELS = [0]
 INITIAL_SIGMAS    = [0]
 
@@ -36,6 +44,7 @@ intrinsic_gaussian_blur_sigma = 0.5
 downsample_factor = 2
 downsample_interpolation_type = None
 
+# ── NMS ───────────────────────────────────────────────────────────────────────
 APPLY_NMS = False
 NMS_RADIUS = 1
 
@@ -48,10 +57,11 @@ BASE_OUT.mkdir(parents=True, exist_ok=True)
 TRAJ_DIR.mkdir(parents=True, exist_ok=True)
 
 
-#########################################################
-# ===========  YOUR FEATURE COMBINATIONS  ===============
-#########################################################
+# ============================================================
+# BUILD TEST COMBINATIONS
+# ============================================================
 
+# ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
     #"SIFT":      cv2.SIFT_create(),
     #"ORB":       cv2.ORB_create(nfeatures=5000),
@@ -59,7 +69,7 @@ features2d = {
     #"AKAZE":     cv2.AKAZE_create(),
     #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
     # "BRISK":     cv2.BRISK_create(thresh = 1),
     # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
@@ -87,10 +97,7 @@ ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
 ALLOWED_DETECTOR_FOR_DESCRIPTOR = {}
 
 
-#########################################################
-#   FeatureExtractor helper wrapper
-#########################################################
-
+# ── FeatureExtractor helper ───────────────────────────────────────────────────
 class FeatureExtractor:
     def __init__(self, detect_fn, compute_fn, norm_type):
         self.detect_fn = detect_fn
@@ -151,9 +158,9 @@ for _m in MATCHERS:
             _matching_configs.append((_m, _r))
 
 
-#########################################################
-# ==================== MAIN VO LOOP =====================
-#########################################################
+# ============================================================
+# MAIN VO LOOP
+# ============================================================
 
 def run_stereo_vo_multi(seq_root, extractor, downsample_level,
                         initial_gaussian_blur_sigma, full_configs):
@@ -336,9 +343,9 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
     return {cfg: (states[cfg]["poses"], states[cfg]["stats"]) for cfg in full_configs}
 
 
-#########################################################
-# ===================== MAIN RUN ========================
-#########################################################
+# ============================================================
+# MAIN RUN
+# ============================================================
 
 def main():
     for seq in tqdm(SEQUENCES, leave=True, desc="Sequences", position=0):
@@ -446,9 +453,9 @@ def main():
     print(f"Results saved to {CSV_PATH}")
 
 
-#########################################################
-# ============== KITTI HELPERS ==========================
-#########################################################
+# ============================================================
+# KITTI HELPERS
+# ============================================================
 
 def save_trajectory_kitti(path: Path, poses):
     with open(path, "w") as f:
@@ -502,9 +509,9 @@ def build_T(R, t):
     return T
 
 
-#########################################################
-# ============= Stereo + PnP Motion =====================
-#########################################################
+# ============================================================
+# STEREO + PNP
+# ============================================================
 
 def triangulate_stereo(kL, kR, matches, P0, P1, epip_tol):
     ptsL = []; ptsR = []; idx = []
@@ -554,11 +561,9 @@ def solve_pnp(X, pts2d, K, thresh):
     return R, t, inl.ravel()
 
 
-#########################################################
-# ==================
-#  TRAJECTORY METRICS
-# ==================
-#########################################################
+# ============================================================
+# TRAJECTORY METRICS
+# ============================================================
 
 def positions(poses):
     out = np.zeros((len(poses), 3))
