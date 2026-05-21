@@ -1,16 +1,11 @@
-import cv2
-import numpy as np
-from pathlib import Path
-import math
-from typing import Dict, List, Tuple, Optional
-from shi_tomasi_sift import ShiTomasiSift
-from benchmark.utils import downsample, visualize_matches_with_scale_change, optional_try, non_maximal_supression
-import os
 import pandas as pd
+import numpy as np
+import cv2
 from tqdm import tqdm
-
+from shi_tomasi_sift import ShiTomasiSift
+from pathlib import Path
 from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_ratio_fwd, apply_ratio_bi
-
+from benchmark.utils import downsample, optional_try, non_maximal_supression
 
 # ============================================================
 # CONFIGURATION
@@ -18,8 +13,8 @@ from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_rat
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
-#SEQUENCES = ["00", "01", "02", "03", "04", "05"]
-SEQUENCES = ["00"]
+#SEQUENCE = "01"
+SEQUENCE = "00"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
 RUN_NAME = "default"
@@ -72,9 +67,9 @@ features2d = {
     ## LOW THRESH
     "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    # "BRISK":     cv2.BRISK_create(thresh = 1),
-    # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
-    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    "BRISK":     cv2.BRISK_create(thresh = 1),
+    "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
+    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 # features2d = {
@@ -262,7 +257,7 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
                 kpL0, kpR0, stereo0_cache[key], P0, P1, epipolar_th)
 
     # ── Frame loop ────────────────────────────────────────────────────────────
-    for i in tqdm(range(1, len(left)), leave=False, desc="Frames", position=4):
+    for i in tqdm(range(1, len(left)), leave=False, desc="Frames", position=3):
         kpL_all, dL_all = _detect_describe(_read_ds(left[i]))
         kpR_all, dR_all = _detect_describe(_read_ds(right[i]))
 
@@ -355,108 +350,108 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
 # ============================================================
 
 def main():
-    for seq in tqdm(SEQUENCES, leave=True, desc="Sequences", position=0):
-        seq_root = Path(DATA_ROOT) / "sequences" / seq
-        gt_path  = Path(DATA_ROOT) / "poses" / f"{seq}.txt"
-        gt_poses = read_gt_poses(gt_path)
+    seq      = SEQUENCE
+    seq_root = Path(DATA_ROOT) / "sequences" / seq
+    gt_path  = Path(DATA_ROOT) / "poses" / f"{seq}.txt"
+    gt_poses = read_gt_poses(gt_path)
 
-        for name, extractor in tqdm(test_combinations.items(), leave=False, desc="Methods", position=1):
-            for initial_gaussian_blur_sigma in tqdm(INITIAL_SIGMAS, leave=False, desc="Initial sigmas", position=2):
-                for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Downsample levels", position=3):
+    for name, extractor in tqdm(test_combinations.items(), leave=True, desc="Methods", position=0):
+        for initial_gaussian_blur_sigma in tqdm(INITIAL_SIGMAS, leave=False, desc="Initial sigmas", position=1):
+            for downsample_level in tqdm(DOWNSAMPLE_LEVELS, leave=False, desc="Downsample levels", position=2):
 
-                    full_configs = [
-                        (max_kp, matcher, ratio_th, bidirectional, ransac_th, epipolar_th)
-                        for max_kp      in MAX_KEYPOINTS
-                        for matcher, ratio_th, bidirectional in _matching_configs
-                        for ransac_th   in RANSAC_THRESHOLDS
-                        for epipolar_th in EPIPOLAR_THRESHOLDS
-                    ]
+                full_configs = [
+                    (max_kp, matcher, ratio_th, bidirectional, ransac_th, epipolar_th)
+                    for max_kp      in MAX_KEYPOINTS
+                    for matcher, ratio_th, bidirectional in _matching_configs
+                    for ransac_th   in RANSAC_THRESHOLDS
+                    for epipolar_th in EPIPOLAR_THRESHOLDS
+                ]
 
-                    with optional_try(skip_at_error, f"{name}_{RUN_TAG}_{downsample_level}"):
-                        all_results = run_stereo_vo_multi(
-                            seq_root, extractor, downsample_level,
-                            initial_gaussian_blur_sigma, full_configs,
-                        )
+                with optional_try(skip_at_error, f"{name}_{RUN_TAG}_{downsample_level}"):
+                    all_results = run_stereo_vo_multi(
+                        seq_root, extractor, downsample_level,
+                        initial_gaussian_blur_sigma, full_configs,
+                    )
 
-                        _gt = gt_poses
-                        if ACTIVE_FRAMES and _gt is not None:
-                            _gt = _gt[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
+                    _gt = gt_poses
+                    if ACTIVE_FRAMES and _gt is not None:
+                        _gt = _gt[ACTIVE_FRAMES[0]:ACTIVE_FRAMES[1]]
 
-                        for cfg, (poses, stats) in all_results.items():
-                            max_kp, matcher_name, ratio_th, bidirectional, ransac_th, epipolar_th = cfg
+                    for cfg, (poses, stats) in all_results.items():
+                        max_kp, matcher_name, ratio_th, bidirectional, ransac_th, epipolar_th = cfg
 
-                            ratio_str = f"{ratio_th:.2f}" if ratio_th is not None else "none"
-                            traj_path = (TRAJ_DIR /
-                                         f"traj_{seq}_{name}_{RUN_TAG}_{matcher_name}"
-                                         f"_{ratio_str}_{downsample_level}"
-                                         f"_r{ransac_th}_e{epipolar_th}.txt")
-                            save_trajectory_kitti(traj_path, poses)
+                        ratio_str = f"{ratio_th:.2f}" if ratio_th is not None else "none"
+                        traj_path = (TRAJ_DIR /
+                                     f"traj_{seq}_{name}_{RUN_TAG}_{matcher_name}"
+                                     f"_{ratio_str}_{downsample_level}"
+                                     f"_r{ransac_th}_e{epipolar_th}.txt")
+                        save_trajectory_kitti(traj_path, poses)
 
-                            if _gt is None:
-                                ate_aligned = ate_strict = float("nan")
-                                rpe1_trans = rpe1_rot = float("nan")
-                                rpe10_trans = rpe10_rot = float("nan")
-                                rpe1_trans_max = rpe1_rot_max = float("nan")
-                                rpe10_trans_max = rpe10_rot_max = float("nan")
-                                rpe1_trans_std = rpe1_rot_std = float("nan")
-                                rpe10_trans_std = rpe10_rot_std = float("nan")
-                            else:
-                                ate_aligned = compute_ate_aligned(poses, _gt)
-                                ate_strict  = compute_ate_strict(poses, _gt)
-                                rpe1_trans,  rpe1_rot,  rpe1_trans_max,  rpe1_rot_max,  rpe1_trans_std,  rpe1_rot_std  = compute_rpe(poses, _gt, delta=1)
-                                rpe10_trans, rpe10_rot, rpe10_trans_max, rpe10_rot_max, rpe10_trans_std, rpe10_rot_std = compute_rpe(poses, _gt, delta=10)
+                        if _gt is None:
+                            ate_aligned = ate_strict = float("nan")
+                            rpe1_trans = rpe1_rot = float("nan")
+                            rpe10_trans = rpe10_rot = float("nan")
+                            rpe1_trans_max = rpe1_rot_max = float("nan")
+                            rpe10_trans_max = rpe10_rot_max = float("nan")
+                            rpe1_trans_std = rpe1_rot_std = float("nan")
+                            rpe10_trans_std = rpe10_rot_std = float("nan")
+                        else:
+                            ate_aligned = compute_ate_aligned(poses, _gt)
+                            ate_strict  = compute_ate_strict(poses, _gt)
+                            rpe1_trans,  rpe1_rot,  rpe1_trans_max,  rpe1_rot_max,  rpe1_trans_std,  rpe1_rot_std  = compute_rpe(poses, _gt, delta=1)
+                            rpe10_trans, rpe10_rot, rpe10_trans_max, rpe10_rot_max, rpe10_trans_std, rpe10_rot_std = compute_rpe(poses, _gt, delta=10)
 
-                            results = {
-                                # Identity
-                                "sequence":      seq,
-                                "method":        name,
-                                "tag":           RUN_TAG,
-                                "active_frames": (f"{ACTIVE_FRAMES[0]}-{ACTIVE_FRAMES[1]}"
-                                                  if ACTIVE_FRAMES else f"0-{len(gt_poses)-1}"),
-                                # Matching parameters
-                                "matcher":            matcher_name,
-                                "ratio_threshold":    ratio_th if ratio_th is not None else float("nan"),
-                                "mnn_bidirectional":  bidirectional,
-                                "ransac_threshold":   ransac_th,
-                                "epipolar_threshold": epipolar_th,
-                                # Pipeline parameters
-                                "downsample_level": downsample_level,
-                                "initial_sigma":    initial_gaussian_blur_sigma,
-                                "max_keypoints":    max_kp,
-                                # Trajectory metrics
-                                "ATE_RMSE_STRICT":   ate_strict,
-                                "ATE_RMSE_ALIGNED":  ate_aligned,
-                                "RPE1_trans_RMSE":   rpe1_trans,
-                                "RPE1_rot_RMSE":     rpe1_rot,
-                                "RPE1_trans_std":    rpe1_trans_std,
-                                "RPE1_rot_std":      rpe1_rot_std,
-                                "RPE10_trans_RMSE":  rpe10_trans,
-                                "RPE10_rot_RMSE":    rpe10_rot,
-                                "RPE10_trans_std":   rpe10_trans_std,
-                                "RPE10_rot_std":     rpe10_rot_std,
-                                "RPE1_trans_max":    rpe1_trans_max,
-                                "RPE1_rot_max":      rpe1_rot_max,
-                                "RPE10_trans_max":   rpe10_trans_max,
-                                "RPE10_rot_max":     rpe10_rot_max,
-                                # Run statistics
-                                "avg_num_keypoints_detected":            float(np.mean(stats["keypoints_detected"])),
-                                "avg_num_keypoints":                     float(np.mean(stats["keypoints"])),
-                                "avg_num_temporal_matches":              float(np.mean(stats["temporal_matches"])),
-                                "avg_num_stereo_matches":                float(np.mean(stats["stereo_matches"])),
-                                "avg_num_triangulated_matches":          float(np.mean(stats["triangulated"])),
-                                "avg_num_temporal_tri_map_overlap":      float(np.mean(stats["temporal_tri_map_overlap"])),
-                                "avg_num_PnP_inliers":                   float(np.mean(stats["pnp_inliers"])),
-                                "avg_num_dropped_temporal":              float(np.mean(stats["keypoints"])) - float(np.mean(stats["temporal_matches"])),
-                                "avg_num_dropped_stereo":                float(np.mean(stats["keypoints"])) - float(np.mean(stats["stereo_matches"])),
-                                "avg_num_dropped_stereo->tri":           float(np.mean(stats["stereo_matches"])) - float(np.mean(stats["triangulated"])),
-                                "avg_num_dropped_temporal->tri_overlap": float(np.mean(stats["temporal_matches"])) - float(np.mean(stats["temporal_tri_map_overlap"])),
-                                "avg_num_dropped_tri_overlap->PNP":      float(np.mean(stats["temporal_tri_map_overlap"])) - float(np.mean(stats["pnp_inliers"])),
-                                "failures": int(stats["failures"]),
-                            }
+                        results = {
+                            # Identity
+                            "sequence":      seq,
+                            "method":        name,
+                            "tag":           RUN_TAG,
+                            "active_frames": (f"{ACTIVE_FRAMES[0]}-{ACTIVE_FRAMES[1]}"
+                                              if ACTIVE_FRAMES else f"0-{len(gt_poses)-1}"),
+                            # Matching parameters
+                            "matcher":            matcher_name,
+                            "ratio_threshold":    ratio_th if ratio_th is not None else float("nan"),
+                            "mnn_bidirectional":  bidirectional,
+                            "ransac_threshold":   ransac_th,
+                            "epipolar_threshold": epipolar_th,
+                            # Pipeline parameters
+                            "downsample_level": downsample_level,
+                            "initial_sigma":    initial_gaussian_blur_sigma,
+                            "max_keypoints":    max_kp,
+                            # Trajectory metrics
+                            "ATE_RMSE_STRICT":   ate_strict,
+                            "ATE_RMSE_ALIGNED":  ate_aligned,
+                            "RPE1_trans_RMSE":   rpe1_trans,
+                            "RPE1_rot_RMSE":     rpe1_rot,
+                            "RPE1_trans_std":    rpe1_trans_std,
+                            "RPE1_rot_std":      rpe1_rot_std,
+                            "RPE10_trans_RMSE":  rpe10_trans,
+                            "RPE10_rot_RMSE":    rpe10_rot,
+                            "RPE10_trans_std":   rpe10_trans_std,
+                            "RPE10_rot_std":     rpe10_rot_std,
+                            "RPE1_trans_max":    rpe1_trans_max,
+                            "RPE1_rot_max":      rpe1_rot_max,
+                            "RPE10_trans_max":   rpe10_trans_max,
+                            "RPE10_rot_max":     rpe10_rot_max,
+                            # Run statistics
+                            "avg_num_keypoints_detected":            float(np.mean(stats["keypoints_detected"])),
+                            "avg_num_keypoints":                     float(np.mean(stats["keypoints"])),
+                            "avg_num_temporal_matches":              float(np.mean(stats["temporal_matches"])),
+                            "avg_num_stereo_matches":                float(np.mean(stats["stereo_matches"])),
+                            "avg_num_triangulated_matches":          float(np.mean(stats["triangulated"])),
+                            "avg_num_temporal_tri_map_overlap":      float(np.mean(stats["temporal_tri_map_overlap"])),
+                            "avg_num_PnP_inliers":                   float(np.mean(stats["pnp_inliers"])),
+                            "avg_num_dropped_temporal":              float(np.mean(stats["keypoints"])) - float(np.mean(stats["temporal_matches"])),
+                            "avg_num_dropped_stereo":                float(np.mean(stats["keypoints"])) - float(np.mean(stats["stereo_matches"])),
+                            "avg_num_dropped_stereo->tri":           float(np.mean(stats["stereo_matches"])) - float(np.mean(stats["triangulated"])),
+                            "avg_num_dropped_temporal->tri_overlap": float(np.mean(stats["temporal_matches"])) - float(np.mean(stats["temporal_tri_map_overlap"])),
+                            "avg_num_dropped_tri_overlap->PNP":      float(np.mean(stats["temporal_tri_map_overlap"])) - float(np.mean(stats["pnp_inliers"])),
+                            "failures": int(stats["failures"]),
+                        }
 
-                            df = pd.DataFrame(results, index=[0])
-                            write_header = not CSV_PATH.exists()
-                            df.to_csv(CSV_PATH, mode="a", header=write_header, index=False)
+                        df = pd.DataFrame(results, index=[0])
+                        write_header = not CSV_PATH.exists()
+                        df.to_csv(CSV_PATH, mode="a", header=write_header, index=False)
 
     print(f"Results saved to {CSV_PATH}")
 

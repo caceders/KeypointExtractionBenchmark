@@ -1,21 +1,14 @@
-import os
-import traceback
 import warnings
-
-import cv2
-import numpy as np
+import traceback
 import pandas as pd
-
+import os
+import numpy as np
+import cv2
 from tqdm import tqdm
-
-from benchmark.feature_extractor import FeatureExtractor
-from benchmark.utils import downsample
+from shi_tomasi_sift import ShiTomasiSift
 from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_ratio_fwd, apply_ratio_bi
-
-try:
-    from shi_tomasi_sift import ShiTomasiSift
-except ImportError:
-    ShiTomasiSift = None
+from benchmark.utils import downsample
+from benchmark.feature_extractor import FeatureExtractor
 
 # ============================================================
 # CONFIGURATION
@@ -48,11 +41,9 @@ ONLY_SELF_EXCEPTIONS  = [("GFTT", "SIFT")]
 ONLY_USED_AS_DETECTOR = ["GFTT"]
 
 # ── Evaluation thresholds ─────────────────────────────────────────────────────
-# Pixel-error thresholds for MMA, repeatability, and homography accuracy.
 DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
-# Each parameter is a list; combinations are benchmarked and stored in the CSV.
 MAX_KEYPOINTS    = [250, 500, 750, 1000]
 MATCHERS         = ["KEEM", "MNN", "NN"]  # "NN", "MNN", "KEEM"
 RATIO_THRESHOLDS  = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]  # applied to NN and MNN; ignored for KEEM
