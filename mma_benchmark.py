@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from benchmark.feature_extractor import FeatureExtractor
 from benchmark.utils import downsample
-from matchers import get_matches
+from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_ratio_bi
 
 try:
     from shi_tomasi_sift import ShiTomasiSift
@@ -373,11 +373,24 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                     desc_ref = None
                                     desc_rel = None
 
+                                _raw_match_cache: dict[str, list] = {}
                                 for matcher, ratio_th in _matching_configs:
                                     # ── Match descriptors ──────────────────────────────────
                                     if desc_ref is not None:
-                                        raw_matches = get_matches(desc_ref, desc_rel,
-                                                                  extractor.distance_type, matcher, ratio_th)
+                                        if matcher not in _raw_match_cache:
+                                            if matcher == "NN":
+                                                _raw_match_cache[matcher] = match_nn(desc_ref, desc_rel, extractor.distance_type)
+                                            elif matcher == "MNN":
+                                                _raw_match_cache[matcher] = match_mnn(desc_ref, desc_rel, extractor.distance_type)
+                                            else:
+                                                _raw_match_cache[matcher] = match_keem(desc_ref, desc_rel, extractor.distance_type)
+                                        _raw = _raw_match_cache[matcher]
+                                        if matcher == "NN":
+                                            raw_matches = apply_ratio_uni(_raw, ratio_th) if ratio_th is not None else [m.best for m in _raw]
+                                        elif matcher == "MNN":
+                                            raw_matches = apply_ratio_bi(_raw, ratio_th) if ratio_th is not None else [m.best for m in _raw]
+                                        else:
+                                            raw_matches = _raw
                                     else:
                                         raw_matches = []
 
