@@ -18,8 +18,10 @@ from benchmark.feature_extractor import FeatureExtractor
 HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "is_keem_gone"
-RUN_TAG = "995"
+RUN_NAME = "baseline_prep"
+RUN_TAG = "low_threshold"
+
+SKIP_AT_ERROR = True
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
@@ -30,10 +32,10 @@ features2d = {
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
     "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
-    #"ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    # "BRISK":       cv2.BRISK_create(thresh = 1),
-    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
-    # "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    "BRISK":       cv2.BRISK_create(thresh = 1),
+    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
+    "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -44,24 +46,22 @@ ONLY_USED_AS_DETECTOR = ["GFTT"]
 DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
-MAX_KEYPOINTS    = [100]
-MATCHERS         = ["NN"]  # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS  = [1]  # applied to NN and MNN; ignored for KEEM
+MAX_KEYPOINTS    = [250,500,750,1000]
+MATCHERS         = ["NN", "MNN", "KEEM"]  # "NN", "MNN", "KEEM"
+RATIO_THRESHOLDS  = [0.6,0.8,1]  # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
-RANSAC_THRESHOLDS    = [0.25]
+RANSAC_THRESHOLDS    = [0.25,0.5,1,2,3]
 KEEM_SKIP_HOMOGRAPHY = True   # skip findHomography for KEEM (saves time; sets homography_accuracy to 0)
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0]
-INITIAL_SIGMAS                = [0]
+DOWNSAMPLE_LEVELS             = [0,1]
+INITIAL_SIGMAS                = [0,1,2,3]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
-VISIBILITY_FILTERS = [False]  # sweepable; True removes kps that project outside the other image
-
-SKIP_AT_ERROR = False
+VISIBILITY_FILTERS = [False, True]  # sweepable; True removes kps that project outside the other image
 
 RESULTS_FILE = f"mma_results/{RUN_NAME}.csv"
 os.makedirs("mma_results", exist_ok=True)
@@ -426,7 +426,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                         src = _src.astype(np.float32)
                                         dst = _dst.astype(np.float32)
                                         for ransac_th in RANSAC_THRESHOLDS:
-                                            H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_th, confidence = 0.995)
+                                            H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_th, confidence = 0.999999)
                                             if H_est is not None:
                                                 corners_est = _project_batch(corners, H_est)
                                                 diff_c      = corners_gt - corners_est

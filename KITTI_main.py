@@ -17,8 +17,10 @@ DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 SEQUENCE = "00"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "test"
-RUN_TAG = "default"
+RUN_NAME = "baseline_prep"
+RUN_TAG = "low_threshold"
+
+skip_at_error = True
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
@@ -28,11 +30,11 @@ features2d = {
     #"AKAZE":     cv2.AKAZE_create(),
     #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    #"SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    #"BRISK":     cv2.BRISK_create(thresh = 1),
-    #"AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
-    #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    "BRISK":     cv2.BRISK_create(thresh = 1),
+    "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
+    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -48,19 +50,19 @@ ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
 ALLOWED_DETECTOR_FOR_DESCRIPTOR = {}
 
 # ── Active frames ─────────────────────────────────────────────────────────────
-ACTIVE_FRAMES = (0, 500)   # empty for full sequence
+ACTIVE_FRAMES = (0, 1000)   # empty for full sequence
 
 # ── Matching parameters ───────────────────────────────────────────────────────
-MAX_KEYPOINTS    = [500]
+MAX_KEYPOINTS    = [250,500,750,1000]
 MATCHERS         = ["MNN", "NN"]   # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS  = [0.8]   # applied to NN and MNN; ignored for KEEM
+RATIO_THRESHOLDS  = [0.6,0.8,1]   # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
-RANSAC_THRESHOLDS   = [2]
-EPIPOLAR_THRESHOLDS = [1]
+RANSAC_THRESHOLDS   = [0.25,0.5,1,2,3]
+EPIPOLAR_THRESHOLDS = [0.5,1,2,3]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS = [0]
-INITIAL_SIGMAS    = [0]
+DOWNSAMPLE_LEVELS = [0,1]
+INITIAL_SIGMAS    = [0,1,2,3]
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
@@ -71,7 +73,6 @@ downsample_interpolation_type = None
 APPLY_NMS = False
 NMS_RADIUS = 1
 
-skip_at_error = True
 
 BASE_OUT = Path("KITTI/results") / RUN_NAME
 CSV_PATH = BASE_OUT / "results.csv"
@@ -547,7 +548,7 @@ def solve_pnp(X, pts2d, K, thresh):
         X, pts2d, K, None,
         iterationsCount=2000,
         reprojectionError=thresh,
-        confidence=0.99999,
+        confidence=0.999999,
     )
     if not ok or inl is None or len(inl) < 6:
         return None
