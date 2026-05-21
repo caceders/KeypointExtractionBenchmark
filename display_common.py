@@ -1,4 +1,6 @@
 import math
+import inspect
+import re
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -33,8 +35,8 @@ def _distinct_colors(n):
         (0.863, 0.745, 1.000),  # lavender
     ]
     def _lighten(rgb, amount):
-        return tuple(min(1.0, c + amount) for c in rgb)
-    shifts = [0.0, 0.25, -0.15]
+        return tuple(min(1.0, max(0.0, c + amount)) for c in rgb)
+    shifts = [0.0, 0.15, -0.15]
     return [_lighten(palette[i % len(palette)], shifts[(i // len(palette)) % len(shifts)]) for i in range(n)]
 
 
@@ -245,12 +247,30 @@ def _bar_positions(x_vals, x_cols, gap=0.6):
     return positions
 
 
+def _lambda_label(fn):
+    """Extract a readable label from a lambda or named callable."""
+    if fn.__name__ != "<lambda>":
+        return fn.__name__.replace("_", " ")
+    try:
+        src = inspect.getsource(fn).strip()
+        m = re.search(r'lambda\s+\w+\s*:\s*(.+?)(?:,\s*$|\s*$)', src, re.DOTALL)
+        if m:
+            body = m.group(1).strip().rstrip(',').strip()
+            body = re.sub(r'df\["([^"]+)"\]', r'\1', body)
+            body = re.sub(r"df\['([^']+)'\]", r'\1', body)
+            return body
+    except Exception:
+        pass
+    return "derived"
+
+
 def _auto_title(cfg):
     y       = cfg.get("y", "mma_kps_mean")
+    y_str   = _lambda_label(y) if callable(y) else y.replace("_", " ")
     x_cols  = _as_cols(cfg.get("x"))
     l_cols  = _as_cols(cfg.get("lines"))
     x_label = _cols_label(x_cols) if x_cols else (_cols_label(l_cols) if l_cols else "")
-    return f"{y.replace('_', ' ')} vs {x_label}"
+    return f"{y_str} vs {x_label}"
 
 
 def _info_str(cfg, agg_steps):
@@ -335,7 +355,9 @@ def make_plot(cfg, df, combo_color, tag_color):
     lines_cols   = _as_cols(cfg.get("lines"))
     bar_mode     = lines_cols is None
     subplots_col = cfg.get("subplots")
-    y            = cfg.get("y", "mma_kps_mean")
+    y_raw        = cfg.get("y", "mma_kps_mean")
+    is_derived   = callable(y_raw)
+    y            = "__derived_y__" if is_derived else y_raw
     select       = cfg.get("select", {})
 
     # ── Parse select: build filter + ordered agg_steps ────────────────────
@@ -361,10 +383,14 @@ def make_plot(cfg, df, combo_color, tag_color):
                 step["range"] = spec["range"]
             agg_steps.append(step)
 
+    # ── Compute derived y column if y is a lambda ─────────────────────────────
+    if is_derived:
+        dfs[y] = y_raw(dfs)
+
     # ── Auto-generate labels (all overridable) ────────────────────────────────
     title   = cfg.get("title",   _auto_title(cfg))
     x_label = cfg.get("x_label", _cols_label(x_cols) if x_cols else (_cols_label(lines_cols) if lines_cols else ""))
-    y_label = cfg.get("y_label", y.replace("_", " "))
+    y_label = cfg.get("y_label", _lambda_label(y_raw) if is_derived else y.replace("_", " "))
 
     if dfs.empty:
         print(f"[{title}] No data after filter — skipping plot.")

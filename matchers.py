@@ -64,8 +64,8 @@ def _distance_matrix(
     distance_type: int,
 ) -> np.ndarray:
     if distance_type == cv2.NORM_L2:
-        a = desc_ref.astype(np.float32)
-        b = desc_rel.astype(np.float32)
+        a = np.asarray(desc_ref, dtype=np.float32)
+        b = np.asarray(desc_rel, dtype=np.float32)
         dist_sq = (
             np.sum(a ** 2, axis=1)[:, None]
             + np.sum(b ** 2, axis=1)[None, :]
@@ -173,25 +173,29 @@ def match_keem(
         sorted_rel  = order
         sorted_dist = D[np.arange(n_ref)[:, None], order]
 
-    heap: list = []
-    for i in range(n_ref):
-        heapq.heappush(heap, (float(sorted_dist[i, 0]), i, int(sorted_rel[i, 0]), 0))
+    # Convert to Python lists: element access in tight Python loops is ~3-5x faster
+    # than numpy indexing due to avoided type conversion and bounds checking overhead.
+    sorted_rel_list  = sorted_rel.tolist()
+    sorted_dist_list = sorted_dist.tolist()
 
-    matched_ref: set[int] = set()
-    matched_rel: set[int] = set()
+    heap = [(sorted_dist_list[i][0], i, sorted_rel_list[i][0], 0) for i in range(n_ref)]
+    heapq.heapify(heap)  # O(n) vs n × heappush O(n log n)
+
+    matched_ref = [False] * n_ref
+    matched_rel = [False] * n_rel
     result: list[RawMatch] = []
 
     while heap:
         dist, i, j, rank = heapq.heappop(heap)
-        if i in matched_ref:
+        if matched_ref[i]:
             continue
-        if j in matched_rel:
+        if matched_rel[j]:
             nxt = rank + 1
             if nxt < k:
-                heapq.heappush(heap, (float(sorted_dist[i, nxt]), i, int(sorted_rel[i, nxt]), nxt))
+                heapq.heappush(heap, (sorted_dist_list[i][nxt], i, sorted_rel_list[i][nxt], nxt))
             continue
-        matched_ref.add(i)
-        matched_rel.add(j)
+        matched_ref[i] = True
+        matched_rel[j] = True
         result.append(RawMatch(i, j, dist))
 
     return result
@@ -206,6 +210,14 @@ def apply_ratio_uni(nn_matches: list[NNMatch], ratio: float) -> list[RawMatch]:
     return [
         m.best for m in nn_matches
         if m.second is None or m.best.distance < ratio * m.second.distance
+    ]
+
+
+def apply_ratio_fwd(mnn_matches: list[MNNMatch], ratio: float) -> list[RawMatch]:
+    """Unidirectional (forward-only) ratio test on MNN matches. Use after match_mnn."""
+    return [
+        m.best for m in mnn_matches
+        if m.fwd_second is None or m.best.distance < ratio * m.fwd_second.distance
     ]
 
 
