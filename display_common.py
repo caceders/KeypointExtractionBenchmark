@@ -548,7 +548,7 @@ def make_plot(cfg, df, combo_color, tag_color):
 
 
 def run_display(csv_path, plots):
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, na_values=[], keep_default_na=False)
     df["method"] = df["method"].astype(str).str.strip()
     if "tag" not in df.columns:
         df["tag"] = df["method"]
