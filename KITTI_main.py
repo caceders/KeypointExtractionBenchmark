@@ -17,7 +17,7 @@ DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 SEQUENCE = "00"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "default"
+RUN_NAME = "test"
 RUN_TAG = "default"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
@@ -28,11 +28,11 @@ features2d = {
     #"AKAZE":     cv2.AKAZE_create(),
     #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    #"SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    "BRISK":     cv2.BRISK_create(thresh = 1),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    #"BRISK":     cv2.BRISK_create(thresh = 1),
+    #"AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
+    #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -51,16 +51,16 @@ ALLOWED_DETECTOR_FOR_DESCRIPTOR = {}
 ACTIVE_FRAMES = (0, 500)   # empty for full sequence
 
 # ── Matching parameters ───────────────────────────────────────────────────────
-MAX_KEYPOINTS    = [250, 500, 750, 1000]
-MATCHERS         = ["MNN", "NN", "KEEM"]   # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS  = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]   # applied to NN and MNN; ignored for KEEM
+MAX_KEYPOINTS    = [500]
+MATCHERS         = ["MNN", "NN"]   # "NN", "MNN", "KEEM"
+RATIO_THRESHOLDS  = [0.8]   # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS   = [2]
 EPIPOLAR_THRESHOLDS = [1]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS = [0, 1, 2]
-INITIAL_SIGMAS    = [0, 1, 2, 3, 4, 5, 6, 7]
+DOWNSAMPLE_LEVELS = [0]
+INITIAL_SIGMAS    = [0]
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
@@ -439,6 +439,7 @@ def main():
                             "avg_num_dropped_tri_overlap->PNP":      float(np.mean(stats["temporal_tri_map_overlap"])) - float(np.mean(stats["pnp_inliers"])),
                             "failures": int(stats["failures"]),
                         }
+                        print(f" method: {name} matcher: {matcher_name} bidirect: {bidirectional} ratio_thresh: {ratio_th} ate: {ate_strict} rpe: {rpe1_trans} pnp_inliers: {float(np.mean(stats["pnp_inliers"]))}")
 
                         df = pd.DataFrame(results, index=[0])
                         write_header = not CSV_PATH.exists()
@@ -544,7 +545,7 @@ def solve_pnp(X, pts2d, K, thresh):
 
     ok, r, t, inl = cv2.solvePnPRansac(
         X, pts2d, K, None,
-        iterationsCount=100000,
+        iterationsCount=2000,
         reprojectionError=thresh,
         confidence=0.99999,
     )
