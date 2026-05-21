@@ -62,6 +62,9 @@ VISIBILITY_FILTERS = [False]  # sweepable; True removes kps that project outside
 
 SKIP_AT_ERROR = False
 
+RESULTS_FILE = f"mma_results/{RUN_NAME}.csv"
+os.makedirs("mma_results", exist_ok=True)
+
 
 # ============================================================
 # BUILD TEST COMBINATIONS
@@ -209,9 +212,6 @@ def compute_ap(match_pool: list[tuple[float, float]], threshold: float) -> float
 # ============================================================
 
 warnings.filterwarnings("once", category=UserWarning)
-_results_dir = os.path.dirname(RESULTS_FILE)
-if _results_dir:
-    os.makedirs(_results_dir, exist_ok=True)
 
 _max_k = max(MAX_KEYPOINTS)
 
@@ -438,7 +438,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                         for ransac_th in RANSAC_THRESHOLDS:
                                             hom_accs[ransac_th] = {th: 0.0 for th in DISTANCE_THRESHOLDS}
 
-                                    ratio_th_csv = ratio_th if ratio_th is not None else float("nan")
+                                    ratio_th_csv = ratio_th if ratio_th is not None else "-"
 
                                     # ── Accumulate into per-transformation aggregates ───────
                                     for ransac_th in RANSAC_THRESHOLDS:
@@ -484,7 +484,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
             for agg_key, s in agg_sums.items():
                 transformation, matcher, ratio_th_csv, bidirectional, ransac_th, max_kp, vis_filter, dist_th = agg_key
                 count = agg_count[agg_key]
-                _rt   = None if (isinstance(ratio_th_csv, float) and np.isnan(ratio_th_csv)) else ratio_th_csv
+                _rt   = None if ratio_th_csv == "-" else ratio_th_csv
                 rows.append({
                     # Identity
                     "method":                 combo_key,
@@ -492,7 +492,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                     # Matching parameters
                     "matcher":                matcher,
                     "ratio_threshold":        ratio_th_csv,
-                    "mnn_bidirectional":      bidirectional,
+                    "mnn_bidirectional":      bidirectional if bidirectional is not None else "-",
                     "ransac_threshold":       ransac_th,
                     # Pipeline parameters
                     "max_keypoints":          max_kp,

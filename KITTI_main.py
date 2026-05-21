@@ -401,8 +401,8 @@ def main():
                                               if ACTIVE_FRAMES else f"0-{len(gt_poses)-1}"),
                             # Matching parameters
                             "matcher":            matcher_name,
-                            "ratio_threshold":    ratio_th if ratio_th is not None else float("nan"),
-                            "mnn_bidirectional":  bidirectional,
+                            "ratio_threshold":    ratio_th if ratio_th is not None else "-",
+                            "mnn_bidirectional":  bidirectional if bidirectional is not None else "-",
                             "ransac_threshold":   ransac_th,
                             "epipolar_threshold": epipolar_th,
                             # Pipeline parameters
