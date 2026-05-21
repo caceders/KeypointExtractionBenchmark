@@ -257,13 +257,7 @@ def get_matches(
         mnn = match_mnn(desc_ref, desc_rel, distance_type)
         if ratio_threshold is not None:
 
-            # return apply_ratio_bi(mnn, ratio_threshold
-            out = []
-            for m in mnn:
-                fwd_ok = m.fwd_second is None or m.best.distance < ratio_threshold * m.fwd_second.distance
-                if fwd_ok:
-                    out.append(m.best)
-            return out
+            return apply_ratio_bi(mnn, ratio_threshold)
         return [m.best for m in mnn]
 
     raise ValueError(f"Unknown matcher {matcher!r}. Choose 'NN', 'MNN', or 'KEEM'.")

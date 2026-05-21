@@ -238,6 +238,13 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
 
         scale = ds_factor ** ds_level
 
+        # ── Aggregate across all sequences ────────────────────────────────────────
+        # key: (transformation, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th)
+        agg_sums:  dict[tuple, dict[str, float]] = {}
+        agg_count: dict[tuple, int]              = {}
+        # key: (transformation, max_kp, matcher, ratio_th, vis_filter)
+        agg_pool:  dict[tuple, list]             = {}
+
         for seq_id, (seq_name, seq_type, imgs, homos) in enumerate(tqdm(
                 sequences, leave=False, desc="Sequences", position=2)):
 
@@ -247,8 +254,9 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
 
             # ── Detect + describe reference image ONCE for all pairs ──────────────────
             dtype        = np.float32 if extractor.distance_type == cv2.NORM_L2 else np.uint8
-            kps_ref_base = extractor.detect_keypoints(img_ref_ds)
-            kps_ref_base = _top_k_keypoints(kps_ref_base, _max_k)
+            kps_ref_base     = extractor.detect_keypoints(img_ref_ds)
+            kps_ref_base     = _top_k_keypoints(kps_ref_base, _max_k)
+            n_kps_ref_pool   = len(kps_ref_base)
             if kps_ref_base:
                 kps_ref_base, _dref = extractor.describe_keypoints(img_ref_ds, kps_ref_base)
                 descs_ref_np = np.array(_dref, dtype=dtype) if _dref else None
@@ -260,17 +268,10 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
 
             _need_inv_h = any(VISIBILITY_FILTERS)
 
-            seq_rows: list[dict] = []
-            # match_pool[(max_kp, matcher, ratio_th, vis_filter, diff)] → per-difficulty pool
-            # match_pool_tot[(max_kp, matcher, ratio_th, vis_filter)]   → full-sequence pool
-            match_pool:     dict[tuple, list[tuple[float, float]]] = {}
-            match_pool_tot: dict[tuple, list[tuple[float, float]]] = {}
-
             for rel_idx, (img_rel_orig, H_ref_to_rel) in enumerate(tqdm(
                     list(zip(imgs[1:], homos)), leave=False, desc="Image pairs", position=3)):
 
                 img_idx    = rel_idx + 2
-                diffs      = _difficulty_tags(rel_idx)
                 pair_label = f"{combo_key} ds={ds_level} seq={seq_name} img={img_idx}"
 
                 try:
@@ -279,8 +280,9 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                               intr_sigma, init_sigma, prog_blur, interp_type)
 
                     # ── Detect + describe related image ────────────────────────────────
-                    kps_rel_base = extractor.detect_keypoints(img_rel_ds)
-                    kps_rel_base = _top_k_keypoints(kps_rel_base, _max_k)
+                    kps_rel_base     = extractor.detect_keypoints(img_rel_ds)
+                    kps_rel_base     = _top_k_keypoints(kps_rel_base, _max_k)
+                    n_kps_rel_pool   = len(kps_rel_base)
                     if kps_rel_base:
                         kps_rel_base, _drel = extractor.describe_keypoints(img_rel_ds, kps_rel_base)
                         descs_rel_np = np.array(_drel, dtype=dtype) if _drel else None
@@ -354,8 +356,8 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                             # ── Repeatability ─────────────────────────────────────────
                             if n_ref and n_rel:
                                 ref_proj_rel = _project_batch(ref_pts_arr, H_ref_to_rel)
-                                diff         = ref_proj_rel[:, None, :] - rel_pts_arr[None, :, :]
-                                sq_dist      = (diff * diff).sum(axis=2)
+                                _d           = ref_proj_rel[:, None, :] - rel_pts_arr[None, :, :]
+                                sq_dist      = (_d * _d).sum(axis=2)
                                 sq_dref      = sq_dist.min(axis=1)
                                 sq_drel      = sq_dist.min(axis=0)
                                 rep = {th: float(np.sum(sq_dref < th * th) + np.sum(sq_drel < th * th)) / (n_ref + n_rel)
@@ -391,26 +393,19 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                                     geo_errors = np.array([], dtype=np.float64)
                                     dists_arr  = geo_errors
 
-                                # ── Accumulate match pools for per-sequence mAP ────────
-                                pool_tot_key = (max_kp, matcher, ratio_th, vis_filter)
-                                if pool_tot_key not in match_pool_tot:
-                                    match_pool_tot[pool_tot_key] = []
+                                # ── Accumulate match pool for mAP (per transformation) ─
+                                pool_key = (seq_type, max_kp, matcher, ratio_th, vis_filter)
+                                if pool_key not in agg_pool:
+                                    agg_pool[pool_key] = []
                                 if n_matches > 0:
-                                    match_pool_tot[pool_tot_key].extend(zip(dists_arr.tolist(), geo_errors.tolist()))
-
-                                for diff in diffs:
-                                    pool_key = (max_kp, matcher, ratio_th, vis_filter, diff)
-                                    if pool_key not in match_pool:
-                                        match_pool[pool_key] = []
-                                    if n_matches > 0:
-                                        match_pool[pool_key].extend(zip(dists_arr.tolist(), geo_errors.tolist()))
+                                    agg_pool[pool_key].extend(zip(dists_arr.tolist(), geo_errors.tolist()))
 
                                 # ── Per-pair metrics ───────────────────────────────────
-                                mma_kps = (
+                                mma_kp_ref = (
                                     {th: float(np.sum(geo_errors < th)) / n_ref for th in DISTANCE_THRESHOLDS}
                                     if n_ref > 0 else {th: 0.0 for th in DISTANCE_THRESHOLDS}
                                 )
-                                mma_matches = (
+                                mma = (
                                     {th: float(np.sum(geo_errors < th)) / n_matches for th in DISTANCE_THRESHOLDS}
                                     if n_matches > 0 else {th: 0.0 for th in DISTANCE_THRESHOLDS}
                                 )
@@ -437,44 +432,31 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
 
                                 ratio_th_csv = ratio_th if ratio_th is not None else float("nan")
 
+                                # ── Accumulate into per-transformation aggregates ───────
                                 for ransac_th in RANSAC_THRESHOLDS:
-                                    for diff in diffs:
-                                        for dist_th in DISTANCE_THRESHOLDS:
-                                            seq_rows.append({
-                                                # Identity
-                                                "method":                 combo_key,
-                                                "tag":                    RUN_TAG,
-                                                # Matching parameters
-                                                "matcher":                matcher,
-                                                "ratio_threshold":        ratio_th_csv,
-                                                "ransac_threshold":       ransac_th,
-                                                # Pipeline parameters
-                                                "max_keypoints":          max_kp,
-                                                "downsample_level":       ds_level,
-                                                "initial_sigma":          init_sigma,
-                                                "intrinsic_sigma":        intr_sigma,
-                                                "apply_progressive_blur": prog_blur,
-                                                "visibility_filter":      vis_filter,
-                                                # Sequence
-                                                "seq_name":               seq_name,
-                                                "seq_id":                 seq_id,
-                                                "seq_type":               seq_type,
-                                                # Image pair
-                                                "img_idx":                img_idx,
-                                                "difficulty":             diff,
-                                                "distance_threshold":     dist_th,
-                                                # Metrics (mAP filled after full sequence)
-                                                "mma_kps":                mma_kps[dist_th],
-                                                "mma_matches":            mma_matches[dist_th],
-                                                "rep":                    rep[dist_th],
-                                                "hom_acc":                hom_accs[ransac_th][dist_th],
-                                                "mAP":                    None,
-                                                "mAP_tot":                None,
-                                                # Counts
-                                                "num_keypoints_ref":      n_ref,
-                                                "num_keypoints_rel":      n_rel,
-                                                "num_matches":            n_matches,
-                                            })
+                                    for dist_th in DISTANCE_THRESHOLDS:
+                                        agg_key = (seq_type, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th)
+                                        if agg_key not in agg_sums:
+                                            agg_sums[agg_key]  = {
+                                                "mMA_kp_ref": 0.0, "mMA": 0.0,
+                                                "repeatability": 0.0, "homography_accuracy": 0.0,
+                                                "avg_num_matches": 0.0, "avg_num_keypoints": 0.0,
+                                                "num_keypoints_ref_detected": 0.0,
+                                                "num_keypoints_rel_detected": 0.0,
+                                                "avg_num_keypoints_detected": 0.0,
+                                            }
+                                            agg_count[agg_key] = 0
+                                        s = agg_sums[agg_key]
+                                        s["mMA_kp_ref"]                 += mma_kp_ref[dist_th]
+                                        s["mMA"]                        += mma[dist_th]
+                                        s["repeatability"]              += rep[dist_th]
+                                        s["homography_accuracy"]        += hom_accs[ransac_th][dist_th]
+                                        s["avg_num_matches"]            += n_matches
+                                        s["avg_num_keypoints"]          += (n_ref + n_rel) / 2
+                                        s["num_keypoints_ref_detected"] += n_kps_ref_pool
+                                        s["num_keypoints_rel_detected"] += n_kps_rel_pool
+                                        s["avg_num_keypoints_detected"] += (n_kps_ref_pool + n_kps_rel_pool) / 2
+                                        agg_count[agg_key] += 1
 
                 except Exception:
                     if SKIP_AT_ERROR:
@@ -484,35 +466,53 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Combinations",
                     else:
                         raise
 
-            # ── Compute per-sequence mAP and fill into rows ───────────────────────────
-            mAP_cache:     dict[tuple, float] = {}
-            mAP_tot_cache: dict[tuple, float] = {}
+        # ── Compute mAP and write aggregated rows ─────────────────────────────────
+        mAP_cache: dict[tuple, float] = {}
+        for (transformation, max_kp, matcher, ratio_th, vis_filter), pool in agg_pool.items():
+            for dist_th in DISTANCE_THRESHOLDS:
+                mAP_cache[(transformation, max_kp, matcher, ratio_th, vis_filter, dist_th)] = compute_ap(pool, dist_th)
 
-            for (max_kp, matcher, ratio_th, vis_filter, diff), pool in match_pool.items():
-                for dist_th in DISTANCE_THRESHOLDS:
-                    mAP_cache[(max_kp, matcher, ratio_th, vis_filter, diff, dist_th)] = compute_ap(pool, dist_th)
+        rows = []
+        for agg_key, s in agg_sums.items():
+            transformation, matcher, ratio_th_csv, ransac_th, max_kp, vis_filter, dist_th = agg_key
+            count = agg_count[agg_key]
+            _rt   = None if (isinstance(ratio_th_csv, float) and np.isnan(ratio_th_csv)) else ratio_th_csv
+            rows.append({
+                # Identity
+                "method":                 combo_key,
+                "tag":                    RUN_TAG,
+                # Matching parameters
+                "matcher":                matcher,
+                "ratio_threshold":        ratio_th_csv,
+                "ransac_threshold":       ransac_th,
+                # Pipeline parameters
+                "max_keypoints":          max_kp,
+                "downsample_level":       ds_level,
+                "initial_sigma":          init_sigma,
+                "intrinsic_sigma":        intr_sigma,
+                "apply_progressive_blur": prog_blur,
+                "visibility_filter":      vis_filter,
+                # Transformation type
+                "transformation":         transformation,
+                # Threshold
+                "distance_threshold":     dist_th,
+                # Metrics
+                "mMA_kp_ref":             s["mMA_kp_ref"]          / count,
+                "mMA":                    s["mMA"]                  / count,
+                "repeatability":          s["repeatability"]        / count,
+                "homography_accuracy":    s["homography_accuracy"]  / count,
+                "mAP":                    mAP_cache.get((transformation, max_kp, matcher, _rt, vis_filter, dist_th), float("nan")),
+                # Counts
+                "avg_num_matches":            s["avg_num_matches"]            / count,
+                "avg_num_keypoints":          s["avg_num_keypoints"]          / count,
+                "num_keypoints_ref_detected": s["num_keypoints_ref_detected"] / count,
+                "num_keypoints_rel_detected": s["num_keypoints_rel_detected"] / count,
+                "avg_num_keypoints_detected": s["avg_num_keypoints_detected"] / count,
+            })
 
-            for (max_kp, matcher, ratio_th, vis_filter), pool in match_pool_tot.items():
-                for dist_th in DISTANCE_THRESHOLDS:
-                    mAP_tot_cache[(max_kp, matcher, ratio_th, vis_filter, dist_th)] = compute_ap(pool, dist_th)
-
-            for row in seq_rows:
-                _rt = row["ratio_threshold"]
-                _rt = None if (isinstance(_rt, float) and np.isnan(_rt)) else _rt
-                _vf = row["visibility_filter"]
-                row["mAP"] = mAP_cache.get(
-                    (row["max_keypoints"], row["matcher"], _rt, _vf, row["difficulty"], row["distance_threshold"]),
-                    float("nan"),
-                )
-                row["mAP_tot"] = mAP_tot_cache.get(
-                    (row["max_keypoints"], row["matcher"], _rt, _vf, row["distance_threshold"]),
-                    float("nan"),
-                )
-
-            # ── Write this sequence's rows to CSV ─────────────────────────────────────
-            if seq_rows:
-                df_out = pd.DataFrame(seq_rows)
-                write_header = not os.path.isfile(RESULTS_FILE)
-                df_out.to_csv(RESULTS_FILE, index=False, header=write_header, mode="a")
+        if rows:
+            df_out = pd.DataFrame(rows)
+            write_header = not os.path.isfile(RESULTS_FILE)
+            df_out.to_csv(RESULTS_FILE, index=False, header=write_header, mode="a")
 
 print("\nDone. Results written to", RESULTS_FILE)
