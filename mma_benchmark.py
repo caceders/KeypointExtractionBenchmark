@@ -16,9 +16,9 @@ from benchmark.feature_extractor import FeatureExtractor
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HPATCHES_PATH = r"hpatches-sequences-release"
-RESULTS_FILE  = "mma_results/RANSAC_confidence.csv"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
+RUN_NAME = "test"
 RUN_TAG = "995"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
