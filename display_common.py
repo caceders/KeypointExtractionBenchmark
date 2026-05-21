@@ -163,15 +163,15 @@ def _filter_group(df, cols, val):
 def _fmt_val(val):
     """Human-readable label for a scalar or composite (tuple) value."""
     if isinstance(val, tuple):
-        return " / ".join(str(v) for v in val)
-    return str(val)
+        return " / ".join("" if v == "-" else str(v) for v in val)
+    return "" if val == "-" else str(val)
 
 
 def _tick_label(val):
     """Tick label: multi-column values on separate lines for readability."""
     if isinstance(val, tuple):
-        return "\n".join(str(v) for v in val)
-    return str(val)
+        return "\n".join("" if v == "-" else str(v) for v in val)
+    return "" if val == "-" else str(val)
 
 
 def _cols_label(cols):
