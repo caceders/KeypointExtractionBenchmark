@@ -9,7 +9,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 
-from matchers import get_matches as _get_matches
+from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_ratio_bi
 
 
 #########################################################
@@ -19,17 +19,17 @@ from matchers import get_matches as _get_matches
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "test"
-RUN_TAG = "NN_no_ratio"
+RUN_NAME = "FINAL_low_threshold"
+RUN_TAG = "default_threshold"
 
 ACTIVE_FRAMES = (0, 500)   # empty for full sequence
-MAX_KEYPOINTS    = [250, 500, 750, 1000]
-MATCHERS         = ["KEEM", "NN","MNN"]   # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]  # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
+MAX_KEYPOINTS    = [500]
+MATCHERS         = ["MNN"]   # "NN", "MNN", "KEEM"
+RATIO_THRESHOLDS = [0.75]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
 RANSAC_THRESHOLDS   = [2]
 EPIPOLAR_THRESHOLDS = [1]
-DOWNSAMPLE_LEVELS = [0, 1, 2]
-INITIAL_SIGMAS    = [0, 1, 2]
+DOWNSAMPLE_LEVELS = [0]
+INITIAL_SIGMAS    = [0]
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
@@ -59,8 +59,8 @@ features2d = {
     #"AKAZE":     cv2.AKAZE_create(),
     #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
-    # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
     # "BRISK":     cv2.BRISK_create(thresh = 1),
     # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
@@ -222,17 +222,29 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
         dR0  = dR_all[:max_kp] if dR_all is not None else None
         prev[max_kp] = (kpL0, dL0)
 
+        raw_stereo0:   dict[str, list] = {}
         stereo0_cache: dict[tuple, list] = {}
         for cfg in full_configs:
             mk, matcher, ratio_th, _, epipolar_th = cfg
             if mk != max_kp:
                 continue
+            if matcher not in raw_stereo0:
+                have = dL0 is not None and dR0 is not None
+                if matcher == "NN":
+                    raw_stereo0[matcher] = match_nn(dL0, dR0, extractor.norm) if have else []
+                elif matcher == "MNN":
+                    raw_stereo0[matcher] = match_mnn(dL0, dR0, extractor.norm) if have else []
+                else:
+                    raw_stereo0[matcher] = match_keem(dL0, dR0, extractor.norm) if have else []
             key = (matcher, ratio_th)
             if key not in stereo0_cache:
-                stereo0_cache[key] = (
-                    _get_matches(dL0, dR0, extractor.norm, matcher, ratio_th)
-                    if (dL0 is not None and dR0 is not None) else []
-                )
+                raw = raw_stereo0[matcher]
+                if matcher == "NN":
+                    stereo0_cache[key] = apply_ratio_uni(raw, ratio_th) if ratio_th is not None else [m.best for m in raw]
+                elif matcher == "MNN":
+                    stereo0_cache[key] = apply_ratio_bi(raw, ratio_th) if ratio_th is not None else [m.best for m in raw]
+                else:
+                    stereo0_cache[key] = raw
             states[cfg]["tri_map"] = triangulate_stereo(
                 kpL0, kpR0, stereo0_cache[key], P0, P1, epipolar_th)
 
@@ -248,23 +260,40 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
             dR  = dR_all[:max_kp] if dR_all is not None else None
             _, prev_dL = prev[max_kp]
 
-            # Cache temporal + stereo matches per (matcher, ratio_th)
+            # Raw matches per matcher, ratio applied per (matcher, ratio_th)
+            raw_temporal: dict[str, list] = {}
+            raw_stereo:   dict[str, list] = {}
             temporal_cache: dict[tuple, list] = {}
             stereo_cache:   dict[tuple, list] = {}
             for cfg in full_configs:
                 mk, matcher, ratio_th, *_ = cfg
                 if mk != max_kp:
                     continue
+                if matcher not in raw_temporal:
+                    have_t = prev_dL is not None and dL is not None
+                    have_s = dL is not None and dR is not None
+                    if matcher == "NN":
+                        raw_temporal[matcher] = match_nn(prev_dL, dL, extractor.norm) if have_t else []
+                        raw_stereo[matcher]   = match_nn(dL, dR, extractor.norm) if have_s else []
+                    elif matcher == "MNN":
+                        raw_temporal[matcher] = match_mnn(prev_dL, dL, extractor.norm) if have_t else []
+                        raw_stereo[matcher]   = match_mnn(dL, dR, extractor.norm) if have_s else []
+                    else:
+                        raw_temporal[matcher] = match_keem(prev_dL, dL, extractor.norm) if have_t else []
+                        raw_stereo[matcher]   = match_keem(dL, dR, extractor.norm) if have_s else []
                 key = (matcher, ratio_th)
                 if key not in temporal_cache:
-                    temporal_cache[key] = (
-                        _get_matches(prev_dL, dL, extractor.norm, matcher, ratio_th)
-                        if (prev_dL is not None and dL is not None) else []
-                    )
-                    stereo_cache[key] = (
-                        _get_matches(dL, dR, extractor.norm, matcher, ratio_th)
-                        if (dL is not None and dR is not None) else []
-                    )
+                    rt = raw_temporal[matcher]
+                    rs = raw_stereo[matcher]
+                    if matcher == "NN":
+                        temporal_cache[key] = apply_ratio_uni(rt, ratio_th) if ratio_th is not None else [m.best for m in rt]
+                        stereo_cache[key]   = apply_ratio_uni(rs, ratio_th) if ratio_th is not None else [m.best for m in rs]
+                    elif matcher == "MNN":
+                        temporal_cache[key] = apply_ratio_bi(rt, ratio_th) if ratio_th is not None else [m.best for m in rt]
+                        stereo_cache[key]   = apply_ratio_bi(rs, ratio_th) if ratio_th is not None else [m.best for m in rs]
+                    else:
+                        temporal_cache[key] = rt
+                        stereo_cache[key]   = rs
 
             for cfg in full_configs:
                 mk, matcher, ratio_th, ransac_th, epipolar_th = cfg
