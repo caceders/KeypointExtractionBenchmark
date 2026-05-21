@@ -18,7 +18,7 @@ from benchmark.feature_extractor import FeatureExtractor
 HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "test"
+RUN_NAME = "is_keem_gone"
 RUN_TAG = "995"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
@@ -31,9 +31,9 @@ features2d = {
     ## LOW THRESH
     "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
     #"ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    "BRISK":       cv2.BRISK_create(thresh = 1),
-    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
-    "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    # "BRISK":       cv2.BRISK_create(thresh = 1),
+    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
+    # "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -44,11 +44,12 @@ ONLY_USED_AS_DETECTOR = ["GFTT"]
 DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
-MAX_KEYPOINTS    = [500]
-MATCHERS         = ["MNN", "NN"]  # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS  = [0.8]  # applied to NN and MNN; ignored for KEEM
+MAX_KEYPOINTS    = [100]
+MATCHERS         = ["NN"]  # "NN", "MNN", "KEEM"
+RATIO_THRESHOLDS  = [1]  # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
-RANSAC_THRESHOLDS = [3.0]
+RANSAC_THRESHOLDS    = [0.25]
+KEEM_SKIP_HOMOGRAPHY = True   # skip findHomography for KEEM (saves time; sets homography_accuracy to 0)
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
 DOWNSAMPLE_LEVELS             = [0]
@@ -420,7 +421,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
 
                                     # ── Homography estimation ──────────────────────────────
                                     hom_accs: dict[float, dict[int, float]] = {}
-                                    can_ransac = n_matches >= 4
+                                    can_ransac = n_matches >= 4 and not (KEEM_SKIP_HOMOGRAPHY and matcher == "KEEM")
                                     if can_ransac:
                                         src = _src.astype(np.float32)
                                         dst = _dst.astype(np.float32)
@@ -509,7 +510,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                     "mMA_kp_ref":             s["mMA_kp_ref"]          / count,
                     "mMA":                    s["mMA"]                  / count,
                     "repeatability":          s["repeatability"]        / count,
-                    "homography_accuracy":    s["homography_accuracy"]  / count,
+                    "homography_accuracy":    "-" if (matcher == "KEEM" and KEEM_SKIP_HOMOGRAPHY) else s["homography_accuracy"] / count,
                     "mAP":                    mAP_cache.get((transformation, max_kp, matcher, _rt, bidirectional, vis_filter, dist_th), float("nan")),
                     # Counts
                     "avg_num_matches":            s["avg_num_matches"]            / count,
