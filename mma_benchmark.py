@@ -24,12 +24,12 @@ except ImportError:
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HPATCHES_PATH = r"hpatches-sequences-release"
-RESULTS_FILE  = "mma_results/optimize.csv"
+RESULTS_FILE  = "mma_results/test.csv"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
 # Label for this entire benchmark run. All combinations share this tag.
 # Use a different tag for each run you want to compare in display_mma.py.
-RUN_TAG = "1"
+RUN_TAG = "default"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
@@ -39,7 +39,7 @@ features2d = {
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
     # "BRISK":     cv2.BRISK_create(thresh = 1),
     # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
@@ -52,7 +52,7 @@ ONLY_USED_AS_DETECTOR = ["GFTT"]
 
 # ── Evaluation thresholds ─────────────────────────────────────────────────────
 # Pixel-error thresholds for MMA, repeatability, and homography accuracy.
-DISTANCE_THRESHOLDS = [10]
+DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
 # Each parameter is a list; combinations are benchmarked and stored in the CSV.

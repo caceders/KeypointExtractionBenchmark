@@ -19,12 +19,12 @@ from matchers import get_matches as _get_matches
 DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 #SEQUENCES = ["00", "01", "02", "03", "04", "05"]
 SEQUENCES = ["00"]
-RUN_NAME = "optimize"
-RUN_TAG = "1"
+RUN_NAME = "FINAL_low_threshold"
+RUN_TAG = "default_threshold"
 
-ACTIVE_FRAMES = (0, 1000)   # empty for full sequence
+ACTIVE_FRAMES = (0, 500)   # empty for full sequence
 MAX_KEYPOINTS    = [500]
-MATCHERS         = ["MNN", "KEEM"]   # "NN", "MNN", "KEEM"
+MATCHERS         = ["MNN"]   # "NN", "MNN", "KEEM"
 RATIO_THRESHOLDS = [0.75]   # applied to NN (unidirectional) and MNN (bidirectional); ignored for KEEM
 RANSAC_THRESHOLDS   = [2]
 EPIPOLAR_THRESHOLDS = [1]
@@ -39,7 +39,7 @@ downsample_interpolation_type = None
 APPLY_NMS = False
 NMS_RADIUS = 1
 
-skip_at_error = False
+skip_at_error = True
 
 BASE_OUT = Path("KITTI/results") / RUN_NAME
 CSV_PATH = BASE_OUT / "results.csv"
@@ -53,13 +53,13 @@ TRAJ_DIR.mkdir(parents=True, exist_ok=True)
 #########################################################
 
 features2d = {
-    # "SIFT":      cv2.SIFT_create(),
-    # "ORB":       cv2.ORB_create(nfeatures=5000),
-    # "BRISK":     cv2.BRISK_create(),
-    # "AKAZE":     cv2.AKAZE_create(),
-    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
+    #"SIFT":      cv2.SIFT_create(),
+    #"ORB":       cv2.ORB_create(nfeatures=5000),
+    #"BRISK":     cv2.BRISK_create(),
+    #"AKAZE":     cv2.AKAZE_create(),
+    #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
     # "BRISK":     cv2.BRISK_create(thresh = 1),
     # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
@@ -514,9 +514,9 @@ def solve_pnp(X, pts2d, K, thresh):
 
     ok, r, t, inl = cv2.solvePnPRansac(
         X, pts2d, K, None,
-        iterationsCount=1000,
+        iterationsCount=100000,
         reprojectionError=thresh,
-        confidence=0.999,
+        confidence=0.99999999999999,
     )
     if not ok or inl is None or len(inl) < 6:
         return None
