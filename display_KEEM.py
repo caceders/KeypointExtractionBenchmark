@@ -9,10 +9,61 @@ PLOTS = [
 
     {
         "y":        "Matching distance mAP",
-        "x":        "method",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
         "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "matcher": "default",
+            
         },
     },
+
+        {
+        "y":        "Matching distance mAP",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "matcher": "default",
+            
+        },
+    },
+
+    {
+        "y":        "avg_num_keypoints",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+        {
+        "y":        "avg_num_matches",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+            {
+        "y":        "avg_num_keypoints",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────

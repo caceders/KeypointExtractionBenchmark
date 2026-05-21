@@ -8,17 +8,82 @@ CSV_PATH = "KITTI/results/optimize/results.csv"
 PLOTS = [
 
     {
-        "y":        "RPE1_trans_RMSE",
-        "x":        ["method", "tag"],
-        "select": {
-        },
-    },
-    {
         "y":        "ATE_RMSE_STRICT",
-        "x":        ["method", "tag"],
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
         "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
         },
     },
+
+        {
+        "y":        "ATE_RMSE_STRICT",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+        {
+        "y":        "RPE1_trans_RMSE",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+        {
+        "y":        "RPE1_trans_RMSE",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+    {
+        "y":        "avg_num_keypoints",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+        {
+        "y":        "avg_num_PnP_inliers",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+            {
+        "y":        "avg_num_PnP_inliers",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
