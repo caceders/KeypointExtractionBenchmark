@@ -247,10 +247,11 @@ def _bar_positions(x_vals, x_cols, gap=0.6):
 
 def _auto_title(cfg):
     y       = cfg.get("y", "mma_kps_mean")
+    y_str   = "derived" if callable(y) else y.replace("_", " ")
     x_cols  = _as_cols(cfg.get("x"))
     l_cols  = _as_cols(cfg.get("lines"))
     x_label = _cols_label(x_cols) if x_cols else (_cols_label(l_cols) if l_cols else "")
-    return f"{y.replace('_', ' ')} vs {x_label}"
+    return f"{y_str} vs {x_label}"
 
 
 def _info_str(cfg, agg_steps):
@@ -335,7 +336,9 @@ def make_plot(cfg, df, combo_color, tag_color):
     lines_cols   = _as_cols(cfg.get("lines"))
     bar_mode     = lines_cols is None
     subplots_col = cfg.get("subplots")
-    y            = cfg.get("y", "mma_kps_mean")
+    y_raw        = cfg.get("y", "mma_kps_mean")
+    is_derived   = callable(y_raw)
+    y            = "__derived_y__" if is_derived else y_raw
     select       = cfg.get("select", {})
 
     # ── Parse select: build filter + ordered agg_steps ────────────────────
@@ -361,10 +364,14 @@ def make_plot(cfg, df, combo_color, tag_color):
                 step["range"] = spec["range"]
             agg_steps.append(step)
 
+    # ── Compute derived y column if y is a lambda ─────────────────────────────
+    if is_derived:
+        dfs[y] = y_raw(dfs)
+
     # ── Auto-generate labels (all overridable) ────────────────────────────────
     title   = cfg.get("title",   _auto_title(cfg))
     x_label = cfg.get("x_label", _cols_label(x_cols) if x_cols else (_cols_label(lines_cols) if lines_cols else ""))
-    y_label = cfg.get("y_label", y.replace("_", " "))
+    y_label = cfg.get("y_label", "derived" if is_derived else y.replace("_", " "))
 
     if dfs.empty:
         print(f"[{title}] No data after filter — skipping plot.")
