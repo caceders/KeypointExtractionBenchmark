@@ -4,7 +4,7 @@ from display_common import run_display
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "mma_results/optimize.csv"
+CSV_PATH = "mma_results/FINAL_low_threshold.csv"
 
 PLOTS = [
 
@@ -14,20 +14,128 @@ PLOTS = [
         "y":        lambda df: df["mAP"] * df["mma_matches"] * df["hom_acc"],
         "x":        ["method", "tag"],
         "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "matcher": "default",
+            
         },
     },
+
+        {
+        "y":        "mAP",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "matcher": "default",
+            
+        },
+    },
+
+        {
+        "y":        "rep_mean",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "distance_threshold": {"values": np.arange(0,11), "fn": "auc"},
+            
+        },
+    },
+
     {
+        "y":        "mma_matches_mean",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "distance_threshold": {"values": np.arange(0,11), "fn": "auc"},
+            
+        },
+    },
+
+        {
+        "y":        "mma_matches_mean",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "distance_threshold": {"values": np.arange(0,11), "fn": "auc"},
+            
+        },
+    },
+
+        {
         "y":        "hom_acc",
-        "x":        ["method", "tag"],
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
         "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "distance_threshold": {"values": np.arange(0,21), "fn": "auc"},
+            
         },
     },
+
+            {
+        "y":        "mma_matches_mean",
+        "x":        "distance_threshold",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+        {
+        "y":        "hom_acc",
+        "x":        "distance_threshold",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
+        {
+        "y":        "hom_acc",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "distance_threshold": {"values": np.arange(0,21), "fn": "auc"},
+            
+        },
+    },
+
     {
-        "y":        "mma_matches",
-        "x":        ["method", "tag"],
+        "y":        "avg_num_matches",
+        "x":        "max_keypoints",
+        "lines": ["method", "tag", "initial_sigma"],
+        "subplots": "downsample_level",
         "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
         },
     },
+
+        {
+        "y":        "avg_num_matches",
+        "x":        "initial_sigma",
+        "lines": ["method", "tag"],
+        "subplots": "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            
+        },
+    },
+
 
 
 ]

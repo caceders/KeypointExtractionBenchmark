@@ -6,6 +6,8 @@ __pycache__/
 *.prof
 KITTI/data_odometry_gray/
 KITTI/results/
+KITTI/results_old/
 results/
 mma_results/
-results_old
+results_old/
+mma_results_old/

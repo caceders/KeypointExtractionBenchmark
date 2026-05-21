@@ -18,8 +18,8 @@ from benchmark.feature_extractor import FeatureExtractor
 HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "ransac_test"
-RUN_TAG  = "rho"
+RUN_NAME = "test"
+RUN_TAG = "995"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
@@ -30,10 +30,10 @@ features2d = {
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
     "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
-    "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    # "BRISK":       cv2.BRISK_create(thresh = 1),
-    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
-    # "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    #"ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    "BRISK":       cv2.BRISK_create(thresh = 1),
+    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
+    "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -45,21 +45,20 @@ DISTANCE_THRESHOLDS = list(range(1, 31))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
 MAX_KEYPOINTS    = [500]
-MATCHERS         = ["KEEM", "MNN", "NN"]  # "NN", "MNN", "KEEM"
-# RATIO_THRESHOLDS  = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 1]  # applied to NN and MNN; ignored for KEEM
-RATIO_THRESHOLDS  = [1]  # applied to NN and MNN; ignored for KEEM
+MATCHERS         = ["MNN", "NN"]  # "NN", "MNN", "KEEM"
+RATIO_THRESHOLDS  = [0.8]  # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS = [3.0]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
 DOWNSAMPLE_LEVELS             = [0]
-INITIAL_SIGMAS                = [1]
+INITIAL_SIGMAS                = [0]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
-VISIBILITY_FILTERS = [False, True]  # sweepable; True removes kps that project outside the other image
+VISIBILITY_FILTERS = [False]  # sweepable; True removes kps that project outside the other image
 
 SKIP_AT_ERROR = False
 
@@ -426,7 +425,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                         src = _src.astype(np.float32)
                                         dst = _dst.astype(np.float32)
                                         for ransac_th in RANSAC_THRESHOLDS:
-                                            H_est, _ = cv2.findHomography(src, dst, cv2.RHO, ransac_th)
+                                            H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_th, confidence = 0.995)
                                             if H_est is not None:
                                                 corners_est = _project_batch(corners, H_est)
                                                 diff_c      = corners_gt - corners_est

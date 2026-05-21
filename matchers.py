@@ -209,7 +209,7 @@ def apply_ratio_uni(nn_matches: list[NNMatch], ratio: float) -> list[RawMatch]:
     """Lowe's unidirectional ratio test. Use after match_nn."""
     return [
         m.best for m in nn_matches
-        if m.second is None or m.best.distance < ratio * m.second.distance
+        if m.second is None or m.best.distance <= ratio * m.second.distance
     ]
 
 
@@ -217,7 +217,7 @@ def apply_ratio_fwd(mnn_matches: list[MNNMatch], ratio: float) -> list[RawMatch]
     """Unidirectional (forward-only) ratio test on MNN matches. Use after match_mnn."""
     return [
         m.best for m in mnn_matches
-        if m.fwd_second is None or m.best.distance < ratio * m.fwd_second.distance
+        if m.fwd_second is None or m.best.distance <= ratio * m.fwd_second.distance
     ]
 
 
@@ -225,8 +225,8 @@ def apply_ratio_bi(mnn_matches: list[MNNMatch], ratio: float) -> list[RawMatch]:
     """Bidirectional ratio test. Use after match_mnn."""
     out = []
     for m in mnn_matches:
-        fwd_ok = m.fwd_second is None or m.best.distance < ratio * m.fwd_second.distance
-        rev_ok = m.rev_second is None or m.best.distance < ratio * m.rev_second.distance
+        fwd_ok = m.fwd_second is None or m.best.distance <= ratio * m.fwd_second.distance
+        rev_ok = m.rev_second is None or m.best.distance <= ratio * m.rev_second.distance
         if fwd_ok and rev_ok:
             out.append(m.best)
     return out
