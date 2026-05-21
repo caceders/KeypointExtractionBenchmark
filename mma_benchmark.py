@@ -16,10 +16,10 @@ from benchmark.feature_extractor import FeatureExtractor
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HPATCHES_PATH = r"hpatches-sequences-release"
-RESULTS_FILE  = "mma_results/default.csv"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_TAG = "default"
+RUN_NAME = "default"
+RUN_TAG  = "default"
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
@@ -61,6 +61,9 @@ APPLY_PROGRESSIVE_BLUR        = [False]
 VISIBILITY_FILTERS = [False, True]  # sweepable; True removes kps that project outside the other image
 
 SKIP_AT_ERROR = False
+
+RESULTS_FILE = f"mma_results/{RUN_NAME}.csv"
+os.makedirs("mma_results", exist_ok=True)
 
 
 # ============================================================
@@ -209,9 +212,6 @@ def compute_ap(match_pool: list[tuple[float, float]], threshold: float) -> float
 # ============================================================
 
 warnings.filterwarnings("once", category=UserWarning)
-_results_dir = os.path.dirname(RESULTS_FILE)
-if _results_dir:
-    os.makedirs(_results_dir, exist_ok=True)
 
 _max_k = max(MAX_KEYPOINTS)
 
