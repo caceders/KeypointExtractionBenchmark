@@ -20,6 +20,33 @@ SEQUENCE = "00"
 RUN_NAME = "default"
 RUN_TAG = "default"
 
+# ── Feature combinations ──────────────────────────────────────────────────────
+features2d = {
+    #"SIFT":      cv2.SIFT_create(),
+    #"ORB":       cv2.ORB_create(nfeatures=5000),
+    #"BRISK":     cv2.BRISK_create(),
+    #"AKAZE":     cv2.AKAZE_create(),
+    #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
+    ## LOW THRESH
+    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    "BRISK":     cv2.BRISK_create(thresh = 1),
+    "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
+    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+}
+
+ONLY_SELF             = True
+ONLY_SELF_EXCEPTIONS  = [("GFTT", "SIFT")]
+ONLY_USED_AS_DETECTOR = ["GFTT"]
+ONLY_USED_AS_DESCRIPTOR = []
+BLACKLIST = []
+ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
+    "ORB":   "ORB",
+    "SIFT":  "SIFT",
+    "BRISK": "BRISK",
+}
+ALLOWED_DETECTOR_FOR_DESCRIPTOR = {}
+
 # ── Active frames ─────────────────────────────────────────────────────────────
 ACTIVE_FRAMES = (0, 500)   # empty for full sequence
 
@@ -56,42 +83,6 @@ TRAJ_DIR.mkdir(parents=True, exist_ok=True)
 # ============================================================
 # BUILD TEST COMBINATIONS
 # ============================================================
-
-# ── Feature combinations ──────────────────────────────────────────────────────
-features2d = {
-    #"SIFT":      cv2.SIFT_create(),
-    #"ORB":       cv2.ORB_create(nfeatures=5000),
-    #"BRISK":     cv2.BRISK_create(),
-    #"AKAZE":     cv2.AKAZE_create(),
-    #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
-    ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
-    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    "BRISK":     cv2.BRISK_create(thresh = 1),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
-}
-
-# features2d = {
-#     #"AKAZE" : cv2.AKAZE_create(),
-#     #"BRISK" : cv2.BRISK_create(),
-#     #"GFTT" : cv2.GFTTDetector_create(),
-#     "ORB" : cv2.ORB_create(),
-#     ...
-# }
-
-ONLY_SELF             = True
-ONLY_SELF_EXCEPTIONS  = [("GFTT", "SIFT")]
-ONLY_USED_AS_DETECTOR = ["GFTT"]
-ONLY_USED_AS_DESCRIPTOR = []
-BLACKLIST = []
-ALLOWED_DESCRIPTOR_FOR_DETECTOR = {
-    "ORB":   "ORB",
-    "SIFT":  "SIFT",
-    "BRISK": "BRISK",
-}
-ALLOWED_DETECTOR_FOR_DESCRIPTOR = {}
-
 
 # ── FeatureExtractor helper ───────────────────────────────────────────────────
 class FeatureExtractor:
