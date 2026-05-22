@@ -17,8 +17,8 @@ DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 SEQUENCE = "00"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "pre_baseline_test"
-RUN_TAG = ""
+RUN_NAME = "FINAL_baseline"
+RUN_TAG = "default"
 
 skip_at_error = True
 
@@ -55,14 +55,14 @@ ACTIVE_FRAMES = (0, 1000)   # empty for full sequence
 # ── Matching parameters ───────────────────────────────────────────────────────
 MAX_KEYPOINTS    = [250,500,750,1000]
 MATCHERS         = ["MNN", "NN"]   # "NN", "MNN"
-RATIO_THRESHOLDS  = [0.6, 0.8, 1]   # applied to NN and MNN; ignored for KEEM
+RATIO_THRESHOLDS  = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]   # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
-RANSAC_THRESHOLDS   = [1, 3, 5, 10]
-EPIPOLAR_THRESHOLDS = [1]
+RANSAC_THRESHOLDS   = [0.25, 0.5, 1, 2, 3, 5, 10, 20]
+EPIPOLAR_THRESHOLDS = [0.5, 1, 2]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS = [0, 1]
-INITIAL_SIGMAS    = [0, 2]
+DOWNSAMPLE_LEVELS = [0, 1, 2]
+INITIAL_SIGMAS    = [0, 1, 2, 3, 4]
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
@@ -200,7 +200,7 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
 
     # ── Initialise per-config VO state ────────────────────────────────────────
     def _empty_stats():
-        return {"keypoints": [], "keypoints_detected": [], "temporal_matches": [], "stereo_matches": [],
+        return {"keypoints": [], "temporal_matches": [], "stereo_matches": [],
                 "triangulated": [], "temporal_tri_map_overlap": [],
                 "pnp_inliers": [], "failures": 0}
 
@@ -305,7 +305,6 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
                 good_stereo   = stereo_cache[(matcher, ratio_th, bidirectional)]
 
                 state["stats"]["keypoints"].append((len(kpL) + len(kpR)) / 2)
-                state["stats"]["keypoints_detected"].append((len(kpL_all) + len(kpR_all)) / 2)
                 state["stats"]["temporal_matches"].append(len(good_temporal))
                 state["stats"]["stereo_matches"].append(len(good_stereo))
 
@@ -395,7 +394,6 @@ def main():
 
                         results = {
                             # Identity
-                            "sequence":      seq,
                             "method":        name,
                             "tag":           RUN_TAG,
                             "active_frames": (f"{ACTIVE_FRAMES[0]}-{ACTIVE_FRAMES[1]}"
@@ -426,7 +424,6 @@ def main():
                             "RPE10_trans_max":   rpe10_trans_max,
                             "RPE10_rot_max":     rpe10_rot_max,
                             # Run statistics
-                            "avg_num_keypoints_detected":            float(np.mean(stats["keypoints_detected"])),
                             "avg_num_keypoints":                     float(np.mean(stats["keypoints"])),
                             "avg_num_temporal_matches":              float(np.mean(stats["temporal_matches"])),
                             "avg_num_stereo_matches":                float(np.mean(stats["stereo_matches"])),

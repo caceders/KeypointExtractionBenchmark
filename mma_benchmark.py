@@ -18,24 +18,24 @@ from benchmark.feature_extractor import FeatureExtractor
 HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "pre_baseline_test"
-RUN_TAG = "default_threshold"
+RUN_NAME = "FINAL_baseline"
+RUN_TAG = "default"
 
 SKIP_AT_ERROR = True
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
-    "SIFT":      cv2.SIFT_create(),
-    "ORB":       cv2.ORB_create(nfeatures=5000),
-    "BRISK":     cv2.BRISK_create(),
-    "AKAZE":     cv2.AKAZE_create(),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
+    # "SIFT":      cv2.SIFT_create(),
+    # "ORB":       cv2.ORB_create(nfeatures=5000),
+    # "BRISK":     cv2.BRISK_create(),
+    # "AKAZE":     cv2.AKAZE_create(),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    # "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
-    # "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    # "BRISK":       cv2.BRISK_create(thresh = 1),
-    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
-    # "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
+    "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    "BRISK":       cv2.BRISK_create(thresh = 1),
+    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
+    "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -48,21 +48,21 @@ DISTANCE_THRESHOLDS = list(range(1, 21))
 # ── Matching parameters ───────────────────────────────────────────────────────
 MAX_KEYPOINTS    = [250,500,750,1000]
 MATCHERS         = ["NN", "MNN", "KEEM"]  # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS  = [0.6, 0.8, 1]  # applied to NN and MNN; ignored for KEEM
+RATIO_THRESHOLDS  = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]   # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
-RANSAC_THRESHOLDS    = [1, 3, 5, 10]
+RANSAC_THRESHOLDS    = [0.25, 0.5, 1, 2, 3, 5, 10, 20]
 KEEM_SKIP_HOMOGRAPHY         = True   # skip findHomography for KEEM (saves time; sets homography_accuracy to "-")
 ILLUMINATION_SKIP_HOMOGRAPHY = True   # skip findHomography for illumination sequences (viewpoint unchanged → degenerate fit)
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0, 1]
-INITIAL_SIGMAS                = [0, 2]
+DOWNSAMPLE_LEVELS             = [0, 1, 2]
+INITIAL_SIGMAS                = [0, 1, 2, 3, 4]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
-VISIBILITY_FILTERS   = [False]  # sweepable; True removes kps that project outside the other image
+VISIBILITY_FILTERS   = [True, False]  # sweepable; True removes kps that project outside the other image
 ACTIVE_SEQUENCES     = (0, None)       # (start, stop) sequence indices; None for stop = run to end
 
 RESULTS_FILE = f"mma_results/{RUN_NAME}.csv"
@@ -253,7 +253,6 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                 dtype        = np.float32 if extractor.distance_type == cv2.NORM_L2 else np.uint8
                 kps_ref_base     = extractor.detect_keypoints(img_ref_ds)
                 kps_ref_base     = _top_k_keypoints(kps_ref_base, _max_k)
-                n_kps_ref_pool   = len(kps_ref_base)
                 if kps_ref_base:
                     kps_ref_base, _dref = extractor.describe_keypoints(img_ref_ds, kps_ref_base)
                     descs_ref_np = np.array(_dref, dtype=dtype) if _dref else None
@@ -279,7 +278,6 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                         # ── Detect + describe related image ────────────────────────────────
                         kps_rel_base     = extractor.detect_keypoints(img_rel_ds)
                         kps_rel_base     = _top_k_keypoints(kps_rel_base, _max_k)
-                        n_kps_rel_pool   = len(kps_rel_base)
                         if kps_rel_base:
                             kps_rel_base, _drel = extractor.describe_keypoints(img_rel_ds, kps_rel_base)
                             descs_rel_np = np.array(_drel, dtype=dtype) if _drel else None
@@ -452,9 +450,6 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                                     "mMA_kp_ref": 0.0, "mMA": 0.0,
                                                     "repeatability": 0.0, "homography_accuracy": 0.0,
                                                     "avg_num_matches": 0.0, "avg_num_keypoints": 0.0,
-                                                    "num_keypoints_ref_detected": 0.0,
-                                                    "num_keypoints_rel_detected": 0.0,
-                                                    "avg_num_keypoints_detected": 0.0,
                                                 }
                                                 agg_count[agg_key] = 0
                                             s = agg_sums[agg_key]
@@ -464,9 +459,6 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                             s["homography_accuracy"]        += hom_accs[ransac_th][dist_th]
                                             s["avg_num_matches"]            += n_matches
                                             s["avg_num_keypoints"]          += (n_ref + n_rel) / 2
-                                            s["num_keypoints_ref_detected"] += n_kps_ref_pool
-                                            s["num_keypoints_rel_detected"] += n_kps_rel_pool
-                                            s["avg_num_keypoints_detected"] += (n_kps_ref_pool + n_kps_rel_pool) / 2
                                             agg_count[agg_key] += 1
 
                     except Exception:
@@ -501,8 +493,6 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                     "max_keypoints":          max_kp,
                     "downsample_level":       ds_level,
                     "initial_sigma":          init_sigma,
-                    "intrinsic_sigma":        intr_sigma,
-                    "apply_progressive_blur": prog_blur,
                     "visibility_filter":      vis_filter,
                     # Transformation type
                     "transformation":         transformation,
@@ -517,9 +507,6 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                     # Counts
                     "avg_num_matches":            s["avg_num_matches"]            / count,
                     "avg_num_keypoints":          s["avg_num_keypoints"]          / count,
-                    "num_keypoints_ref_detected": s["num_keypoints_ref_detected"] / count,
-                    "num_keypoints_rel_detected": s["num_keypoints_rel_detected"] / count,
-                    "avg_num_keypoints_detected": s["avg_num_keypoints_detected"] / count,
                 })
 
             if rows:

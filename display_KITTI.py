@@ -3,26 +3,123 @@ from display_common import run_display
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "KITTI/results/kitti_ransasc_threshold_check/results.csv"
+CSV_PATH = "shared_results/KITTI/pre_baseline_test/results.csv"
 
 PLOTS = [
-
     {
-        "y":        "ATE_RMSE_STRICT",
+        "y":        "RPE1_trans_RMSE",
         "x":        ["ransac_threshold"],
-        "lines":    ["tag"],
+        "lines":    ["method", "tag", "max_keypoints"], 
+        "subplots":   "matcher",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "mnn_bidirectional" : {"values" : [True, "-"]},
+            "ratio_threshold" : 1,
+            # "max_keypoints" : 1000
+
             
         },
     },
-
-        {
+    {
         "y":        "RPE1_trans_RMSE",
         "x":        ["ransac_threshold"],
-        "lines":    ["tag"],
+        "lines":    ["method", "tag", "max_keypoints"], 
+        "subplots":   "matcher",
         "select": {
             # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "mnn_bidirectional" : {"values" : [True, "-"]},
+            "ratio_threshold" : 0.8,
+            # "max_keypoints" : 1000
+
+            
+        },
+    },
+    {
+        "y":        "RPE1_trans_RMSE",
+        "x":        ["ransac_threshold"],
+        "lines":    ["method", "tag", "max_keypoints"], 
+        "subplots":   "matcher",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "mnn_bidirectional" : {"values" : [False, "-"]},
+            "ratio_threshold" : 1,
+            # "max_keypoints" : 1000
+
+            
+        },
+    },
+    {
+        "y":        "RPE1_trans_RMSE",
+        "x":        ["ransac_threshold"],
+        "lines":    ["method", "tag", "max_keypoints"], 
+        "subplots":   "matcher",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "mnn_bidirectional" : {"values" : [False, "-"]},
+            "ratio_threshold" : 0.8,
+            # "max_keypoints" : 1000
+
+            
+        },
+    },
+    # {
+    #     "y":        "RPE1_trans_RMSE",
+    #     "x":        "max_keypoints",
+    #     "lines":    ["method", "tag", "initial_sigma"], 
+    #     "subplots":   "downsample_level",
+    #     "select": {
+    #         # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+    #         "mnn_bidirectional" : {"values" : [True, "-"]},
+    #         "ratio_threshold" : 0.8,
+    #         # "max_keypoints" : 1000
+
+            
+    #     },
+    # },
+
+    #     {
+    #     "y":        "RPE1_trans_RMSE",
+    #     "x":        "max_keypoints",
+    #     "lines":    ["method", "tag", "initial_sigma"], 
+    #     "subplots":   "downsample_level",
+    #     "select": {
+    #         # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+    #         "mnn_bidirectional" : {"values" : [True, "-"]},
+    #         "ratio_threshold" : 0.8,
+    #         "matcher" : "NN"
+    #         # "max_keypoints" : 1000
+
+            
+    #     },
+    # },
+    #     {
+    #     "y":        "RPE1_trans_RMSE",
+    #     "x":        "max_keypoints",
+    #     "lines":    ["method", "tag", "initial_sigma"], 
+    #     "subplots":   "downsample_level",
+    #     "select": {
+    #         # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+    #         "mnn_bidirectional" : {"values" : [True, "-"]},
+    #         "ratio_threshold" : 0.8,
+    #         "matcher" : "MNN"
+    #         # "max_keypoints" : 1000
+
+            
+    #     },
+    # },
+        {
+        "y":        "RPE1_trans_RMSE",
+        "x":        "max_keypoints",
+        "lines":    ["method", "initial_sigma"], 
+        "subplots":   "downsample_level",
+        "select": {
+            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
+            "mnn_bidirectional" : {"values" : [True, "-"]},
+            "ratio_threshold" : 0.8,
+            "tag" : "low_threshold",
+            "matcher" : "MNN"
+            # "max_keypoints" : 1000
+
             
         },
     },
