@@ -296,16 +296,21 @@ def _info_str(cfg, agg_steps):
     return "select\n" + "\n".join(lines)
 
 
+def _to_numeric(values):
+    """Convert values to float64 array, dropping '-' and other non-numeric entries."""
+    return pd.to_numeric(pd.Series(values), errors="coerce").dropna().to_numpy(dtype=np.float64)
+
+
 def _apply_fn(values, fn):
-    arr = np.array(values, dtype=np.float64)
+    arr = _to_numeric(values)
     if fn in ("auc", "mean"):
-        return float(np.mean(arr))
+        return float(np.mean(arr)) if len(arr) else float("nan")
     elif fn == "std":
-        return float(np.std(arr))
+        return float(np.std(arr)) if len(arr) else float("nan")
     elif fn == "min":
-        return float(np.min(arr))
+        return float(np.min(arr)) if len(arr) else float("nan")
     elif fn == "max":
-        return float(np.max(arr))
+        return float(np.max(arr)) if len(arr) else float("nan")
     else:
         raise ValueError(f"Unknown agg fn '{fn}'. Use: auc | mean | std | min | max")
 
@@ -320,8 +325,8 @@ def _collapse(df, y_col, agg_steps):
     """
     if not agg_steps:
         if len(df) != 1:
-            return float(df[y_col].mean())
-        return float(df[y_col].iloc[0])
+            return float(pd.to_numeric(df[y_col], errors="coerce").mean())
+        return float(pd.to_numeric(df[y_col], errors="coerce").iloc[0])
 
     step       = agg_steps[0]
     col        = step["col"]
@@ -372,11 +377,12 @@ def make_plot(cfg, df, combo_color, tag_color):
                 print(f"[{cfg.get('title', '?')}] select: column '{col}' not in CSV — skipping.")
                 continue
             if isinstance(values, (list, np.ndarray)):
-                dfs = dfs[dfs[col].isin(values)]
+                str_values = [str(v) for v in values]
+                dfs = dfs[dfs[col].isin(values) | dfs[col].astype(str).isin(str_values)]
             elif isinstance(values, float) and math.isnan(values):
                 dfs = dfs[dfs[col].isna()]
             else:
-                dfs = dfs[dfs[col] == values]
+                dfs = dfs[(dfs[col] == values) | (dfs[col].astype(str) == str(values))]
         if "fn" in spec:
             step = {"col": col, "fn": spec["fn"]}
             if "range" in spec:
@@ -469,7 +475,7 @@ def make_plot(cfg, df, combo_color, tag_color):
                     keep = [c for c in [y] + agg_cols if c in group_df.columns]
                     bar_vals.append(_collapse(group_df[keep], y, agg_steps))
                 else:
-                    bar_vals.append(float(group_df[y].mean()))
+                    bar_vals.append(float(pd.to_numeric(group_df[y], errors="coerce").mean()))
             colors    = [x_color.get(xv) for xv in x_vals]
             positions = _bar_positions(x_vals, x_cols)
             ax.barh(positions, bar_vals, height=0.97, color=colors)
@@ -499,7 +505,7 @@ def make_plot(cfg, df, combo_color, tag_color):
                             print(f"[{title}] Warning: {len(group_df)} rows with differing "
                                   f"'{y}' for {x_cols}={_fmt_val(xv)!r} lines={_fmt_val(line_val)!r} — "
                                   f"taking mean. Add agg or filter to disambiguate.")
-                        yv = float(group_df[y].mean())
+                        yv = float(pd.to_numeric(group_df[y], errors="coerce").mean())
                     y_vals.append(yv)
 
                 line_obj, = ax.plot(

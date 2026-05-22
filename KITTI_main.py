@@ -17,18 +17,18 @@ DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 SEQUENCE = "00"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "baseline_prep"
-RUN_TAG = "low_threshold"
+RUN_NAME = "kitti_ransasc_threshold_check"
+RUN_TAG = "1000"
 
 skip_at_error = True
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
-    #"SIFT":      cv2.SIFT_create(),
-    #"ORB":       cv2.ORB_create(nfeatures=5000),
-    #"BRISK":     cv2.BRISK_create(),
-    #"AKAZE":     cv2.AKAZE_create(),
-    #"GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
+    # "SIFT":      cv2.SIFT_create(),
+    # "ORB":       cv2.ORB_create(nfeatures=5000),
+    # "BRISK":     cv2.BRISK_create(),
+    # "AKAZE":     cv2.AKAZE_create(),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
     "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
@@ -54,15 +54,15 @@ ACTIVE_FRAMES = (0, 1000)   # empty for full sequence
 
 # ── Matching parameters ───────────────────────────────────────────────────────
 MAX_KEYPOINTS    = [250,500,750,1000]
-MATCHERS         = ["MNN", "NN"]   # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS  = [0.6,0.8,1]   # applied to NN and MNN; ignored for KEEM
+MATCHERS         = ["MNN", "NN"]   # "NN", "MNN"
+RATIO_THRESHOLDS  = [0.6, 0.8, 1]   # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
-RANSAC_THRESHOLDS   = [0.25,0.5,1,2,3]
-EPIPOLAR_THRESHOLDS = [0.5,1,2,3]
+RANSAC_THRESHOLDS   = [1, 3, 5, 10]
+EPIPOLAR_THRESHOLDS = [1]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS = [0,1]
-INITIAL_SIGMAS    = [0,1,2,3]
+DOWNSAMPLE_LEVELS = [0, 1]
+INITIAL_SIGMAS    = [0, 2]
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
@@ -546,7 +546,7 @@ def solve_pnp(X, pts2d, K, thresh):
 
     ok, r, t, inl = cv2.solvePnPRansac(
         X, pts2d, K, None,
-        iterationsCount=2000,
+        iterationsCount=1000,
         reprojectionError=thresh,
         confidence=0.999999,
     )

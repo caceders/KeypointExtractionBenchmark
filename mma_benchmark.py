@@ -18,8 +18,8 @@ from benchmark.feature_extractor import FeatureExtractor
 HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "baseline_prep"
-RUN_TAG = "low_threshold"
+RUN_NAME = "ransac_thresholds"
+RUN_TAG = "1500"
 
 SKIP_AT_ERROR = True
 
@@ -33,9 +33,9 @@ features2d = {
     ## LOW THRESH
     "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
     "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    "BRISK":       cv2.BRISK_create(thresh = 1),
-    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
-    "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    # "BRISK":       cv2.BRISK_create(thresh = 1),
+    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
+    # "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -43,25 +43,27 @@ ONLY_SELF_EXCEPTIONS  = [("GFTT", "SIFT")]
 ONLY_USED_AS_DETECTOR = ["GFTT"]
 
 # ── Evaluation thresholds ─────────────────────────────────────────────────────
-DISTANCE_THRESHOLDS = list(range(1, 31))
+DISTANCE_THRESHOLDS = list(range(1, 21))
 
 # ── Matching parameters ───────────────────────────────────────────────────────
 MAX_KEYPOINTS    = [250,500,750,1000]
 MATCHERS         = ["NN", "MNN", "KEEM"]  # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS  = [0.6,0.8,1]  # applied to NN and MNN; ignored for KEEM
+RATIO_THRESHOLDS  = [0.6, 0.8, 1]  # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
-RANSAC_THRESHOLDS    = [0.25,0.5,1,2,3]
-KEEM_SKIP_HOMOGRAPHY = True   # skip findHomography for KEEM (saves time; sets homography_accuracy to 0)
+RANSAC_THRESHOLDS    = [1, 3, 5, 10]
+KEEM_SKIP_HOMOGRAPHY         = True   # skip findHomography for KEEM (saves time; sets homography_accuracy to "-")
+ILLUMINATION_SKIP_HOMOGRAPHY = True   # skip findHomography for illumination sequences (viewpoint unchanged → degenerate fit)
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS             = [0,1]
-INITIAL_SIGMAS                = [0,1,2,3]
+DOWNSAMPLE_LEVELS             = [0, 1]
+INITIAL_SIGMAS                = [0, 2]
 DOWNSAMPLE_FACTOR             = [2]
 DOWNSAMPLE_INTERPOLATION_TYPE = [None]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
-VISIBILITY_FILTERS = [False, True]  # sweepable; True removes kps that project outside the other image
+VISIBILITY_FILTERS   = [True, False]  # sweepable; True removes kps that project outside the other image
+ACTIVE_SEQUENCES     = (56, None)       # (start, stop) sequence indices; None for stop = run to end
 
 RESULTS_FILE = f"mma_results/{RUN_NAME}.csv"
 os.makedirs("mma_results", exist_ok=True)
@@ -241,7 +243,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
             agg_pool:  dict[tuple, list]             = {}
 
             for seq_id, (seq_name, seq_type, imgs, homos) in enumerate(tqdm(
-                    sequences, leave=False, desc="Sequences", position=3)):
+                    sequences[ACTIVE_SEQUENCES[0]:ACTIVE_SEQUENCES[1]], leave=False, desc="Sequences", position=3), start=ACTIVE_SEQUENCES[0]):
 
                 h_ref, w_ref = imgs[0].shape[:2]
                 img_ref_ds   = downsample(imgs[0], ds_level, ds_factor,
@@ -420,19 +422,19 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                                     )
 
                                     # ── Homography estimation ──────────────────────────────
-                                    hom_accs: dict[float, dict[int, float]] = {}
-                                    can_ransac = n_matches >= 4 and not (KEEM_SKIP_HOMOGRAPHY and matcher == "KEEM")
+                                    hom_accs:  dict[float, dict[int, float]] = {}
+                                    _skip_hom  = (KEEM_SKIP_HOMOGRAPHY and matcher == "KEEM") or (ILLUMINATION_SKIP_HOMOGRAPHY and seq_type == "illumination")
+                                    can_ransac = n_matches >= 4 and not _skip_hom
                                     if can_ransac:
                                         src = _src.astype(np.float32)
                                         dst = _dst.astype(np.float32)
                                         for ransac_th in RANSAC_THRESHOLDS:
-                                            H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_th, confidence = 0.999999)
+                                            H_est, _ = cv2.findHomography(src, dst, cv2.RANSAC, ransac_th, confidence = 0.99999, maxIters = 500)
                                             if H_est is not None:
                                                 corners_est = _project_batch(corners, H_est)
                                                 diff_c      = corners_gt - corners_est
                                                 mean_err    = float(np.sqrt((diff_c * diff_c).sum(axis=1)).mean())
-                                                hom_accs[ransac_th] = {th: 1.0 if mean_err < th else 0.0
-                                                                       for th in DISTANCE_THRESHOLDS}
+                                                hom_accs[ransac_th] = {th: 1.0 if mean_err < th else 0.0 for th in DISTANCE_THRESHOLDS}
                                             else:
                                                 hom_accs[ransac_th] = {th: 0.0 for th in DISTANCE_THRESHOLDS}
                                     else:
@@ -510,7 +512,7 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                     "mMA_kp_ref":             s["mMA_kp_ref"]          / count,
                     "mMA":                    s["mMA"]                  / count,
                     "repeatability":          s["repeatability"]        / count,
-                    "homography_accuracy":    "-" if (matcher == "KEEM" and KEEM_SKIP_HOMOGRAPHY) else s["homography_accuracy"] / count,
+                    "homography_accuracy":      "-" if (matcher == "KEEM" and KEEM_SKIP_HOMOGRAPHY) or (transformation == "illumination" and ILLUMINATION_SKIP_HOMOGRAPHY) else s["homography_accuracy"] / count,
                     "mAP":                    mAP_cache.get((transformation, max_kp, matcher, _rt, bidirectional, vis_filter, dist_th), float("nan")),
                     # Counts
                     "avg_num_matches":            s["avg_num_matches"]            / count,
