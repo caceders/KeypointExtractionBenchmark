@@ -546,7 +546,7 @@ def solve_pnp(X, pts2d, K, thresh):
 
     ok, r, t, inl = cv2.solvePnPRansac(
         X, pts2d, K, None,
-        iterationsCount=1000,
+        iterationsCount=100,
         reprojectionError=thresh,
         confidence=0.999999,
     )
