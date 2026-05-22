@@ -19,20 +19,20 @@ HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
 RUN_NAME = "pre_baseline_test"
-RUN_TAG = ""
+RUN_TAG = "default_threshold"
 
 SKIP_AT_ERROR = True
 
 # ── Feature combinations ──────────────────────────────────────────────────────
 features2d = {
-    # "SIFT":      cv2.SIFT_create(),
-    # "ORB":       cv2.ORB_create(nfeatures=5000),
-    # "BRISK":     cv2.BRISK_create(),
-    # "AKAZE":     cv2.AKAZE_create(),
-    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
+    "SIFT":      cv2.SIFT_create(),
+    "ORB":       cv2.ORB_create(nfeatures=5000),
+    "BRISK":     cv2.BRISK_create(),
+    "AKAZE":     cv2.AKAZE_create(),
+    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
-    "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    # "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
+    # "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
     # "BRISK":       cv2.BRISK_create(thresh = 1),
     # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
     # "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
@@ -62,8 +62,8 @@ DOWNSAMPLE_INTERPOLATION_TYPE = [None]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
-VISIBILITY_FILTERS   = [True, False]  # sweepable; True removes kps that project outside the other image
-ACTIVE_SEQUENCES     = (56, None)       # (start, stop) sequence indices; None for stop = run to end
+VISIBILITY_FILTERS   = [False]  # sweepable; True removes kps that project outside the other image
+ACTIVE_SEQUENCES     = (0, None)       # (start, stop) sequence indices; None for stop = run to end
 
 RESULTS_FILE = f"mma_results/{RUN_NAME}.csv"
 os.makedirs("mma_results", exist_ok=True)
