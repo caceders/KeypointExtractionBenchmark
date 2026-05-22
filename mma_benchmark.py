@@ -18,8 +18,8 @@ from benchmark.feature_extractor import FeatureExtractor
 HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "ransac_thresholds"
-RUN_TAG = "1500"
+RUN_NAME = "pre_baseline_test"
+RUN_TAG = ""
 
 SKIP_AT_ERROR = True
 

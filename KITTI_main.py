@@ -17,8 +17,8 @@ DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 SEQUENCE = "00"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "kitti_ransasc_threshold_check"
-RUN_TAG = "1000"
+RUN_NAME = "pre_baseline_test"
+RUN_TAG = ""
 
 skip_at_error = True
 
