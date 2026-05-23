@@ -7,28 +7,45 @@ import numpy as np
 # ============================================================
 # CONFIG
 # ============================================================
-# CSV_PATH = "shared_results/modern/pre_baseline_test.csv"
-CSV_PATH = "shared_results/KITTI/pre_baseline_test/results.csv"
+CSV_PATH = "shared_results\modern\FINAL_baseline.csv"
+# CSV_PATH = "shared_results/KITTI/pre_baseline_test/results.csv"
 
-# SEARCH_COLUMN = "homography_accuracy"
-SEARCH_COLUMN = "RPE1_trans_RMSE"
+SEARCH_COLUMN = "mAP"
+# SEARCH_COLUMN = "RPE1_trans_RMSE"
 
 SEARCH_LABEL = None  # display name when SEARCH_COLUMN is a lambda (ignored for strings)
 
 
-MINIMIZE = True   # True → find min, False → find max
-SORT_BY_COLS = False  # True → sort by COLS first, then SEARCH_COLUMN; False → sort by SEARCH_COLUMN only
+MINIMIZE = False   # True → find min, False → find max
+SORT_BY_COLS = True  # True → sort by COLS first, then SEARCH_COLUMN; False → sort by SEARCH_COLUMN only
 
 # Columns whose unique combinations define a "configuration".
 # One best row is returned per unique combination of these columns.
-COLS = ["method"]
+COLS = ["method", "visibility_filter"]
+
+# Identity/config columns — used as group keys when collapsing a dimension with fn.
+# Should include all columns that identify a configuration, excluding result metrics.
+# mma:   method, tag, matcher, ratio_threshold, mnn_bidirectional, ransac_threshold,
+#        max_keypoints, downsample_level, initial_sigma, visibility_filter,
+#        transformation, distance_threshold
+# KITTI: method, tag, matcher, ratio_threshold, mnn_bidirectional, ransac_threshold,
+#        epipolar_threshold, max_keypoints, downsample_level, initial_sigma, active_frames
+IDENTITY_COLS = [
+    "method", "tag", "matcher", "ratio_threshold", "mnn_bidirectional",
+    "ransac_threshold", "max_keypoints", "downsample_level", "initial_sigma",
+    "visibility_filter", "transformation", "distance_threshold",
+]
 
 SELECT = {
-    # "transformation" : {"vals" : ["illumination", "viewpoint"], "fn" : "mean"},
-    # "distance_threshold": {"vals": np.arange(0, 10), "fn": "auc"},
-    "tag" : "low_threshold", 
-    # "max_keypoints" : 1000,
-    # "matcher" : "KEEM",
+    "transformation" : {"vals" : ["illumination", "viewpoint"], "fn" : "mean"},
+    "distance_threshold": {"vals" : np.arange(0,11), "fn" : "auc"},
+    # "distance_threshold" : 5,
+    # "tag" : "low_threshold", 
+    # "max_keypoints" : 500,
+    # "visibility_filter" : False,
+    # "matcher" : "NN",
+    # "ratio_threshold" : 1,
+    "matcher" : "KEEM",
     # "matcher" : "NN",
     # "ratio_threshold" : 1,
     # [COL]: value                               — keep rows where col == value
@@ -43,7 +60,7 @@ SELECT = {
 # ============================================================
 # RUN
 # ============================================================
-df = pd.read_csv(CSV_PATH, na_values=[], keep_default_na=False)
+df = pd.read_csv(CSV_PATH, na_values=[], keep_default_na=False, low_memory=False)
 
 _SEARCH_COL   = "__search__" if callable(SEARCH_COLUMN) else SEARCH_COLUMN
 _SEARCH_LABEL = (SEARCH_LABEL or "score") if callable(SEARCH_COLUMN) else (SEARCH_LABEL or SEARCH_COLUMN)
@@ -70,9 +87,11 @@ if callable(SEARCH_COLUMN):
 for col, spec in SELECT.items():
     if isinstance(spec, dict) and spec.get("fn"):
         fn = spec["fn"]
-        df[_SEARCH_COL] = pd.to_numeric(df[_SEARCH_COL], errors="coerce")
-        group_cols = [c for c in df.columns if c != col and c != _SEARCH_COL]
-        df = df.groupby(group_cols, dropna=False, as_index=False)[_SEARCH_COL].agg(_FN_MAP[fn])
+        group_cols = [c for c in IDENTITY_COLS if c in df.columns and c != col]
+        agg_cols = [c for c in df.columns if c not in group_cols and c != col]
+        for c in agg_cols:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+        df = df.groupby(group_cols, dropna=False, as_index=False)[agg_cols].agg(_FN_MAP[fn])
 
 if df.empty:
     print("No rows match the given filters.")
@@ -81,7 +100,7 @@ else:
     agg = df.groupby(COLS, dropna=False)[_SEARCH_COL]
     sort_cols = COLS + [_SEARCH_COL] if SORT_BY_COLS else [_SEARCH_COL]
     best_rows = (
-        df.loc[(agg.idxmin() if MINIMIZE else agg.idxmax())]
+        df.loc[(agg.idxmin() if MINIMIZE else agg.idxmax()).values]
           .sort_values(sort_cols, ascending=([True] * len(COLS) + [MINIMIZE]) if SORT_BY_COLS else MINIMIZE)
           .reset_index(drop=True)
     )
