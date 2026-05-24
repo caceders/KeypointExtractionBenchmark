@@ -7,10 +7,10 @@ import numpy as np
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "shared_results\modern\FINAL_baseline.csv"
+CSV_PATH = "shared_results/modern/FINAL_baseline.csv"
 # CSV_PATH = "shared_results/KITTI/pre_baseline_test/results.csv"
 
-SEARCH_COLUMN = "mAP"
+SEARCH_COLUMN = "homography_accuracy"
 # SEARCH_COLUMN = "RPE1_trans_RMSE"
 
 SEARCH_LABEL = None  # display name when SEARCH_COLUMN is a lambda (ignored for strings)
@@ -21,7 +21,7 @@ SORT_BY_COLS = True  # True → sort by COLS first, then SEARCH_COLUMN; False �
 
 # Columns whose unique combinations define a "configuration".
 # One best row is returned per unique combination of these columns.
-COLS = ["method", "visibility_filter"]
+COLS = ["method"]
 
 # Identity/config columns — used as group keys when collapsing a dimension with fn.
 # Should include all columns that identify a configuration, excluding result metrics.
@@ -37,15 +37,21 @@ IDENTITY_COLS = [
 ]
 
 SELECT = {
+    # "ratio_threshold" : "1",
     "transformation" : {"vals" : ["illumination", "viewpoint"], "fn" : "mean"},
-    "distance_threshold": {"vals" : np.arange(0,11), "fn" : "auc"},
-    # "distance_threshold" : 5,
+    "distance_threshold": {"vals" : np.arange(0,4), "fn" : "auc"},
+    # "downsample_level" : 0,
+    # "initial_sigma" : 0,
+    # "distance_threshold" : 3,
+    # "matcher" : ["NN", "MNN"],
     # "tag" : "low_threshold", 
-    # "max_keypoints" : 500,
-    # "visibility_filter" : False,
+    # "max_keypoints" : 1000,
+    "visibility_filter" : False,
+    "ransac_threshold" : 3,
+    # "ratio_threshold" : 1.0,
     # "matcher" : "NN",
     # "ratio_threshold" : 1,
-    "matcher" : "KEEM",
+    # "matcher" : "KEEM",
     # "matcher" : "NN",
     # "ratio_threshold" : 1,
     # [COL]: value                               — keep rows where col == value
@@ -71,12 +77,10 @@ for col, spec in SELECT.items():
     if isinstance(spec, dict):
         vals = spec.get("values", spec.get("vals", None))
         if vals is not None:
-            str_vals = [str(v) for v in vals]
-            df = df[df[col].isin(vals) | df[col].astype(str).isin(str_vals)]
+            df = df[df[col].isin(vals)]
     else:
         values = spec if isinstance(spec, list) else [spec]
-        str_values = [str(v) for v in values]
-        df = df[df[col].isin(values) | df[col].astype(str).isin(str_values)]
+        df = df[df[col].isin(values)]
 
 # Compute derived search column before collapsing, drop rows where it is NaN
 if callable(SEARCH_COLUMN):
@@ -109,6 +113,32 @@ else:
     other_cols = [c for c in best_rows.columns if c not in COLS and c != _SEARCH_LABEL and c != "#"]
     best_rows = best_rows[["#"] + COLS + [_SEARCH_LABEL] + other_cols]
     html = best_rows.to_html(index=False)
+    csv_data = best_rows.to_csv(index=False)
+    import json
+    csv_js = json.dumps(csv_data)
+
+    # Build config summary lines
+    def _fmt_val(v):
+        import numpy as np
+        if isinstance(v, np.ndarray):
+            return f"[{v[0]}..{v[-1]}]" if len(v) > 4 else str(list(v))
+        if isinstance(v, list) and len(v) > 4:
+            return f"[{v[0]}..{v[-1]}]"
+        return repr(v)
+    config_lines = []
+    config_lines.append(f"csv:    {CSV_PATH}")
+    config_lines.append(f"search: {_SEARCH_LABEL}  ({'min' if MINIMIZE else 'max'})")
+    config_lines.append(f"cols:   {COLS}")
+    for col, spec in SELECT.items():
+        if isinstance(spec, dict):
+            vals = spec.get("vals", spec.get("values", None))
+            fn   = spec.get("fn", None)
+            val_str = _fmt_val(vals) if vals is not None else "*"
+            config_lines.append(f"  {col} = {val_str}  →  {fn}")
+        else:
+            config_lines.append(f"  {col} = {_fmt_val(spec)}")
+    config_html = "\n".join(config_lines)
+
     n_sticky = len(COLS) + 2  # "#" + COLS + SEARCH_COLUMN
     n_cols = len(COLS)        # number of COLS for group separator detection
     sort_by_cols_js = "true" if SORT_BY_COLS else "false"
@@ -121,7 +151,12 @@ th, td {{ border: 1px solid #ccc; padding: 4px 10px; text-align: left; white-spa
 th {{ background: #eee; }}
 tr:nth-child(even) td {{ background: #f9f9f9; }}
 tr:nth-child(odd) td {{ background: #fff; }}
-</style></head><body><div class="wrap">{html}</div><script>
+button {{ font-family: monospace; margin-bottom: 0.75em; padding: 4px 12px; cursor: pointer; }}
+pre.config {{ background: #f4f4f4; border: 1px solid #ddd; padding: 0.6em 1em; margin-bottom: 1em; line-height: 1.5; }}
+</style></head><body>
+<pre class="config">{config_html}</pre>
+<button onclick="(function(){{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([{csv_js}],{{type:'text/csv'}}));a.download='results.csv';a.click();}})()">Download CSV</button>
+<div class="wrap">{html}</div><script>
 (function() {{
     var table = document.querySelector('table');
     var rows = table.rows;
