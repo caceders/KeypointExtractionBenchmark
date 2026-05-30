@@ -37,6 +37,11 @@ features2d = {
     "BRISK":       cv2.BRISK_create(thresh = 1),
     "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
     "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    ## NO/MINIMAL SCALE
+    #"SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001, nOctaveLayers = 1),
+    #"ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3, nlevels = 1),
+    #"BRISK":       cv2.BRISK_create(thresh = 1, octaves = 0),
+    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001, nOctaves = 1, nOctaveLayers = 1),
 }
 
 ONLY_SELF             = True

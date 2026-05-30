@@ -18,8 +18,8 @@ DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 SEQUENCE = "00"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "ransac_itter_test"
-RUN_TAG = "100"
+RUN_NAME = "FINAL_baseline"
+RUN_TAG = "default"
 
 skip_at_error = True
 
@@ -32,10 +32,15 @@ features2d = {
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
     # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
-#     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    "BRISK":     cv2.BRISK_create(thresh = 1),
-#     "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
-#     "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    # "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    # "BRISK":     cv2.BRISK_create(thresh = 1),
+    # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
+    # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    ## NO/MINIMAL SCALE
+    #"SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001, nOctaveLayers = 1),
+    #"ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3, nlevels = 1),
+    #"BRISK":       cv2.BRISK_create(thresh = 1, octaves = 0),
+    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001, nOctaves = 1, nOctaveLayers = 1),
 }
 
 ONLY_SELF             = True
@@ -55,7 +60,7 @@ ACTIVE_FRAMES = (0, 1000)   # empty for full sequence
 
 # ── Matching parameters ───────────────────────────────────────────────────────
 MAX_KEYPOINTS    = [1000]
-MATCHERS         = ["MNN"]   # "NN", "MNN"
+MATCHERS         = ["MNN", "NN"]   # "NN", "MNN"
 RATIO_THRESHOLDS  = [0.9]   # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS   = [0.25, 0.5, 1, 2, 3, 5, 10, 20]
