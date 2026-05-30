@@ -17,8 +17,8 @@ DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 SEQUENCE = "00"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "FINAL_baseline"
-RUN_TAG = "default"
+RUN_NAME = "ransac_itter_test"
+RUN_TAG = "100"
 
 skip_at_error = True
 
@@ -30,11 +30,11 @@ features2d = {
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
-    "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    # "SIFT":      cv2.SIFT_create(contrastThreshold = 0.0001),
+#     "ORB":       cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
     "BRISK":     cv2.BRISK_create(thresh = 1),
-    "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
-    "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+#     "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
+#     "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
 }
 
 ONLY_SELF             = True
@@ -53,16 +53,16 @@ ALLOWED_DETECTOR_FOR_DESCRIPTOR = {}
 ACTIVE_FRAMES = (0, 1000)   # empty for full sequence
 
 # ── Matching parameters ───────────────────────────────────────────────────────
-MAX_KEYPOINTS    = [250,500,750,1000]
-MATCHERS         = ["MNN", "NN"]   # "NN", "MNN"
-RATIO_THRESHOLDS  = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]   # applied to NN and MNN; ignored for KEEM
-MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
+MAX_KEYPOINTS    = [1000]
+MATCHERS         = ["MNN"]   # "NN", "MNN"
+RATIO_THRESHOLDS  = [0.9]   # applied to NN and MNN; ignored for KEEM
+MNN_BIDIRECTIONAL = [True]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS   = [0.25, 0.5, 1, 2, 3, 5, 10, 20]
-EPIPOLAR_THRESHOLDS = [0.5, 1, 2]
+EPIPOLAR_THRESHOLDS = [1]
 
 # ── Downsampling parameters ───────────────────────────────────────────────────
-DOWNSAMPLE_LEVELS = [0, 1, 2]
-INITIAL_SIGMAS    = [0, 1, 2, 3, 4]
+DOWNSAMPLE_LEVELS = [0]
+INITIAL_SIGMAS    = [0]
 
 apply_progressive_blur = False
 intrinsic_gaussian_blur_sigma = 0.5
@@ -72,6 +72,7 @@ downsample_interpolation_type = None
 # ── NMS ───────────────────────────────────────────────────────────────────────
 APPLY_NMS = False
 NMS_RADIUS = 1
+LOCK_ANGLE_TO_ZERO = False
 
 
 BASE_OUT = Path("KITTI/results") / RUN_NAME
@@ -151,6 +152,16 @@ for _m in MATCHERS:
 
 
 # ============================================================
+# KEYPOINT HELPERS
+# ============================================================
+
+def lock_angle_to_zero(kps: list) -> list:
+    for kp in kps:
+        kp.angle = 0.0
+    return kps
+
+
+# ============================================================
 # MAIN VO LOOP
 # ============================================================
 
@@ -192,6 +203,8 @@ def run_stereo_vo_multi(seq_root, extractor, downsample_level,
                 kps = sorted(kps, key=lambda x: x.response, reverse=True)
         if not kps:
             return [], None
+        if LOCK_ANGLE_TO_ZERO:
+            kps = lock_angle_to_zero(kps)
         kps, descs = extractor.compute(img, kps)
         if scale != 1:
             for kp in kps:

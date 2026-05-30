@@ -65,6 +65,8 @@ APPLY_PROGRESSIVE_BLUR        = [False]
 VISIBILITY_FILTERS   = [True, False]  # sweepable; True removes kps that project outside the other image
 ACTIVE_SEQUENCES     = (0, None)       # (start, stop) sequence indices; None for stop = run to end
 
+LOCK_ANGLE_TO_ZERO   = False
+
 RESULTS_FILE = f"mma_results/{RUN_NAME}.csv"
 os.makedirs("mma_results", exist_ok=True)
 
@@ -181,6 +183,12 @@ def _top_k_keypoints(kps, k):
     return [kps[i] for i in idx]
 
 
+def lock_angle_to_zero(kps: list) -> list:
+    for kp in kps:
+        kp.angle = 0.0
+    return kps
+
+
 def _difficulty_tags(rel_idx):
     """Return difficulty bucket names for a 0-based related-image index.
     HPatches rel_idx 0-4 → img2-6; img5 (rel_idx 3) falls in both normal and hard."""
@@ -253,6 +261,8 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                 dtype        = np.float32 if extractor.distance_type == cv2.NORM_L2 else np.uint8
                 kps_ref_base     = extractor.detect_keypoints(img_ref_ds)
                 kps_ref_base     = _top_k_keypoints(kps_ref_base, _max_k)
+                if LOCK_ANGLE_TO_ZERO:
+                    kps_ref_base = lock_angle_to_zero(kps_ref_base)
                 if kps_ref_base:
                     kps_ref_base, _dref = extractor.describe_keypoints(img_ref_ds, kps_ref_base)
                     descs_ref_np = np.array(_dref, dtype=dtype) if _dref else None
@@ -278,6 +288,8 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
                         # ── Detect + describe related image ────────────────────────────────
                         kps_rel_base     = extractor.detect_keypoints(img_rel_ds)
                         kps_rel_base     = _top_k_keypoints(kps_rel_base, _max_k)
+                        if LOCK_ANGLE_TO_ZERO:
+                            kps_rel_base = lock_angle_to_zero(kps_rel_base)
                         if kps_rel_base:
                             kps_rel_base, _drel = extractor.describe_keypoints(img_rel_ds, kps_rel_base)
                             descs_rel_np = np.array(_drel, dtype=dtype) if _drel else None
