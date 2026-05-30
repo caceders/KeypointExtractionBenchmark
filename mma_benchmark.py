@@ -1,5 +1,6 @@
 import warnings
 import traceback
+import threading
 import pandas as pd
 import os
 import numpy as np
@@ -69,6 +70,7 @@ LOCK_ANGLE_TO_ZERO   = False
 
 RESULTS_FILE = f"mma_results/{RUN_NAME}.csv"
 os.makedirs("mma_results", exist_ok=True)
+_csv_lock = threading.Lock()
 
 
 # ============================================================
@@ -523,7 +525,8 @@ for combo_key, extractor in tqdm(test_combinations.items(), desc="Methods", leav
 
             if rows:
                 df_out = pd.DataFrame(rows)
-                write_header = not os.path.isfile(RESULTS_FILE)
-                df_out.to_csv(RESULTS_FILE, index=False, header=write_header, mode="a")
+                with _csv_lock:
+                    write_header = not os.path.isfile(RESULTS_FILE)
+                    df_out.to_csv(RESULTS_FILE, index=False, header=write_header, mode="a")
 
 print("\nDone. Results written to", RESULTS_FILE)

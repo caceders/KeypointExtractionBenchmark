@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import cv2
+import threading
 from tqdm import tqdm
 from shi_tomasi_sift import ShiTomasiSift
 from pathlib import Path
@@ -80,6 +81,7 @@ CSV_PATH = BASE_OUT / "results.csv"
 TRAJ_DIR = BASE_OUT / "trajectories"
 BASE_OUT.mkdir(parents=True, exist_ok=True)
 TRAJ_DIR.mkdir(parents=True, exist_ok=True)
+_csv_lock = threading.Lock()
 
 
 # ============================================================
@@ -453,8 +455,9 @@ def main():
                         #print(f" method: {name} matcher: {matcher_name} bidirect: {bidirectional} ratio_thresh: {ratio_th} ate: {ate_strict} rpe: {rpe1_trans} pnp_inliers: {float(np.mean(stats["pnp_inliers"]))}")
 
                         df = pd.DataFrame(results, index=[0])
-                        write_header = not CSV_PATH.exists()
-                        df.to_csv(CSV_PATH, mode="a", header=write_header, index=False)
+                        with _csv_lock:
+                            write_header = not CSV_PATH.exists()
+                            df.to_csv(CSV_PATH, mode="a", header=write_header, index=False)
 
     print(f"Results saved to {CSV_PATH}")
 
