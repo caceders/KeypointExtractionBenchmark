@@ -20,7 +20,7 @@ HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
 RUN_NAME = "FINAL_baseline"
-RUN_TAG = "default"
+RUN_TAG = "default" #no_scale no_rotation no_scale_rotation
 
 SKIP_AT_ERROR = True
 
@@ -32,16 +32,16 @@ features2d = {
     # "AKAZE":     cv2.AKAZE_create(),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000),
     ## LOW THRESH
-    "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
-    "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
-    "BRISK":       cv2.BRISK_create(thresh = 1),
-    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
-    "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    # "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001),
+    # "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3),
+    # "BRISK":       cv2.BRISK_create(thresh = 1),
+    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
+    # "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
     ## NO/MINIMAL SCALE
-    #"SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001, nOctaveLayers = 1),
-    #"ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3, nlevels = 1),
-    #"BRISK":       cv2.BRISK_create(thresh = 1, octaves = 0),
-    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001, nOctaves = 1, nOctaveLayers = 1),
+    "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001, nOctaveLayers = 1),
+    "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3, nlevels = 1),
+    "BRISK":       cv2.BRISK_create(thresh = 1, octaves = 0),
+    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001, nOctaves = 1, nOctaveLayers = 1),
 }
 
 ONLY_SELF             = True
@@ -54,7 +54,7 @@ DISTANCE_THRESHOLDS = list(range(1, 21))
 # ── Matching parameters ───────────────────────────────────────────────────────
 MAX_KEYPOINTS    = [250,500,750,1000]
 MATCHERS         = ["NN", "MNN", "KEEM"]  # "NN", "MNN", "KEEM"
-RATIO_THRESHOLDS  = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]   # applied to NN and MNN; ignored for KEEM
+RATIO_THRESHOLDS  = [0.5, 0.6, 0.7, 0.8, 0.9, 1]   # applied to NN and MNN; ignored for KEEM
 MNN_BIDIRECTIONAL = [True, False]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS    = [0.25, 0.5, 1, 2, 3, 5, 10, 20]
 KEEM_SKIP_HOMOGRAPHY         = True   # skip findHomography for KEEM (saves time; sets homography_accuracy to "-")
@@ -68,7 +68,7 @@ DOWNSAMPLE_INTERPOLATION_TYPE = [None]
 INTRINSIC_SIGMA               = [0.5]
 APPLY_PROGRESSIVE_BLUR        = [False]
 
-VISIBILITY_FILTERS   = [True, False]  # sweepable; True removes kps that project outside the other image
+VISIBILITY_FILTERS   = [False]  # sweepable; True removes kps that project outside the other image
 ACTIVE_SEQUENCES     = (0, None)       # (start, stop) sequence indices; None for stop = run to end
 
 LOCK_ANGLE_TO_ZERO   = False
