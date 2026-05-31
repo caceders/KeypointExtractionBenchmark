@@ -140,6 +140,16 @@ class ShiTomasiSift():
         # Pre-compute subwindow center positions (fixed for all keypoints)
         self._subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
 
+        # Pre-compute gaussian weight windows (same for every keypoint)
+        ori_1d = gaussian(self.orientation_calculation_window_size, self.orientation_calculation_gaussian_weight_std)
+        self._orientation_gaussian_weight = np.outer(ori_1d, ori_1d).astype(np.float32)
+
+        if self.descriptor_gaussian_weight_std != -1:
+            desc_1d = gaussian(self.descriptor_window_buffer_size, self.descriptor_gaussian_weight_std)
+            self._descriptor_gaussian_weight = np.outer(desc_1d, desc_1d).astype(np.float32)
+        else:
+            self._descriptor_gaussian_weight = None
+
     def detect(self, img : NDArray,
                Ix : NDArray | None = None,
                Iy : NDArray | None = None
@@ -542,7 +552,7 @@ class ShiTomasiSift():
                                                         self.orientation_calculation_window_size,
                                                         "edge")
         
-        orientation_calculation_weighted_magnitude = weight_area_with_gaussian_window(orientation_calculation_area_magnitude, self.orientation_calculation_gaussian_weight_std)
+        orientation_calculation_weighted_magnitude = orientation_calculation_area_magnitude * self._orientation_gaussian_weight
         orientation_bins, orientation_histogram = self._calculate_histogram(orientation_calculation_area_angle,
                                                                             orientation_calculation_weighted_magnitude,
                                                                             self.orientation_calculation_bin_count,
@@ -705,10 +715,10 @@ class ShiTomasiSift():
                                             self.descriptor_window_buffer_size)
         
 
-        if (self.descriptor_gaussian_weight_std == -1):
+        if self._descriptor_gaussian_weight is None:
             description_weighted_magnitude = description_area_magnitude
         else:
-            description_weighted_magnitude = weight_area_with_gaussian_window(description_area_magnitude, self.descriptor_gaussian_weight_std)
+            description_weighted_magnitude = description_area_magnitude * self._descriptor_gaussian_weight
         
         # Rotate angles and coordinates
         rotated_description_area_angles = description_area_angle - kp_angle
