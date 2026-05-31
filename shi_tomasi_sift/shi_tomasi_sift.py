@@ -150,6 +150,13 @@ class ShiTomasiSift():
         else:
             self._descriptor_gaussian_weight = None
 
+        # Pre-compute the 6-times composed smoothing kernel (replaces 6 serial convolutions)
+        compound = self.histogram_smoothing_kernel.copy()
+        for _ in range(5):
+            compound = np.convolve(compound, self.histogram_smoothing_kernel)
+        self._compound_smoothing_kernel = compound
+        self._smoothing_pad = len(compound) // 2
+
     def detect(self, img : NDArray,
                Ix : NDArray | None = None,
                Iy : NDArray | None = None
@@ -467,12 +474,10 @@ class ShiTomasiSift():
 
         return bin_centers, hist
 
-    def _smooth_histogram_circular(self, hist, kernel, passes=6):
-        for _ in range(passes):
-            # Wrap-pad, convolve, unpad
-            padded = np.concatenate([hist[-2:], hist, hist[:2]])
-            hist = np.convolve(padded, kernel, mode='valid')
-        return hist
+    def _smooth_histogram_circular(self, hist):
+        pad = self._smoothing_pad
+        padded = np.concatenate([hist[-pad:], hist, hist[:pad]])
+        return np.convolve(padded, self._compound_smoothing_kernel, mode='valid')
 
     def _get_angles_from_histogram(self, values : NDArray, bins : NDArray) -> list[float] | None:
         '''
@@ -559,7 +564,7 @@ class ShiTomasiSift():
                                                                             0,
                                                                             360)
         if self.enable_histogram_smoothing:
-            smoothed_histogram = self._smooth_histogram_circular(orientation_histogram, self.histogram_smoothing_kernel)
+            smoothed_histogram = self._smooth_histogram_circular(orientation_histogram)
             kp_angles = self._get_angles_from_histogram(smoothed_histogram, orientation_bins)
             return kp_angles
         else:
@@ -778,6 +783,12 @@ def extract_area(matrix: NDArray, center: Tuple[int, int], size : int, border_ha
     ## Calculate start and end indexes
     x_start, y_start = center[0] - size//2, center[1] - size//2
     x_end, y_end = x_start + size, y_start + size
+
+    # Fast path: crop is fully within bounds — return a view directly
+    if (border_handling == "zero" and
+            x_start >= 0 and y_start >= 0 and
+            x_end <= matrix.shape[1] and y_end <= matrix.shape[0]):
+        return matrix[y_start:y_end, x_start:x_end]
 
 
     matrix_x_size, matrix_y_size = matrix.shape[1], matrix.shape[0]
