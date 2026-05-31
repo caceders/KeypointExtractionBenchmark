@@ -420,7 +420,8 @@ class ShiTomasiSift():
             w = w[mask]
 
         if not interpolated:
-            hist, _ = np.histogram(x, bins=num_bins, range=(start, stop), weights=w)
+            indices = (np.floor((x - start) / width)).astype(np.int32) % num_bins
+            hist = np.bincount(indices, weights=w, minlength=num_bins)
             return bin_centers, hist
 
         # ---------- Edge-based interpolation (original behavior) ----------
@@ -576,12 +577,13 @@ class ShiTomasiSift():
         x_rot = x_shifted * cos_a - y_shifted * sin_a
         y_rot = x_shifted * sin_a + y_shifted * cos_a
 
-        # Shift back
+        # Shift back and pack into (H, W, 2)
         x_rot += cx
         y_rot += cy
 
-        # Stack into (H, W, 2)
-        rotated_coordinates = np.dstack([x_rot, y_rot])
+        rotated_coordinates = np.empty((*x_rot.shape, 2), dtype=np.float32)
+        rotated_coordinates[..., 0] = x_rot
+        rotated_coordinates[..., 1] = y_rot
 
         return rotated_coordinates
     
@@ -608,40 +610,32 @@ class ShiTomasiSift():
         subwindow_center_positions: NDArray           # (K, K, 2)
     ) -> NDArray:
         """
-        Vectorized version:
-        Returns weights with shape (K, K, H, W), identical to the original function,
-        but computed via broadcasting (no Python loops).
+        Returns weights with shape (K, K, H, W).
+        Uses separable grid structure of subwindow centers: computes (H,W,K) x-weights
+        and (H,W,K) y-weights independently, then combines via outer product.
         """
         H, W, _ = rotated_coordinates.shape
         K = subwindow_center_positions.shape[0]
-        assert subwindow_center_positions.shape[1] == K, "Expected square (K, K, 2) centers"
 
-        # Ensure float32 (saves memory and is plenty precise here)
-        coords = rotated_coordinates.astype(np.float32, copy=False)  # (H, W, 2)
-        centers = subwindow_center_positions.astype(np.float32, copy=False)  # (K, K, 2)
+        coords  = rotated_coordinates.astype(np.float32, copy=False)
+        centers = subwindow_center_positions.astype(np.float32, copy=False)
 
-        # Flatten centers to (K*K, 2)
-        centers_flat = centers.reshape(-1, 2)  # (M, 2) where M = K*K
+        scale = np.float32(self.d_weight / self.descriptor_subwindow_size)
 
-        # Broadcast pixel coords against centers:
-        #   coords[..., None, :] has shape (H, W, 1, 2)
-        #   centers_flat[None, None, ...] has shape (1, 1, M, 2)
-        # Result dists: (H, W, M, 2)
-        d = np.abs(coords[..., None, :] - centers_flat[None, None, :, :])
+        # Unique centers along each axis (subwindow grid is separable)
+        cx = centers[0, :, 0]   # (K,) x-centers — same for every row j
+        cy = centers[:, 0, 1]   # (K,) y-centers — same for every col i
 
-        # Convert distances to per-axis weights and clip below 0
-        inv_size = 1.0 / float(self.descriptor_subwindow_size)
-        w = 1.0 - (d*self.d_weight) * inv_size                             # (H, W, M, 2)
-        np.maximum(w, 0.0, out=w)                          # clip negatives to 0 in-place
+        rot_x = coords[:, :, 0]  # (H, W)
+        rot_y = coords[:, :, 1]  # (H, W)
 
-        # Combine x and y contributions (axis=-1 is the (2,) axis)
-        # NOTE: Your original code multiplies the two axes, regardless of naming.
-        wxy = w[..., 0] * w[..., 1]                        # (H, W, M)
+        # (H, W, K) per-axis weights
+        wx = np.maximum(0.0, 1.0 - np.abs(rot_x[:, :, None] - cx[None, None, :]) * scale)
+        wy = np.maximum(0.0, 1.0 - np.abs(rot_y[:, :, None] - cy[None, None, :]) * scale)
 
-        # Reshape to (H, W, K, K) then transpose to (K, K, H, W) to match your original output
-        weights = wxy.reshape(H, W, K, K).transpose(2, 3, 0, 1)  # (K, K, H, W)
-
-        return weights
+        # Outer product over subwindow axes: weights[j, i, h, w] = wy[h,w,j] * wx[h,w,i]
+        weights = wy[:, :, :, None] * wx[:, :, None, :]   # (H, W, K_y, K_x)
+        return weights.transpose(2, 3, 0, 1)              # (K, K, H, W)
     
     def _create_new_keypoint(self, keypoint_or_center: cv2.KeyPoint | tuple, kp_angle) -> cv2.KeyPoint:
 
