@@ -1,8 +1,26 @@
 import warnings
 import traceback
-import threading
 import pandas as pd
 import os
+import time
+
+
+class FileLock:
+    """Cross-process advisory lock using an exclusive lock file."""
+    def __init__(self, path):
+        self._lock_path = str(path) + ".lock"
+
+    def __enter__(self):
+        while True:
+            try:
+                fd = os.open(self._lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.close(fd)
+                return self
+            except FileExistsError:
+                time.sleep(0.05)
+
+    def __exit__(self, *_):
+        os.unlink(self._lock_path)
 import numpy as np
 import cv2
 from tqdm import tqdm
@@ -19,8 +37,8 @@ from benchmark.feature_extractor import FeatureExtractor
 HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "FINAL_baseline"
-RUN_TAG = "default" #no_scale no_rotation no_scale_rotation
+RUN_NAME = "optimize_SHIFT"
+RUN_TAG = "run_5" #no_scale no_rotation no_scale_rotation
 
 SKIP_AT_ERROR = True
 
@@ -38,10 +56,11 @@ features2d = {
     # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
     # "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
     ## NO/MINIMAL SCALE
-    "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001, nOctaveLayers = 1),
-    "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3, nlevels = 1),
-    "BRISK":       cv2.BRISK_create(thresh = 1, octaves = 0),
-    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001, nOctaves = 1, nOctaveLayers = 1),
+    # "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001, nOctaveLayers = 1),
+    # "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3, nlevels = 1),
+    # "BRISK":       cv2.BRISK_create(thresh = 1, octaves = 0),
+    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001, nOctaves = 1, nOctaveLayers = 1),
+    "SHIFT" : ShiTomasiSift()
 }
 
 ONLY_SELF             = True
@@ -75,7 +94,7 @@ LOCK_ANGLE_TO_ZERO   = False
 
 RESULTS_FILE = f"mma_results/{RUN_NAME}.csv"
 os.makedirs("mma_results", exist_ok=True)
-_csv_lock = threading.Lock()
+_csv_lock = FileLock(RESULTS_FILE)
 
 
 # ============================================================

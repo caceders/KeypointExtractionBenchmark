@@ -1,12 +1,32 @@
 import pandas as pd
 import numpy as np
 import cv2
-import threading
+import os
+import time
 from tqdm import tqdm
 from shi_tomasi_sift import ShiTomasiSift
 from pathlib import Path
 from matchers import match_nn, match_mnn, match_keem, apply_ratio_uni, apply_ratio_fwd, apply_ratio_bi
 from benchmark.utils import downsample, optional_try, non_maximal_supression
+
+
+class FileLock:
+    """Cross-process advisory lock using an exclusive lock file."""
+    def __init__(self, path):
+        self._lock_path = str(path) + ".lock"
+
+    def __enter__(self):
+        while True:
+            try:
+                fd = os.open(self._lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.close(fd)
+                return self
+            except FileExistsError:
+                time.sleep(0.05)
+
+    def __exit__(self, *_):
+        os.unlink(self._lock_path)
+
 
 # ============================================================
 # CONFIGURATION
@@ -86,7 +106,7 @@ CSV_PATH = BASE_OUT / "results.csv"
 TRAJ_DIR = BASE_OUT / "trajectories"
 BASE_OUT.mkdir(parents=True, exist_ok=True)
 TRAJ_DIR.mkdir(parents=True, exist_ok=True)
-_csv_lock = threading.Lock()
+_csv_lock = FileLock(CSV_PATH)
 
 
 # ============================================================
