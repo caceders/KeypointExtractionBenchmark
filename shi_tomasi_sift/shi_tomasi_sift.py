@@ -616,36 +616,31 @@ class ShiTomasiSift():
     
     def _calculate_positional_weights_with_respect_to_subwindows(
         self,
-        rotated_coordinates: NDArray,                 # (H, W, 2) with order (x, y) packed in the last dimension in your code
+        rotated_coordinates: NDArray,                 # (H, W, 2)
         subwindow_center_positions: NDArray           # (K, K, 2)
     ) -> NDArray:
         """
-        Returns weights with shape (K, K, H, W).
-        Uses separable grid structure of subwindow centers: computes (H,W,K) x-weights
-        and (H,W,K) y-weights independently, then combines via outer product.
+        Returns (K*K, H*W) float32 weight matrix in C-contiguous layout,
+        ready for direct use as pos_w_flat in the descriptor matmul.
+        pos_w[j*K+i, hw] = wy[j, hw] * wx[i, hw]
         """
         H, W, _ = rotated_coordinates.shape
-        K = subwindow_center_positions.shape[0]
+        K       = subwindow_center_positions.shape[0]
+        scale   = np.float32(self.d_weight / self.descriptor_subwindow_size)
 
-        coords  = rotated_coordinates.astype(np.float32, copy=False)
         centers = subwindow_center_positions.astype(np.float32, copy=False)
+        cx = centers[0, :, 0]   # (K,) x-centers
+        cy = centers[:, 0, 1]   # (K,) y-centers
 
-        scale = np.float32(self.d_weight / self.descriptor_subwindow_size)
+        rot_x = rotated_coordinates[:, :, 0].ravel()  # (HW,)
+        rot_y = rotated_coordinates[:, :, 1].ravel()  # (HW,)
 
-        # Unique centers along each axis (subwindow grid is separable)
-        cx = centers[0, :, 0]   # (K,) x-centers — same for every row j
-        cy = centers[:, 0, 1]   # (K,) y-centers — same for every col i
+        # (K, HW) per-axis weights
+        wx = np.maximum(np.float32(0.0), np.float32(1.0) - np.abs(rot_x[None, :] - cx[:, None]) * scale)
+        wy = np.maximum(np.float32(0.0), np.float32(1.0) - np.abs(rot_y[None, :] - cy[:, None]) * scale)
 
-        rot_x = coords[:, :, 0]  # (H, W)
-        rot_y = coords[:, :, 1]  # (H, W)
-
-        # (H, W, K) per-axis weights
-        wx = np.maximum(0.0, 1.0 - np.abs(rot_x[:, :, None] - cx[None, None, :]) * scale)
-        wy = np.maximum(0.0, 1.0 - np.abs(rot_y[:, :, None] - cy[None, None, :]) * scale)
-
-        # Outer product over subwindow axes: weights[j, i, h, w] = wy[h,w,j] * wx[h,w,i]
-        weights = wy[:, :, :, None] * wx[:, :, None, :]   # (H, W, K_y, K_x)
-        return weights.transpose(2, 3, 0, 1)              # (K, K, H, W)
+        # C-contiguous (K*K, HW): wy[:, None, :] * wx[None, :, :] → (K, K, HW) → reshape
+        return (wy[:, None, :] * wx[None, :, :]).reshape(K * K, H * W)
     
     def _create_new_keypoint(self, keypoint_or_center: cv2.KeyPoint | tuple, kp_angle) -> cv2.KeyPoint:
 
@@ -751,12 +746,9 @@ class ShiTomasiSift():
             all_hists   = (circ_w_flat * mag_flat[None, :]) @ contrib
             descriptor  = all_hists.flatten()
         else:
-            num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
-            positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(
-                rotated_coordinates, self._subwindow_positions)
-            K = num_subwindows_along_axis
-            # (K*K, n_pixels) weighted by magnitude, then matmul → (K*K, num_bins)
-            pos_w_flat = positional_weights.reshape(K * K, n_pixels).astype(np.float32)
+            K          = self.descriptor_window_size // self.descriptor_subwindow_size
+            pos_w_flat = self._calculate_positional_weights_with_respect_to_subwindows(
+                rotated_coordinates, self._subwindow_positions)  # (K*K, n_pixels) float32
             all_hists  = (pos_w_flat * mag_flat[None, :]) @ contrib
             descriptor = all_hists.reshape(K, K, num_bins).flatten()
 
