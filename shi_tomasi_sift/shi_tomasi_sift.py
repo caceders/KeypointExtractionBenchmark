@@ -137,6 +137,9 @@ class ShiTomasiSift():
         # Pre-compute circular ring weights (n_rings, N, N)
         self.circular_weights = self._calculate_circular_weights()
 
+        # Pre-compute subwindow center positions (fixed for all keypoints)
+        self._subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
+
     def detect(self, img : NDArray,
                Ix : NDArray | None = None,
                Iy : NDArray | None = None
@@ -323,14 +326,9 @@ class ShiTomasiSift():
         if self.response_type == "sftt":
             response = 0.5 * (A + C) - 0.5 * (np.abs(A - C) + 2 * np.abs(B))
         else:
-            ## From copilot ##
-            M = np.zeros(A.shape + (2, 2))
-            M[..., 0, 0] = A
-            M[..., 0, 1] = B
-            M[..., 1, 0] = B
-            M[..., 1, 1] = C
-            response = np.linalg.eigvalsh(M)[..., 0]
-            #################
+            half_trace = (A + C) * 0.5
+            half_diff  = (A - C) * 0.5
+            response   = half_trace - np.sqrt(half_diff * half_diff + B * B)
         return response
 
 
@@ -723,56 +721,47 @@ class ShiTomasiSift():
         rotated_description_area_angles %= 360
         rotated_coordinates = self._rotate_coordinates_around_center(-kp_angle)
 
+        # Build angle→bin contribution matrix once, shared by all cells/rings
+        num_bins = self.descriptor_bin_count
+        width    = 360.0 / num_bins
+        n_pixels = rotated_description_area_angles.size
+        px_idx   = np.arange(n_pixels, dtype=np.int32)
+
+        angles_flat = rotated_description_area_angles.ravel().astype(np.float32)
+        v    = angles_flat / width
+        low  = np.floor(v).astype(np.int32) % num_bins
+        high = np.ceil(v).astype(np.int32)  % num_bins
+        frac        = (v - low).astype(np.float32)
+        low_weight  = 1.0 - frac
+        high_weight = frac
+
+        contrib = np.zeros((n_pixels, num_bins), dtype=np.float32)
+        contrib[px_idx, low]   = low_weight
+        contrib[px_idx, high] += high_weight
+
+        mag_flat = description_weighted_magnitude.ravel().astype(np.float32)
+
         if self.use_circular_descriptor:
-            # Circular/ring descriptor: each ring is one "cell"
-            # Shape: (n_rings, descriptor_bin_count) — same 128 dims as 4×4×8 by default
-            descriptor = np.zeros((self.n_rings, self.descriptor_bin_count), dtype=np.float64)
-
-            for ring_index in range(self.n_rings):
-                total_weights = description_weighted_magnitude * self.circular_weights[ring_index]
-                _, values = self._calculate_histogram(rotated_description_area_angles,
-                                                    total_weights,
-                                                    self.descriptor_bin_count,
-                                                    0,
-                                                    360,
-                                                    True)
-                descriptor[ring_index] = values
-            descriptor = descriptor.flatten()
-            descriptor = descriptor / np.linalg.norm(descriptor)
-            descriptor[descriptor > 0.2] = 0.2
-            descriptor = descriptor / np.linalg.norm(descriptor)
-            
-            new_keypoint = self._create_new_keypoint(keypoint_or_center, kp_angle)
-            return (new_keypoint, descriptor)
-
+            # (n_rings, n_pixels) weighted by magnitude, then matmul → (n_rings, num_bins)
+            circ_w_flat = self.circular_weights.reshape(self.n_rings, n_pixels)
+            all_hists   = (circ_w_flat * mag_flat[None, :]) @ contrib
+            descriptor  = all_hists.flatten()
         else:
-            # Original stacked subwindow descriptor
             num_subwindows_along_axis = self.descriptor_window_size // self.descriptor_subwindow_size
+            positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(
+                rotated_coordinates, self._subwindow_positions)
+            K = num_subwindows_along_axis
+            # (K*K, n_pixels) weighted by magnitude, then matmul → (K*K, num_bins)
+            pos_w_flat = positional_weights.reshape(K * K, n_pixels).astype(np.float32)
+            all_hists  = (pos_w_flat * mag_flat[None, :]) @ contrib
+            descriptor = all_hists.reshape(K, K, num_bins).flatten()
 
-            subwindow_positions = self._calculate_descriptor_subwindow_center_positions()
+        descriptor = descriptor / np.linalg.norm(descriptor)
+        descriptor[descriptor > 0.2] = 0.2
+        descriptor = descriptor / np.linalg.norm(descriptor)
 
-            descriptor = np.ndarray((num_subwindows_along_axis, num_subwindows_along_axis, self.descriptor_bin_count))
-
-            positional_weights = self._calculate_positional_weights_with_respect_to_subwindows(rotated_coordinates, subwindow_positions)
-
-            for y_index in range(positional_weights.shape[0]):
-                for x_index in range(positional_weights.shape[0]):
-                    total_weights = description_weighted_magnitude * positional_weights[y_index, x_index]
-                    _, values = self._calculate_histogram(rotated_description_area_angles,
-                                                        total_weights,
-                                                        self.descriptor_bin_count,
-                                                        0,
-                                                        360,
-                                                        True)
-                    descriptor[y_index, x_index] = values
-
-            descriptor = descriptor.flatten()
-            descriptor = descriptor / np.linalg.norm(descriptor)
-            descriptor[descriptor > 0.2] = 0.2
-            descriptor = descriptor / np.linalg.norm(descriptor)
-            
-            new_keypoint = self._create_new_keypoint(keypoint_or_center, kp_angle)
-            return (new_keypoint, descriptor)
+        new_keypoint = self._create_new_keypoint(keypoint_or_center, kp_angle)
+        return (new_keypoint, descriptor)
         
     # endregion
 
