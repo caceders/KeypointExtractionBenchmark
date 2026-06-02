@@ -126,7 +126,7 @@ for det_key in features2d:
         dist = cv2.NORM_HAMMING if isinstance(features2d[desc_key], _binary_types) else cv2.NORM_L2
         test_combinations[f"{det_key}+{desc_key}"] = FeatureExtractor.from_opencv(
             features2d[det_key].detect,
-            featu]res2d[desc_key].compute,
+            features2d[desc_key].compute,
             dist,
         )
 
