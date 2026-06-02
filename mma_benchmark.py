@@ -16,7 +16,7 @@ class FileLock:
                 fd = os.open(self._lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                 os.close(fd)
                 return self
-            except FileExistsError:
+            except (FileExistsError, PermissionError):
                 time.sleep(0.05)
 
     def __exit__(self, *_):
@@ -37,8 +37,8 @@ from benchmark.feature_extractor import FeatureExtractor
 HPATCHES_PATH = r"hpatches-sequences-release"
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "optimize_SHIFT"
-RUN_TAG = "run_5" #no_scale no_rotation no_scale_rotation
+RUN_NAME = "FINAL_baseline_SHIFT"
+RUN_TAG = "default" #no_scale no_rotation no_scale_rotation
 
 SKIP_AT_ERROR = True
 
@@ -55,12 +55,17 @@ features2d = {
     # "BRISK":       cv2.BRISK_create(thresh = 1),
     # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001),
     # "GFTT":        cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    "SHIFT" : ShiTomasiSift(),
     ## NO/MINIMAL SCALE
     # "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001, nOctaveLayers = 1),
     # "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3, nlevels = 1),
     # "BRISK":       cv2.BRISK_create(thresh = 1, octaves = 0),
     # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001, nOctaves = 1, nOctaveLayers = 1),
-    "SHIFT" : ShiTomasiSift()
+    "SHIFT" : ShiTomasiSift(num_octaves_in_scale_pyramid = 1),
+    # NO ROTATION
+    "SHIFT" : ShiTomasiSift(calculate_orientation_for_keypoints=False),
+    # NO SCALE ROTATION
+    "SHIFT" : ShiTomasiSift(num_octaves_in_scale_pyramid = 1, calculate_orientation_for_keypoints=False),
 }
 
 ONLY_SELF             = True
@@ -121,7 +126,7 @@ for det_key in features2d:
         dist = cv2.NORM_HAMMING if isinstance(features2d[desc_key], _binary_types) else cv2.NORM_L2
         test_combinations[f"{det_key}+{desc_key}"] = FeatureExtractor.from_opencv(
             features2d[det_key].detect,
-            features2d[desc_key].compute,
+            featu]res2d[desc_key].compute,
             dist,
         )
 

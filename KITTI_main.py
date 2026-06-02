@@ -21,7 +21,7 @@ class FileLock:
                 fd = os.open(self._lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                 os.close(fd)
                 return self
-            except FileExistsError:
+            except (FileExistsError, PermissionError):
                 time.sleep(0.05)
 
     def __exit__(self, *_):
@@ -38,7 +38,7 @@ DATA_ROOT = "./KITTI/data_odometry_gray/dataset"
 SEQUENCE = "00" 
 
 # ── Run tag ───────────────────────────────────────────────────────────────────
-RUN_NAME = "FINAL_baseline"
+RUN_NAME = "FINAL_baseline_SHIFT"
 RUN_TAG = "default" #no_scale no_rotation no_scale_rotation
 
 skip_at_error = True
@@ -56,11 +56,17 @@ features2d = {
     # "BRISK":     cv2.BRISK_create(thresh = 1),
     # "AKAZE":     cv2.AKAZE_create(threshold=0.000000001),
     # "GFTT":      cv2.GFTTDetector_create(maxCorners=5000, qualityLevel = 0.0002),
+    "SHIFT" : ShiTomasiSift(),
     ## NO/MINIMAL SCALE
-    "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001, nOctaveLayers = 1),
-    "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3, nlevels = 1),
-    "BRISK":       cv2.BRISK_create(thresh = 1, octaves = 0),
-    "AKAZE":       cv2.AKAZE_create(threshold=0.000000001, nOctaves = 1, nOctaveLayers = 1),
+    # "SIFT":        cv2.SIFT_create(contrastThreshold = 0.0001, nOctaveLayers = 1),
+    # "ORB":         cv2.ORB_create(nfeatures=5000, edgeThreshold = 1, fastThreshold = 3, nlevels = 1),
+    # "BRISK":       cv2.BRISK_create(thresh = 1, octaves = 0),
+    # "AKAZE":       cv2.AKAZE_create(threshold=0.000000001, nOctaves = 1, nOctaveLayers = 1),
+    "SHIFT" : ShiTomasiSift(num_octaves_in_scale_pyramid = 1),
+    # NO ROTATION
+    "SHIFT" : ShiTomasiSift(calculate_orientation_for_keypoints=False),
+    # NO SCALE ROTATION
+    "SHIFT" : ShiTomasiSift(num_octaves_in_scale_pyramid = 1, calculate_orientation_for_keypoints=False),
 }
 
 ONLY_SELF             = True
@@ -82,7 +88,7 @@ ACTIVE_FRAMES = (0, 1000)   # empty for full sequence
 MAX_KEYPOINTS    = [250,500,750,1000]
 MATCHERS         = ["MNN", "NN"]   # "NN", "MNN"
 RATIO_THRESHOLDS  = [0.5, 0.6, 0.7, 0.8, 0.9, 1]   # applied to NN and MNN; ignored for KEEM
-MNN_BIDIRECTIONAL = [True]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
+MNN_BIDIRECTIONAL = [False, True]  # True: bidirectional ratio test for MNN; False: unidirectional (same as NN)
 RANSAC_THRESHOLDS   = [0.25, 0.5, 1, 2, 3, 5, 10, 20]
 EPIPOLAR_THRESHOLDS = [1]
 

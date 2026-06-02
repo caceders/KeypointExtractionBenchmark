@@ -26,11 +26,11 @@ class ShiTomasiSift():
     def __init__(self,
                  derivation_operator : str = "simple", #"simple", "sobel", "prewitt", "scharr"
                  structure_tensor_window : NDArray | None = None, #Sjekk for ulike størrelser
-                 response_type : str = "normal", # "sftt", "normal
+                 response_type : str = "sftt", # "sftt", "normal
                  use_previous_max_when_calculating_threshold : bool = False,
                  first_max_value_when_previous_max_is_used : int = 80000,
-                 quality_level : float = 0.01,
-                 max_corners : int = 1000,
+                 quality_level : float = 0.001,
+                 max_corners : int = 5000,
                  perform_non_maxima_supression : bool = True,
                  use_descriptor_window_buffer_as_orientation_calculation_window_size : bool = False,
                  orientation_calculation_window_radius : int = 13, # ceil(sqrt(2) * (8*2 + 1)/2)
