@@ -399,14 +399,32 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
     if is_derived:
         dfs[y] = y_raw(dfs)
 
+    # ── AUC suffix for labels (from any select spec with fn="auc") ─────────────
+    auc_suffix = ""
+    for _col, _spec in select.items():
+        if isinstance(_spec, dict) and _spec.get("fn") == "auc":
+            _vals = _spec.get("values")
+            if _vals is not None and len(_vals) > 0:
+                try:
+                    _max = max(float(v) for v in _vals)
+                    _max_str = str(int(_max)) if _max == int(_max) else f"{_max:g}"
+                except (TypeError, ValueError):
+                    _max_str = str(max(_vals))
+                _unit = (units.get(_col, "") if units else "")
+                auc_suffix = f" AUC({_max_str}{_unit})"
+                break
+
     # ── Auto-generate labels (all overridable) ────────────────────────────────
     def _ylabel_default():
         base = _lambda_label(y_raw) if is_derived else y.replace("_", " ")
         if units and y in units:
             base += f" ({units[y]})"
-        return base
+        return base + auc_suffix
 
-    title   = cfg.get("title",   _auto_title(cfg))
+    _base_title = _auto_title(cfg)
+    if auc_suffix:
+        _base_title = _base_title.replace(" vs ", f"{auc_suffix} vs ", 1)
+    title   = cfg.get("title",   _base_title)
     x_label = cfg.get("x_label", _cols_label(x_cols, units) if x_cols else (_cols_label(lines_cols, units) if lines_cols else ""))
     y_label = cfg.get("y_label", _ylabel_default())
 
@@ -429,7 +447,8 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
     nrows    = (n_panels + ncols - 1) // ncols
     fig, axes = plt.subplots(nrows, ncols,
                               figsize=(7 * ncols, 5 * nrows),
-                              dpi=FIG_DPI, squeeze=False)
+                              dpi=FIG_DPI, squeeze=False,
+                              layout="constrained")
     set_fig_title(fig, title)
     fig.suptitle(title, fontweight="bold")
 
@@ -547,6 +566,16 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
         r, c = divmod(extra, ncols)
         axes[r][c].set_visible(False)
 
+    # ── Shared Y range across panels ───────────────────────────────────────────
+    if n_panels > 1 and not bar_mode:
+        visible_axes = [axes[r][c] for r in range(nrows) for c in range(ncols)
+                        if r * ncols + c < n_panels]
+        all_ylims = [ax.get_ylim() for ax in visible_axes]
+        g_ymin = min(yl[0] for yl in all_ylims)
+        g_ymax = max(yl[1] for yl in all_ylims)
+        for ax in visible_axes:
+            ax.set_ylim(g_ymin, g_ymax)
+
     # ── Legend ────────────────────────────────────────────────────────────────
     if not bar_mode:
         present = {v: arts for v, arts in line_artists.items() if arts}
@@ -564,8 +593,6 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
             lined = {legline: arts
                      for legline, arts in zip(leg.get_lines(), present.values())}
             make_interactive_legend(fig, leg, lined)
-
-    plt.tight_layout()
 
 
 def run_display(csv_path, plots, units=None):
