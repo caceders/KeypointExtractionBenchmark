@@ -5,23 +5,31 @@ from display_common import run_display
 # ============================================================
 CSV_PATH = "shared_results/KITTI/FINAL_baseline_complete/results.csv"
 
+UNITS = {
+    "Gaussian blur": "σ",
+    "RANSAC threshold": "px",
+    "ATE": "m",
+    "RPE - translational": "m",
+    "RPE - rotational": "°",
+}
+
 PLOTS = [
     {
-        "y":    "RPEtrans",
-        "x":    ["ratio"],
-        "lines":    ["method"],
-        "subplots" : "matcher",
+        "y":    "RPE - translational",
+        "x":    "Ratio test threshold",
+        "lines":    ["Method"],
+        "subplots" : "Matching algorithm",
         "select": {
-            # "method" : ,
-            # "tag" : ,
-            # "matcher" : ,
-            # "ratio threshold" : ,
-            # "bidirectional ratio test" : ,
-            # "ransac threshold" : , 
-            # "epipolar threshold" : ,
-            # "downsample level" : ,
-            # "initial sigma" : ,
-            # "max keypoints" : ,
+            # "Method" : ,
+            "Invariance configuration" : "Both",
+            # "Matching algorithm" : ,
+            # "Ratio test threshold" : ,
+            # "Ratio test directionality" : ,
+            "RANSAC threshold" : 3,
+            "Epipolar threshold" : 1,
+            # "Downsample level" : ,
+            # "Gaussian blur" : ,
+            # "Max features" : ,
         },
     },
 ]
@@ -32,7 +40,7 @@ PLOTS = [
 # ── Axes ──────────────────────────────────────────────────────────────────────
 #   x        — CSV column(s) for the x-axis (str or list of str)
 #   y        — CSV column name (str) OR a lambda df -> Series for derived metrics:
-#                  lambda df: df["RPE1_trans_RMSE"] + df["RPE1_rot_RMSE"]
+#                  lambda df: df["RPE - translational"] + df["RPE - rotational"]
 #              Set y_label when using a lambda (default label is "derived").
 #   y_label  — override the y-axis label (optional)
 #   lines    — CSV column(s) whose unique values become separate lines (omit → bar chart)
@@ -48,19 +56,20 @@ PLOTS = [
 #              fn options: "auc" (= mean) | "mean" | "std" | "min" | "max"
 #
 # ── CSV column reference ──────────────────────────────────────────────────────
-#   Identity:    method, tag, sequence, downsample_level, initial_sigma,
-#                intrinsic_sigma, max_keypoints, matcher, ratio_threshold,
-#                ransac_threshold, epipolar_threshold
-#   Trajectory:  ATE_RMSE_STRICT, ATE_RMSE_ALIGNED,
-#                RPE1_trans_RMSE,  RPE1_rot_RMSE,  RPE1_trans_std,  RPE1_rot_std,
-#                RPE10_trans_RMSE, RPE10_rot_RMSE, RPE10_trans_std, RPE10_rot_std,
-#                RPE1_trans_max,   RPE1_rot_max,   RPE10_trans_max, RPE10_rot_max
-#   Counts:      avg_num_keypoints_detected, avg_num_keypoints,
-#                avg_num_temporal_matches, avg_num_stereo_matches,
-#                avg_num_triangulated_matches, avg_num_PnP_inliers, failures
+#   Identity:    Method, Invariance configuration, Active frames, Matching algorithm,
+#                Ratio test threshold, Ratio test directionality, RANSAC threshold,
+#                Epipolar threshold, Downsample level, Gaussian blur, Max features
+#   Trajectory:  ATE, ATE RMSE ALIGNED,
+#                RPE - translational, RPE - rotational,
+#                RPE1 trans std, RPE1 rot std,
+#                RPE10 trans RMSE, RPE10 rot RMSE, RPE10 trans std, RPE10 rot std,
+#                RPE1 trans max, RPE1 rot max, RPE10 trans max, RPE10 rot max
+#   Counts:      Average number of features, Avg num temporal matches,
+#                Avg num stereo matches, Avg num triangulated matches,
+#                Avg num PnP inliers, Failures
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ============================================================
 # RUN
 # ============================================================
-run_display(CSV_PATH, PLOTS)
+run_display(CSV_PATH, PLOTS, units=UNITS)

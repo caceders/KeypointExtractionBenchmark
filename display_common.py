@@ -174,8 +174,14 @@ def _tick_label(val):
     return "" if val == "-" else str(val)
 
 
-def _cols_label(cols):
-    return " / ".join(c.replace("_", " ") for c in cols)
+def _cols_label(cols, units=None):
+    parts = []
+    for c in cols:
+        label = c.replace("_", " ")
+        if units and c in units:
+            label += f" ({units[c]})"
+        parts.append(label)
+    return " / ".join(parts)
 
 
 _LINESTYLES = ["-", "--", "-.", ":"]
@@ -355,7 +361,7 @@ def _collapse(df, y_col, agg_steps):
     return _collapse(pd.DataFrame(results), y_col, agg_steps[1:])
 
 
-def make_plot(cfg, df, combo_color, tag_color):
+def make_plot(cfg, df, combo_color, tag_color, units=None):
     x_cols       = _as_cols(cfg.get("x"))
     lines_cols   = _as_cols(cfg.get("lines"))
     bar_mode     = lines_cols is None
@@ -394,9 +400,15 @@ def make_plot(cfg, df, combo_color, tag_color):
         dfs[y] = y_raw(dfs)
 
     # ── Auto-generate labels (all overridable) ────────────────────────────────
+    def _ylabel_default():
+        base = _lambda_label(y_raw) if is_derived else y.replace("_", " ")
+        if units and y in units:
+            base += f" ({units[y]})"
+        return base
+
     title   = cfg.get("title",   _auto_title(cfg))
-    x_label = cfg.get("x_label", _cols_label(x_cols) if x_cols else (_cols_label(lines_cols) if lines_cols else ""))
-    y_label = cfg.get("y_label", _lambda_label(y_raw) if is_derived else y.replace("_", " "))
+    x_label = cfg.get("x_label", _cols_label(x_cols, units) if x_cols else (_cols_label(lines_cols, units) if lines_cols else ""))
+    y_label = cfg.get("y_label", _ylabel_default())
 
     if dfs.empty:
         print(f"[{title}] No data after filter — skipping plot.")
@@ -545,7 +557,7 @@ def make_plot(cfg, df, combo_color, tag_color):
                 proxy_lines, labels,
                 loc="outside right upper",
                 fontsize=8,
-                title=_cols_label(lines_cols) if lines_cols else "",
+                title=_cols_label(lines_cols, units) if lines_cols else "",
                 title_fontsize=9,
                 framealpha=0.9,
             )
@@ -556,19 +568,22 @@ def make_plot(cfg, df, combo_color, tag_color):
     plt.tight_layout()
 
 
-def run_display(csv_path, plots):
+def run_display(csv_path, plots, units=None):
     df = pd.read_csv(csv_path, na_values=[], keep_default_na=False)
-    df["method"] = df["method"].astype(str).str.strip()
-    if "tag" not in df.columns:
-        df["tag"] = df["method"]
+    method_col = "Method" if "Method" in df.columns else "method"
+    df[method_col] = df[method_col].astype(str).str.strip()
+    if "tag" not in df.columns and "Invariance configuration" not in df.columns:
+        df[method_col] = df[method_col]
 
-    all_combos  = list(df["method"].unique())
+    all_combos  = list(df[method_col].unique())
     combo_color = dict(zip(all_combos, _distinct_colors(len(all_combos))))
 
-    all_tags  = list(df["tag"].unique())
+    tag_col = next((c for c in df.columns if c in ("tag", "Invariance configuration",
+                                                     "Keypoint response threshold")), None)
+    all_tags  = list(df[tag_col].unique()) if tag_col else []
     tag_color = dict(zip(all_tags, _distinct_colors(len(all_tags))))
 
     for cfg in plots:
-        make_plot(cfg, df, combo_color, tag_color)
+        make_plot(cfg, df, combo_color, tag_color, units=units)
 
     plt.show()

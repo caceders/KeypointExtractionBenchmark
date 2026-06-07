@@ -6,24 +6,29 @@ from display_common import run_display
 # ============================================================
 CSV_PATH = "shared_results/modern/FINAL_baseline_complete.csv"
 
+UNITS = {
+    "Distance error threshold": "px",
+    "Gaussian blur": "σ",
+}
+
 PLOTS = [
     {
         "y":        "mHA",
-        "x":        "error acceptance threshold",
-        "lines" : ["method", "tag"],
-        "subplots" : "matcher",
+        "x":        "Distance error threshold",
+        "lines" : ["Method", "Invariance configuration"],
+        "subplots" : "Matching algorithm",
         "select": {
-            # "method" : ,
-            # "tag" : ,
-            # "matcher" : ,
-            # "ratio threshold" : ,
-            # "bidirectional ratio test" : ,
-            # "ransac threshold" : , 
-            "visibility filter" : False,
-            # "downsample level" : ,
-            # "initial sigma" : ,
-            # "max keypoints" : ,
-            "error acceptance threshold" : np.arange(0,10),
+            # "Method" : ,
+            # "Invariance configuration" : ,
+            # "Matching algorithm" : ,
+            # "Ratio test threshold" : ,
+            # "Ratio test directionality" : ,
+            # "RANSAC threshold" : ,
+            "Visibility filter" : False,
+            # "Downsample level" : ,
+            # "Gaussian blur" : ,
+            # "Max features" : ,
+            "Distance error threshold" : np.arange(0,10),
         },
     },
 ]
@@ -34,8 +39,8 @@ PLOTS = [
 # ── Axes ──────────────────────────────────────────────────────────────────────
 #   x        — CSV column(s) for the x-axis (str or list of str)
 #   y        — CSV column name (str) OR a lambda df -> Series for derived metrics:
-#                  lambda df: df["mMA"] * df["repeatability"]
-#                  lambda df: (df["mMA_kp_ref"] + df["mMA"]) / 2
+#                  lambda df: df["mMA"] * df["Repeatability"]
+#                  lambda df: (df["mMA kp ref"] + df["mMA"]) / 2
 #              Set y_label when using a lambda (default label is "derived").
 #   y_label  — override the y-axis label (optional)
 #   lines    — CSV column(s) whose unique values become separate lines (omit → bar chart)
@@ -51,17 +56,15 @@ PLOTS = [
 #              fn options: "auc" (= mean) | "mean" | "std" | "min" | "max"
 #
 # ── CSV column reference ──────────────────────────────────────────────────────
-#   Identity:    method, tag, matcher, ratio_threshold, ransac_threshold,
-#                max_keypoints, downsample_level, initial_sigma, intrinsic_sigma,
-#                apply_progressive_blur, visibility_filter
-#   Grouping:    transformation, distance_threshold
-#   Metrics:     mMA_kp_ref, mMA, repeatability, homography_accuracy, mAP
-#   Counts:      avg_num_keypoints, avg_num_keypoints_detected,
-#                num_keypoints_ref_detected, num_keypoints_rel_detected,
-#                avg_num_matches, num_keypoints_ref, num_keypoints_rel
+#   Identity:    Method, Invariance configuration, Matching algorithm,
+#                Ratio test threshold, Ratio test directionality, RANSAC threshold,
+#                Max features, Downsample level, Gaussian blur, Visibility filter
+#   Grouping:    Image transformation type, Distance error threshold
+#   Metrics:     mMA kp ref, mMA, Repeatability, mHA, mAP
+#   Counts:      Average number of features, Avg num matches
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ============================================================
 # RUN
 # ============================================================
-run_display(CSV_PATH, PLOTS)
+run_display(CSV_PATH, PLOTS, units=UNITS)
