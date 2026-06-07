@@ -13,26 +13,28 @@ UNITS = {
     "RPE - rotational": "°",
 }
 
+
 PLOTS = [
     {
-        "y":    "RPE - translational",
-        "x":    "Ratio test threshold",
-        "lines":    ["Method"],
-        "subplots" : "Matching algorithm",
+        "y":        "RPE - translational",
+        "x":        "Method",
+        #"lines" : "Method",
+        #"subplots" : "Downsample level",
         "select": {
-            # "Method" : ,
+            "Method" : ["SHIFT", "SIFT", "ORB", "BRISK", "AKAZE"],
             "Invariance configuration" : "Both",
-            # "Matching algorithm" : ,
-            # "Ratio test threshold" : ,
-            # "Ratio test directionality" : ,
+            "Matching algorithm" : "MNN",
+            "Ratio test threshold" : 1,
+            "Ratio test directionality" : "Unidirectional",
             "RANSAC threshold" : 3,
+            "Downsample level" : 0,
+            "Gaussian blur" : 0,
+            "Max features" : 1000,
             "Epipolar threshold" : 1,
-            # "Downsample level" : ,
-            # "Gaussian blur" : ,
-            # "Max features" : ,
         },
     },
 ]
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # PLOTS — each entry produces one matplotlib figure.
