@@ -508,8 +508,11 @@ def make_plot(cfg, df, combo_color, tag_color):
                         yv = float(pd.to_numeric(group_df[y], errors="coerce").mean())
                     y_vals.append(yv)
 
+                _x_has_str = any(isinstance(v, str) for v in x_vals)
+                _x_has_num = any(not isinstance(v, (str, tuple)) for v in x_vals)
+                _x_mixed   = _x_has_str and _x_has_num
                 line_obj, = ax.plot(
-                    [_fmt_val(v) if isinstance(v, tuple) else v for v in x_vals],
+                    [_fmt_val(v) if isinstance(v, tuple) else (str(v) if _x_mixed else v) for v in x_vals],
                     y_vals,
                     color=line_color.get(line_val),
                     linestyle=line_style[line_val],

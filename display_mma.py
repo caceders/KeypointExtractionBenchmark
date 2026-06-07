@@ -4,70 +4,28 @@ from display_common import run_display
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "shared_results\modern\pre_baseline_test.csv"
+CSV_PATH = "shared_results/modern/FINAL_baseline_complete.csv"
 
 PLOTS = [
-
     {
-        "y":        "mAP",
-        "x":        "ransac_threshold",
-        "lines":    ["method", "visibility_filter"],
+        "y":        "mHA",
+        "x":        "error acceptance threshold",
+        "lines" : ["method", "tag"],
+        "subplots" : "matcher",
         "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "distance_threshold" : {"values" : np.arange(0,10), "fn" : "auc"},
-            "ratio_threshold" : 0.8,
-            "tag" : "low_threshold",
-            
+            # "method" : ,
+            # "tag" : ,
+            # "matcher" : ,
+            # "ratio threshold" : ,
+            # "bidirectional ratio test" : ,
+            # "ransac threshold" : , 
+            "visibility filter" : False,
+            # "downsample level" : ,
+            # "initial sigma" : ,
+            # "max keypoints" : ,
+            "error acceptance threshold" : np.arange(0,10),
         },
     },
-    {
-        "y":        "mMA",
-        "x":        "ransac_threshold",
-        "lines":    ["method", "visibility_filter"],
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "distance_threshold" : {"values" : np.arange(0,10), "fn" : "auc"},
-            "ratio_threshold" : 0.8,
-            "tag" : "low_threshold",
-
-            
-        },
-    },
-    {
-        "y":        "homography_accuracy",
-        "x":        "ransac_threshold",
-        "lines":    ["method", "visibility_filter"],
-        "subplots": "ratio_threshold",
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "distance_threshold" : {"values" : np.arange(0,4), "fn" : "auc"},
-            "matcher" : "NN",
-            "tag" : "low_threshold",
-        },
-    },
-    {
-        "y":        "homography_accuracy",
-        "x":        "ransac_threshold",
-        "lines":    ["method", "visibility_filter"],
-        "subplots": "ratio_threshold",
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "distance_threshold" : {"values" : np.arange(0,4), "fn" : "auc"},
-            "matcher" : "MNN",
-            "tag" : "low_threshold",
-        },
-    },
-    {
-        "y":        "homography_accuracy",
-        "x":        ["visibility_filter"],
-        "lines":    ["method"],
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "distance_threshold" : {"values" : np.arange(0,4), "fn" : "auc"},
-            "tag" : "low_threshold",
-        },
-    },
-
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────

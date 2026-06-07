@@ -3,124 +3,25 @@ from display_common import run_display
 # ============================================================
 # CONFIG
 # ============================================================
-CSV_PATH = "shared_results/KITTI/pre_baseline_test/results.csv"
+CSV_PATH = "shared_results/KITTI/FINAL_baseline_complete/results.csv"
 
 PLOTS = [
     {
-        "y":        "RPE1_trans_RMSE",
-        "x":        ["ransac_threshold"],
-        "lines":    ["method", "tag", "max_keypoints"], 
-        "subplots":   "matcher",
+        "y":    "RPEtrans",
+        "x":    ["ratio"],
+        "lines":    ["method"],
+        "subplots" : "matcher",
         "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "mnn_bidirectional" : {"values" : [True, "-"]},
-            "ratio_threshold" : 1,
-            # "max_keypoints" : 1000
-
-            
-        },
-    },
-    {
-        "y":        "RPE1_trans_RMSE",
-        "x":        ["ransac_threshold"],
-        "lines":    ["method", "tag", "max_keypoints"], 
-        "subplots":   "matcher",
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "mnn_bidirectional" : {"values" : [True, "-"]},
-            "ratio_threshold" : 0.8,
-            # "max_keypoints" : 1000
-
-            
-        },
-    },
-    {
-        "y":        "RPE1_trans_RMSE",
-        "x":        ["ransac_threshold"],
-        "lines":    ["method", "tag", "max_keypoints"], 
-        "subplots":   "matcher",
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "mnn_bidirectional" : {"values" : [False, "-"]},
-            "ratio_threshold" : 1,
-            # "max_keypoints" : 1000
-
-            
-        },
-    },
-    {
-        "y":        "RPE1_trans_RMSE",
-        "x":        ["ransac_threshold"],
-        "lines":    ["method", "tag", "max_keypoints"], 
-        "subplots":   "matcher",
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "mnn_bidirectional" : {"values" : [False, "-"]},
-            "ratio_threshold" : 0.8,
-            # "max_keypoints" : 1000
-
-            
-        },
-    },
-    # {
-    #     "y":        "RPE1_trans_RMSE",
-    #     "x":        "max_keypoints",
-    #     "lines":    ["method", "tag", "initial_sigma"], 
-    #     "subplots":   "downsample_level",
-    #     "select": {
-    #         # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-    #         "mnn_bidirectional" : {"values" : [True, "-"]},
-    #         "ratio_threshold" : 0.8,
-    #         # "max_keypoints" : 1000
-
-            
-    #     },
-    # },
-
-    #     {
-    #     "y":        "RPE1_trans_RMSE",
-    #     "x":        "max_keypoints",
-    #     "lines":    ["method", "tag", "initial_sigma"], 
-    #     "subplots":   "downsample_level",
-    #     "select": {
-    #         # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-    #         "mnn_bidirectional" : {"values" : [True, "-"]},
-    #         "ratio_threshold" : 0.8,
-    #         "matcher" : "NN"
-    #         # "max_keypoints" : 1000
-
-            
-    #     },
-    # },
-    #     {
-    #     "y":        "RPE1_trans_RMSE",
-    #     "x":        "max_keypoints",
-    #     "lines":    ["method", "tag", "initial_sigma"], 
-    #     "subplots":   "downsample_level",
-    #     "select": {
-    #         # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-    #         "mnn_bidirectional" : {"values" : [True, "-"]},
-    #         "ratio_threshold" : 0.8,
-    #         "matcher" : "MNN"
-    #         # "max_keypoints" : 1000
-
-            
-    #     },
-    # },
-        {
-        "y":        "RPE1_trans_RMSE",
-        "x":        "max_keypoints",
-        "lines":    ["method", "initial_sigma"], 
-        "subplots":   "downsample_level",
-        "select": {
-            # [COL]: {"values": [VALS], "fn": [FUNCTION]}
-            "mnn_bidirectional" : {"values" : [True, "-"]},
-            "ratio_threshold" : 0.8,
-            "tag" : "low_threshold",
-            "matcher" : "MNN"
-            # "max_keypoints" : 1000
-
-            
+            # "method" : ,
+            # "tag" : ,
+            # "matcher" : ,
+            # "ratio threshold" : ,
+            # "bidirectional ratio test" : ,
+            # "ransac threshold" : , 
+            # "epipolar threshold" : ,
+            # "downsample level" : ,
+            # "initial sigma" : ,
+            # "max keypoints" : ,
         },
     },
 ]
