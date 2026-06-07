@@ -569,7 +569,7 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
 
 
 def run_display(csv_path, plots, units=None):
-    df = pd.read_csv(csv_path, na_values=[], keep_default_na=False)
+    df = pd.read_csv(csv_path, na_values=[], keep_default_na=False, low_memory=False)
     method_col = "Method" if "Method" in df.columns else "method"
     df[method_col] = df[method_col].astype(str).str.strip()
     if "tag" not in df.columns and "Invariance configuration" not in df.columns:
