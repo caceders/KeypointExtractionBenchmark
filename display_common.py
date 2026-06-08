@@ -44,9 +44,12 @@ def make_interactive_legend(fig, leg, artist_map):
     """
     artist_map: {legend_handle → [data_artists]}
     Works with Line2D (line plots) or Patch/BarContainer (bar plots).
+    Handles with empty data_artists lists are treated as non-interactive headers.
     Single-click → toggle visibility. Double-click → isolate (again → restore all).
     """
     def _get_vis(data_artists):
+        if not data_artists:
+            return True
         a = data_artists[0]
         ps = getattr(a, "patches", None)
         return ps[0].get_visible() if ps else a.get_visible()
@@ -91,6 +94,8 @@ def make_interactive_legend(fig, leg, artist_map):
         elif artist in text_to_entry:
             handle, data_artists = text_to_entry[artist]
         else:
+            return
+        if not data_artists:
             return
         vis = not _get_vis(data_artists)
         _set_vis(data_artists, vis)
@@ -168,9 +173,8 @@ def _fmt_val(val):
 
 
 def _tick_label(val):
-    """Tick label: multi-column values on separate lines for readability."""
     if isinstance(val, tuple):
-        return "\n".join("" if v == "-" else str(v) for v in val)
+        return " / ".join("" if v == "-" else str(v) for v in val)
     return "" if val == "-" else str(val)
 
 
@@ -371,6 +375,23 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
     y            = "__derived_y__" if is_derived else y_raw
     select       = cfg.get("select", {})
 
+    # ── Validate axis / lines / subplots column names ────────────────────────
+    def _check_col(col, role):
+        if col not in df.columns:
+            raise ValueError(
+                f"{role}: column '{col}' not found in CSV.\n"
+                f"  Available: {list(df.columns)}"
+            )
+
+    if x_cols:
+        for c in x_cols:
+            _check_col(c, "x")
+    if lines_cols:
+        for c in lines_cols:
+            _check_col(c, "lines")
+    if subplots_col:
+        _check_col(subplots_col, "subplots")
+
     # ── Parse select: build filter + ordered agg_steps ────────────────────
     agg_steps = []
     dfs = df.copy()
@@ -380,8 +401,12 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
         values = spec.get("values")
         if values is not None:
             if col not in dfs.columns:
-                print(f"[{cfg.get('title', '?')}] select: column '{col}' not in CSV — skipping.")
-                continue
+                raise ValueError(
+                    f"select: column '{col}' not found in CSV.\n"
+                    f"  Available: {list(dfs.columns)}"
+                )
+            avail = sorted(dfs[col].unique(), key=str)
+            n_before = len(dfs)
             if isinstance(values, (list, np.ndarray)):
                 str_values = [str(v) for v in values]
                 dfs = dfs[dfs[col].isin(values) | dfs[col].astype(str).isin(str_values)]
@@ -389,6 +414,11 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
                 dfs = dfs[dfs[col].isna()]
             else:
                 dfs = dfs[(dfs[col] == values) | (dfs[col].astype(str) == str(values))]
+            if dfs.empty and n_before > 0:
+                raise ValueError(
+                    f"select: '{col}' = {values!r} matched no rows.\n"
+                    f"  Available values: {avail}"
+                )
         if "fn" in spec:
             step = {"col": col, "fn": spec["fn"]}
             if "range" in spec:
@@ -445,8 +475,12 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
     n_panels = len(panels)
     ncols    = min(n_panels, 3)
     nrows    = (n_panels + ncols - 1) // ncols
+
+    fig_width  = 14 if n_panels > 1 else 7
+    fig_height = 5 * nrows
+
     fig, axes = plt.subplots(nrows, ncols,
-                              figsize=(7 * ncols, 5 * nrows),
+                              figsize=(fig_width, fig_height),
                               dpi=FIG_DPI, squeeze=False,
                               layout="constrained")
     set_fig_title(fig, title)
@@ -558,13 +592,17 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
             ax.set_ylabel(x_label)
         else:
             ax.set_xlabel(x_label)
-            ax.set_ylabel(y_label)
+            if n_panels == 1:
+                ax.set_ylabel(y_label)
         ax.grid(True, linestyle=":", alpha=0.5)
 
     # Hide unused panels
     for extra in range(n_panels, nrows * ncols):
         r, c = divmod(extra, ncols)
         axes[r][c].set_visible(False)
+
+    if not bar_mode and n_panels > 1:
+        fig.supylabel(y_label)
 
     # ── Shared Y range across panels ───────────────────────────────────────────
     if n_panels > 1 and not bar_mode:
@@ -580,22 +618,265 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
     if not bar_mode:
         present = {v: arts for v, arts in line_artists.items() if arts}
         if present:
-            proxy_lines = [arts[0] for arts in present.values()]
-            labels      = [_fmt_val(v) for v in present.keys()]
-            leg = fig.legend(
-                proxy_lines, labels,
-                loc="outside right upper",
-                fontsize=8,
-                title=_cols_label(lines_cols, units) if lines_cols else "",
-                title_fontsize=9,
-                framealpha=0.9,
-            )
-            lined = {legline: arts
-                     for legline, arts in zip(leg.get_lines(), present.values())}
-            make_interactive_legend(fig, leg, lined)
+            _fs = 8  # shared font size for entries and titles
+
+            if len(lines_cols) == 1:
+                proxy_lines = [arts[0] for arts in present.values()]
+                labels      = [_fmt_val(v) for v in present.keys()]
+                leg = fig.legend(
+                    proxy_lines, labels,
+                    loc="outside right center",
+                    fontsize=_fs,
+                    title=_cols_label(lines_cols, units),
+                    title_fontsize=_fs,
+                    framealpha=0.9,
+                )
+                lined = {ll: arts for ll, arts in zip(leg.get_lines(), present.values())}
+                make_interactive_legend(fig, leg, lined)
+
+            else:
+                # Primary group: one solid colored line per unique cols[0] value
+                prim_vals = _sorted_vals(list({lv[0] for lv in present}))
+                p_proxies, p_labels, p_map = [], [], {}
+                for pv in prim_vals:
+                    matching = [lv for lv in present if lv[0] == pv]
+                    if not matching:
+                        continue
+                    color = line_color.get(matching[0])
+                    proxy = plt.Line2D([0], [0], color=color, linewidth=1.8, linestyle="-")
+                    arts  = [a for lv, al in present.items() if lv[0] == pv for a in al]
+                    p_proxies.append(proxy)
+                    p_labels.append(_fmt_val(pv))
+                    p_map[proxy] = arts
+
+                # Secondary group: one dark-gray line per unique cols[1:] value, linestyle varies
+                sec_key  = (lambda lv: lv[1]) if len(lines_cols) == 2 else (lambda lv: lv[1:])
+                sec_vals = _sorted_vals(list({sec_key(lv) for lv in present}))
+                s_proxies, s_labels, s_map = [], [], {}
+                for sv in sec_vals:
+                    matching = [lv for lv in present if sec_key(lv) == sv]
+                    if not matching:
+                        continue
+                    ls    = line_style.get(matching[0], "-")
+                    proxy = plt.Line2D([0], [0], color="#444444", linewidth=1.8, linestyle=ls)
+                    arts  = [a for lv, al in present.items() if sec_key(lv) == sv for a in al]
+                    s_proxies.append(proxy)
+                    s_labels.append(_fmt_val(sv))
+                    s_map[proxy] = arts
+
+                # Single combined legend with bold section headers separating the two groups
+                p_hdr = plt.Line2D([0], [0], linewidth=0, color="none")
+                s_sep = plt.Line2D([0], [0], linewidth=0, color="none")  # blank row for spacing
+                s_hdr = plt.Line2D([0], [0], linewidth=0, color="none")
+
+                n_p = len(p_proxies)
+                # indices: 0=p_hdr, 1..n_p=p_proxies, n_p+1=s_sep, n_p+2=s_hdr, n_p+3..=s_proxies
+                _hdr_indices = {0, n_p + 2}
+
+                all_handles = [p_hdr] + p_proxies + [s_sep, s_hdr] + s_proxies
+                all_labels  = (
+                    [_cols_label([lines_cols[0]], units)] + p_labels +
+                    ["", _cols_label(lines_cols[1:], units)] + s_labels
+                )
+
+                leg = fig.legend(
+                    all_handles, all_labels,
+                    loc="outside right center",
+                    fontsize=_fs,
+                    framealpha=0.9,
+                )
+
+                for i, txt in enumerate(leg.get_texts()):
+                    if i in _hdr_indices:
+                        txt.set_fontweight("bold")
+
+                # Left-align header text with the legend frame's interior left edge
+                _hdr_shifted = [False]
+                def _align_legend_headers(event=None):
+                    if _hdr_shifted[0]:
+                        return
+                    try:
+                        renderer = fig.canvas.get_renderer()
+                    except Exception:
+                        return
+                    texts     = leg.get_texts()
+                    frame_ext = leg.get_frame().get_window_extent(renderer)
+                    border_px = leg.borderpad * renderer.points_to_pixels(_fs)
+                    target_x  = frame_ext.x0 + border_px
+                    from matplotlib.transforms import Affine2D
+                    for i, txt in enumerate(texts):
+                        if i in _hdr_indices:
+                            t_ext = txt.get_window_extent(renderer)
+                            shift = target_x - t_ext.x0
+                            txt.set_transform(Affine2D().translate(shift, 0) + txt.get_transform())
+                    _hdr_shifted[0] = True
+                    fig.canvas.draw_idle()
+
+                fig.canvas.mpl_connect('draw_event', _align_legend_headers)
+
+                _artist_map = {p_hdr: [], s_sep: [], s_hdr: []}
+                _artist_map.update({p: p_map[p] for p in p_proxies})
+                _artist_map.update({s: s_map[s] for s in s_proxies})
+                lined = {ll: _artist_map[h]
+                         for ll, h in zip(leg.get_lines(), all_handles)}
+                make_interactive_legend(fig, leg, lined)
 
 
-def run_display(csv_path, plots, units=None):
+def _escape_latex(s):
+    for old, new in [
+        ("\\", r"\textbackslash{}"), ("&", r"\&"), ("%", r"\%"),
+        ("$", r"\$"),  ("#", r"\#"),  ("_", r"\_"),
+        ("{",  r"\{"), ("}",  r"\}"), ("~", r"\textasciitilde{}"),
+        ("^",  r"\textasciicircum{}"),
+    ]:
+        s = s.replace(old, new)
+    return s
+
+
+def _df_to_latex(df, units=None, float_precision=4, caption=""):
+    cols    = list(df.columns)
+    headers = [_escape_latex(_cols_label([c], units)) for c in cols]
+    col_spec = "l" + "r" * (len(cols) - 1)
+
+    def _fmt(val):
+        if isinstance(val, float):
+            return "-" if math.isnan(val) else f"{val:.{float_precision}f}"
+        return _escape_latex(str(val))
+
+    lines = [
+        r"% requires \usepackage{booktabs}",
+        r"\begin{table}[h]",
+        r"\centering",
+    ]
+    if caption:
+        lines.append(f"\\caption{{{_escape_latex(caption)}}}")
+    lines += [
+        f"\\begin{{tabular}}{{{col_spec}}}",
+        r"\toprule",
+        " & ".join(headers) + r" \\",
+        r"\midrule",
+    ]
+    for _, row in df.iterrows():
+        lines.append(" & ".join(_fmt(row[c]) for c in cols) + r" \\")
+    lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    return "\n".join(lines)
+
+
+def _apply_select_filters(df, select, title=""):
+    dfs = df.copy()
+    for col, spec in select.items():
+        if not isinstance(spec, dict):
+            spec = {"values": spec}
+        values = spec.get("values")
+        if values is None:
+            continue
+        if col not in dfs.columns:
+            print(f"[{title}] select: '{col}' not in CSV — skipping filter.")
+            continue
+        if isinstance(values, (list, np.ndarray)):
+            str_vals = [str(v) for v in values]
+            dfs = dfs[dfs[col].isin(values) | dfs[col].astype(str).isin(str_vals)]
+        elif isinstance(values, float) and math.isnan(values):
+            dfs = dfs[dfs[col].isna()]
+        else:
+            dfs = dfs[(dfs[col] == values) | (dfs[col].astype(str) == str(values))]
+    return dfs
+
+
+def find_min_or_max(df, cfg, units=None):
+    """
+    Find the best row(s) for a metric, grouped by group_by columns.
+
+    cfg keys:
+        metric          — column to optimise
+        mode            — "min" | "max"  (default "min")
+        group_by        — list of columns to group by (e.g. ["Method"])
+        agg_over        — columns to average out before picking best row
+                          (e.g. ["Sequence"] for KITTI, ["distance_threshold",
+                          "transformation"] for mma)
+        agg_fn          — "mean" | "min" | "max"  (default "mean")
+        select          — filter dict (same format as plot select, values only)
+        show_cols       — columns to include in output (default: all remaining)
+        title           — heading string
+        export          — "latex" | "csv" | ["latex", "csv"] | None
+        output_path     — base file path for export (no extension; required for csv)
+        float_precision — decimal places for floats in output (default 4)
+    """
+    metric      = cfg["metric"]
+    mode        = cfg.get("mode", "min")
+    group_by    = cfg.get("group_by", [])
+    agg_over    = cfg.get("agg_over", [])
+    agg_fn      = cfg.get("agg_fn", "mean")
+    select      = cfg.get("select", {})
+    show_cols   = cfg.get("show_cols")
+    title       = cfg.get("title",
+                           f"{'Max' if mode == 'max' else 'Min'} {metric}"
+                           + (f" per {', '.join(group_by)}" if group_by else ""))
+    export      = cfg.get("export")
+    output_path = cfg.get("output_path")
+    float_prec  = cfg.get("float_precision", 4)
+
+    if isinstance(export, str):
+        export = [export]
+
+    dfs = _apply_select_filters(df, select, title)
+    if dfs.empty:
+        print(f"[{title}] No data after filter — skipping.")
+        return None
+
+    # Average out agg_over dimensions so each config has one metric value
+    if agg_over:
+        id_cols = [c for c in dfs.columns if c not in agg_over and c != metric]
+        dfs = dfs.copy()
+        dfs[metric] = pd.to_numeric(dfs[metric], errors="coerce")
+        dfs = dfs.groupby(id_cols, dropna=False, sort=False)[metric].agg(agg_fn).reset_index()
+
+    # Find best row per group
+    dfs = dfs.copy()
+    dfs["__m__"] = pd.to_numeric(dfs[metric], errors="coerce")
+    fn_name = "idxmin" if mode == "min" else "idxmax"
+
+    if group_by:
+        best_idx = dfs.groupby(group_by, dropna=False)["__m__"].agg(fn_name)
+        result = dfs.loc[best_idx.dropna().astype(int).values].drop(columns=["__m__"])
+    else:
+        idx = int(getattr(dfs["__m__"], fn_name)())
+        result = dfs.drop(columns=["__m__"]).iloc[[idx]]
+
+    if show_cols:
+        missing = [c for c in show_cols if c not in result.columns]
+        if missing:
+            print(f"[{title}] show_cols missing: {missing}")
+        result = result[[c for c in show_cols if c in result.columns]]
+
+    result = result.reset_index(drop=True)
+
+    # Console output with units in headers
+    print(f"\n{'='*60}")
+    print(f"  {title}")
+    print(f"{'='*60}")
+    display_df = result.rename(columns={c: _cols_label([c], units) for c in result.columns})
+    print(display_df.to_string(index=False))
+
+    if export:
+        if "latex" in export:
+            latex_str = _df_to_latex(result, units=units, float_precision=float_prec, caption=title)
+            print(f"\n--- LaTeX ---\n{latex_str}\n")
+            if output_path:
+                with open(output_path + ".tex", "w", encoding="utf-8") as f:
+                    f.write(latex_str)
+                print(f"[{title}] Written to {output_path}.tex")
+        if "csv" in export:
+            if output_path:
+                display_df.to_csv(output_path + ".csv", index=False)
+                print(f"[{title}] CSV written to {output_path}.csv")
+            else:
+                print(f"[{title}] export='csv' requires output_path.")
+
+    return result
+
+
+def run_display(csv_path, plots, units=None, table_queries=None):
     df = pd.read_csv(csv_path, na_values=[], keep_default_na=False, low_memory=False)
     method_col = "Method" if "Method" in df.columns else "method"
     df[method_col] = df[method_col].astype(str).str.strip()
@@ -612,5 +893,9 @@ def run_display(csv_path, plots, units=None):
 
     for cfg in plots:
         make_plot(cfg, df, combo_color, tag_color, units=units)
+
+    if table_queries:
+        for cfg in table_queries:
+            find_min_or_max(df, cfg, units=units)
 
     plt.show()
