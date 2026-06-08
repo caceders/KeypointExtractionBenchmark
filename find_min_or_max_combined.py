@@ -161,6 +161,12 @@ else:
                          ("}", r"\}"), ("~", r"\textasciitilde{}"), ("^", r"\textasciicircum{}")]:
             s = s.replace(old, new)
         return s
+    _NATURAL_COLS = {"RANSAC threshold", "Ratio test threshold"}
+    for _c in list(display_rows.columns):
+        if any(_nc in _c for _nc in _NATURAL_COLS):
+            display_rows[_c] = display_rows[_c].apply(
+                lambda x: f"{x:.4g}" if isinstance(x, float) and not _math.isnan(x) else x
+            )
     _cols_l   = list(display_rows.columns)
     _col_spec = "l" + "r" * (len(_cols_l) - 1)
     def _fmtv(v):
