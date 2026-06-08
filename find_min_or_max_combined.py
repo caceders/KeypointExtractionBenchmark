@@ -149,6 +149,12 @@ else:
     display_rows = best_rows.rename(columns={c: _col_hdr(c) for c in best_rows.columns})
 
     import math as _math, json
+
+    def _fmt3sig(x):
+        if _math.isnan(x): return "-"
+        if x == 0: return "0.00"
+        dp = max(0, 2 - int(_math.floor(_math.log10(abs(x)))))
+        return f"{x:.{dp}f}"
     def _esc(s):
         for old, new in [("\\", r"\textbackslash{}"), ("&", r"\&"), ("%", r"\%"),
                          ("$", r"\$"), ("#", r"\#"), ("_", r"\_"), ("{", r"\{"),
@@ -158,7 +164,7 @@ else:
     _cols_l   = list(display_rows.columns)
     _col_spec = "l" + "r" * (len(_cols_l) - 1)
     def _fmtv(v):
-        if isinstance(v, float): return "-" if _math.isnan(v) else f"{v:.4f}"
+        if isinstance(v, float): return _fmt3sig(v)
         return _esc(str(v))
     latex_str = "\n".join([
         r"% requires \usepackage{booktabs}",
@@ -185,7 +191,7 @@ else:
         else:
             print(display_rows.to_csv(index=False))
 
-    html            = display_rows.to_html(index=False)
+    html            = display_rows.to_html(index=False, float_format=_fmt3sig)
     caption_js      = json.dumps(_col_hdr(_SEARCH_LABEL))
     search_orig_idx = list(display_rows.columns).index(_col_hdr(_SEARCH_LABEL))
     _latex_js       = r"""

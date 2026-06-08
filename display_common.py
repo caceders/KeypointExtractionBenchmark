@@ -590,6 +590,10 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
         if bar_mode:
             ax.set_xlabel(y_label)
             ax.set_ylabel(x_label)
+            if y_raw == "RPE - translational":
+                ax.set_xlim(left=0.015)
+            elif y_raw == "RPE - rotational":
+                ax.set_xlim(left=0.065)
         else:
             ax.set_xlabel(x_label)
             if n_panels == 1:
