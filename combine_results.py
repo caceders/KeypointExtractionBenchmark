@@ -51,7 +51,7 @@ kitti_f = kitti_f.rename(columns={"Average number of features": "Average number 
 
 # ── Inner join ────────────────────────────────────────────────────────────────
 print("Joining...")
-combined = mma_f.merge(kitti_f, on=JOIN_KEYS, how="inner")
+combined = mma_f.merge(kitti_f, on=JOIN_KEYS, how="left")
 print(f"  Combined: {len(combined):,} rows × {len(combined.columns)} cols")
 
 # ── Drop unwanted columns ─────────────────────────────────────────────────────
