@@ -84,7 +84,6 @@ else:
 # mma metric columns: AUC suffix applied when Distance error threshold is AUC'd
 _MMA_METRIC_COLS = {
     "mMA kp ref", "mMA", "Repeatability", "mHA", "mAP",
-    "Avg num matches", "Average number of features (mma)",
 }
 
 # Pass 1: value filters
@@ -145,7 +144,7 @@ else:
         name = f"{c} ({UNITS[c]})" if UNITS and c in UNITS else c
         if auc_suffix and c in _MMA_METRIC_COLS:
             name = f"{name}{auc_suffix}"
-        return name
+        return name.replace("(mma)", "(conventional)")
 
     display_rows = best_rows.rename(columns={c: _col_hdr(c) for c in best_rows.columns})
 

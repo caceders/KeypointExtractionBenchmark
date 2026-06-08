@@ -54,6 +54,21 @@ print("Joining...")
 combined = mma_f.merge(kitti_f, on=JOIN_KEYS, how="inner")
 print(f"  Combined: {len(combined):,} rows × {len(combined.columns)} cols")
 
+# ── Drop unwanted columns ─────────────────────────────────────────────────────
+DROP_COLS = [
+    "mMA kp ref", "Repeatability",
+    "ATE RMSE ALIGNED",
+    "RPE1 trans std", "RPE1 rot std",
+    "RPE10 trans RMSE", "RPE10 rot RMSE", "RPE10 trans std", "RPE10 rot std",
+    "RPE1 trans max", "RPE1 rot max", "RPE10 trans max", "RPE10 rot max",
+    "Avg num temporal matches", "Avg num stereo matches", "Avg num triangulated matches",
+    "Avg num temporal tri map overlap", "Avg num PnP inliers",
+    "Avg num dropped temporal", "Avg num dropped stereo", "Avg num dropped stereo->tri",
+    "Avg num dropped temporal->tri overlap", "Avg num dropped tri overlap->PNP",
+    "Failures",
+]
+combined = combined.drop(columns=[c for c in DROP_COLS if c in combined.columns])
+
 # ── Save (gzip for manageable file size) ─────────────────────────────────────
 os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
 print(f"Writing {OUTPUT_PATH} (gzip)...")
