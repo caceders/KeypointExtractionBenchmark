@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 FIG_DPI = 120
+plt.rcParams.update({'font.size': plt.rcParams['font.size'] * 1.5})
 
 
 def set_fig_title(fig, title):
@@ -178,10 +179,23 @@ def _tick_label(val):
     return "" if val == "-" else str(val)
 
 
+_DISPLAY_LABELS = {
+    "RPEtrans": r"$\mathrm{RPE}_{trans}$",
+    "RPErot":   r"$\mathrm{RPE}_{rot}$",
+}
+_TITLE_LABELS = {
+    "RPEtrans": r"$\mathbf{RPE}_{\boldsymbol{trans}}$",
+    "RPErot":   r"$\mathbf{RPE}_{\boldsymbol{rot}}$",
+}
+
+
 def _cols_label(cols, units=None):
     parts = []
     for c in cols:
-        label = c.replace("_", " ")
+        if c in _DISPLAY_LABELS:
+            label = _DISPLAY_LABELS[c]
+        else:
+            label = c.replace("_", " ")
         if units and c in units:
             label += f" ({units[c]})"
         parts.append(label)
@@ -274,9 +288,14 @@ def _lambda_label(fn):
     return "derived"
 
 
-def _auto_title(cfg):
+def _auto_title(cfg, plain=False):
     y       = cfg.get("y", "mma_kps_mean")
-    y_str   = _lambda_label(y) if callable(y) else y.replace("_", " ")
+    if callable(y):
+        y_str = _lambda_label(y)
+    elif plain:
+        y_str = y if isinstance(y, str) else "derived"
+    else:
+        y_str = _TITLE_LABELS.get(y, y.replace("_", " "))
     x_cols  = _as_cols(cfg.get("x"))
     l_cols  = _as_cols(cfg.get("lines"))
     x_label = _cols_label(x_cols) if x_cols else (_cols_label(l_cols) if l_cols else "")
@@ -446,15 +465,18 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
 
     # ── Auto-generate labels (all overridable) ────────────────────────────────
     def _ylabel_default():
-        base = _lambda_label(y_raw) if is_derived else y.replace("_", " ")
+        base = _lambda_label(y_raw) if is_derived else _DISPLAY_LABELS.get(y, y.replace("_", " "))
         if units and y in units:
             base += f" ({units[y]})"
         return base + auc_suffix
 
-    _base_title = _auto_title(cfg)
+    _base_title       = _auto_title(cfg)
+    _base_title_plain = _auto_title(cfg, plain=True)
     if auc_suffix:
-        _base_title = _base_title.replace(" vs ", f"{auc_suffix} vs ", 1)
-    title   = cfg.get("title",   _base_title)
+        _base_title       = _base_title.replace(" vs ", f"{auc_suffix} vs ", 1)
+        _base_title_plain = _base_title_plain.replace(" vs ", f"{auc_suffix} vs ", 1)
+    title       = cfg.get("title", _base_title)
+    title_plain = cfg.get("title", _base_title_plain)
     x_label = cfg.get("x_label", _cols_label(x_cols, units) if x_cols else (_cols_label(lines_cols, units) if lines_cols else ""))
     y_label = cfg.get("y_label", _ylabel_default())
 
@@ -476,14 +498,14 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
     ncols    = min(n_panels, 3)
     nrows    = (n_panels + ncols - 1) // ncols
 
-    fig_width  = 14 if n_panels > 1 else 7
+    fig_width  = (14 if n_panels > 1 else 7) * 1.1
     fig_height = 5 * nrows
 
     fig, axes = plt.subplots(nrows, ncols,
                               figsize=(fig_width, fig_height),
                               dpi=FIG_DPI, squeeze=False,
                               layout="constrained")
-    set_fig_title(fig, title)
+    set_fig_title(fig, title_plain)
     fig.suptitle(title, fontweight="bold")
 
     # ── Toggleable info overlay ───────────────────────────────────────────────
@@ -590,9 +612,9 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
         if bar_mode:
             ax.set_xlabel(y_label)
             ax.set_ylabel(x_label)
-            if y_raw == "RPE - translational":
+            if y_raw == "RPEtrans":
                 ax.set_xlim(left=0.015)
-            elif y_raw == "RPE - rotational":
+            elif y_raw == "RPErot":
                 ax.set_xlim(left=0.065)
         else:
             ax.set_xlabel(x_label)
@@ -622,7 +644,7 @@ def make_plot(cfg, df, combo_color, tag_color, units=None):
     if not bar_mode:
         present = {v: arts for v, arts in line_artists.items() if arts}
         if present:
-            _fs = 8  # shared font size for entries and titles
+            _fs = round(plt.rcParams['font.size'] * 0.8)
 
             if len(lines_cols) == 1:
                 proxy_lines = [arts[0] for arts in present.values()]
@@ -891,7 +913,7 @@ def run_display(csv_path, plots, units=None, table_queries=None):
     combo_color = dict(zip(all_combos, _distinct_colors(len(all_combos))))
 
     tag_col = next((c for c in df.columns if c in ("tag", "Invariance configuration",
-                                                     "Keypoint response threshold")), None)
+                                                     "Response threshold")), None)
     all_tags  = list(df[tag_col].unique()) if tag_col else []
     tag_color = dict(zip(all_tags, _distinct_colors(len(all_tags))))
 
