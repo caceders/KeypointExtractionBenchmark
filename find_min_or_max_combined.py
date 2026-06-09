@@ -10,13 +10,13 @@ import numpy as np
 # Run combine_results.py first to generate this file.
 CSV_PATH = "shared_results/combined/results.csv.gz"
 
-SEARCH_COLUMN = "RPE - translational"
-# SEARCH_COLUMN = "RPE - rotational"
+SEARCH_COLUMN = "RPEtrans"
+# SEARCH_COLUMN = "RPErot"
 # SEARCH_COLUMN = "ATE"
 # SEARCH_COLUMN = "mMA"
 # SEARCH_COLUMN = "mAP"
 # SEARCH_COLUMN = "Failures"
-# SEARCH_COLUMN = lambda df: pd.to_numeric(df["RPE - translational"], errors="coerce") + pd.to_numeric(df["RPE - rotational"], errors="coerce")
+# SEARCH_COLUMN = lambda df: pd.to_numeric(df["RPEtrans"], errors="coerce") + pd.to_numeric(df["RPErot"], errors="coerce")
 
 SEARCH_LABEL = None  # display name when SEARCH_COLUMN is a lambda (ignored for strings)
 
@@ -52,8 +52,8 @@ UNITS = {
     "RANSAC threshold":         "px",
     "Gaussian blur":            "σ",
     "ATE":                      "m",
-    "RPE - translational":      "m",
-    "RPE - rotational":         "°",
+    "RPEtrans":      "m",
+    "RPErot":         "°",
 }
 
 EXPORT = None       # "latex" | "csv" | ["latex", "csv"] | None
@@ -70,7 +70,7 @@ _FN_MAP = {"auc": "mean", "mean": "mean", "std": "std", "min": "min", "max": "ma
 
 _MINIMIZE_COLS = {
     "ATE", "ATE RMSE ALIGNED",
-    "RPE - translational", "RPE - rotational",
+    "RPEtrans", "RPErot",
     "RPE1 trans std", "RPE1 rot std",
     "RPE10 trans RMSE", "RPE10 rot RMSE", "RPE10 trans std", "RPE10 rot std",
     "RPE1 trans max", "RPE1 rot max", "RPE10 trans max", "RPE10 rot max",
@@ -161,26 +161,42 @@ else:
                          ("}", r"\}"), ("~", r"\textasciitilde{}"), ("^", r"\textasciicircum{}")]:
             s = s.replace(old, new)
         return s
+    def _abbrev(s):
+        return s.replace("Bidirectional", "bi").replace("Unidirectional", "uni")
     _NATURAL_COLS = {"RANSAC threshold", "Ratio test threshold"}
     for _c in list(display_rows.columns):
         if any(_nc in _c for _nc in _NATURAL_COLS):
             display_rows[_c] = display_rows[_c].apply(
                 lambda x: f"{x:.4g}" if isinstance(x, float) and not _math.isnan(x) else x
             )
-    _cols_l   = list(display_rows.columns)
-    _col_spec = "l" + "r" * (len(_cols_l) - 1)
-    def _fmtv(v):
-        if isinstance(v, float): return _fmt3sig(v)
-        return _esc(str(v))
+    _cols_l     = list(display_rows.columns)
+    _col_spec   = "|l|" + "r|" * (len(_cols_l) - 1)
+    _search_hdr = _col_hdr(_SEARCH_LABEL)
+    _snums      = pd.to_numeric(display_rows[_search_hdr], errors="coerce")
+    _valid_py   = [(v, i) for i, v in enumerate(_snums) if not _math.isnan(v)]
+    _best_py_idx = (min if _minimize else max)(_valid_py, key=lambda x: x[0])[1] if _valid_py else -1
+    _all_cell_str = " ".join(str(v) for c in _cols_l for v in display_rows[c])
+    _shorts_py = []
+    if "Bidirectional"  in _all_cell_str: _shorts_py.append("bi = Bidirectional")
+    if "Unidirectional" in _all_cell_str: _shorts_py.append("uni = Unidirectional")
+    _cap_str = _col_hdr(_SEARCH_LABEL) + (" (" + ", ".join(_shorts_py) + ")" if _shorts_py else "")
+    def _fmtv(v, bold=False):
+        s = _fmt3sig(v) if isinstance(v, float) else _esc(_abbrev(str(v)))
+        return r"\textbf{" + s + "}" if bold else s
     latex_str = "\n".join([
-        r"% requires \usepackage{booktabs}",
+        r"% requires \usepackage{colortbl,xcolor}",
         r"\begin{table}[h]", r"\centering",
-        f"\\caption{{{_esc(_col_hdr(_SEARCH_LABEL))}}}",
-        f"\\begin{{tabular}}{{{_col_spec}}}", r"\toprule",
-        " & ".join(_esc(c) for c in _cols_l) + r" \\", r"\midrule",
-        *[" & ".join(_fmtv(display_rows.loc[i, c]) for c in _cols_l) + r" \\"
+        r"{\footnotesize",
+        f"\\caption{{{_esc(_cap_str)}}}",
+        f"\\begin{{tabular}}{{{_col_spec}}}", r"\hline",
+        r"\rowcolor{gray!25} " + " & ".join(_esc(c) for c in _cols_l) + r" \\ \hline",
+        *[" & ".join(
+              (r"\cellcolor{gray!10}" if ci == 0 else "") +
+              _fmtv(display_rows.loc[i, c], bold=(i == _best_py_idx and c == _search_hdr))
+              for ci, c in enumerate(_cols_l)
+          ) + r" \\ \hline"
           for i in display_rows.index],
-        r"\bottomrule", r"\end{tabular}", r"\end{table}",
+        r"\end{tabular}", r"}", r"\end{table}",
     ])
 
     _export_list = [EXPORT] if isinstance(EXPORT, str) else (EXPORT or [])
@@ -344,30 +360,82 @@ else:
         _rebuildTable(); _applyBold(); _applyLayout();
     });
 
-    // ── Generate LaTeX (current col order, normal orientation) ────────────────
+    // ── Generate LaTeX (respects transpose, bold best, colored header/left) ──
     document.getElementById('gen-latex').addEventListener('click', function() {
         var vc = _getVisCols();
         if (!vc.length) return;
         function esc(s) {
-            return s.replace(/\\/g, '\\textbackslash{}')
+            return String(s).replace(/\\/g, '\\textbackslash{}')
                     .replace(/&/g, '\\&').replace(/%/g, '\\%').replace(/\$/g, '\\$')
                     .replace(/#/g, '\\#').replace(/_/g, '\\_')
                     .replace(/\{/g, '\\{').replace(/\}/g, '\\}');
         }
-        var hdrs = vc.map(function(i) { return _origGrid[0][i]; });
-        var body = [];
-        for (var r = 1; r < _origGrid.length; r++)
-            body.push(vc.map(function(i) { return _origGrid[r][i]; }));
-        var colSpec = 'l' + 'r'.repeat(vc.length - 1);
+        function abbrev(s) {
+            return String(s).replace(/\bBidirectional\b/g, 'bi').replace(/\bUnidirectional\b/g, 'uni');
+        }
+        function mkCell(v, isLeft, isBold) {
+            var s = esc(abbrev(v));
+            if (isBold) s = '\\textbf{' + s + '}';
+            if (isLeft) s = '\\cellcolor{gray!10}' + s;
+            return s;
+        }
+        // Build grid based on current orientation
+        var hdrs, body;
+        if (!_isT) {
+            hdrs = vc.map(function(i) { return _origGrid[0][i]; });
+            body = [];
+            for (var r = 1; r < _origGrid.length; r++)
+                body.push(vc.map(function(i) { return _origGrid[r][i]; }));
+        } else {
+            hdrs = [];
+            for (var r = 0; r < _origGrid.length; r++) hdrs.push(_origGrid[r][vc[0]]);
+            body = [];
+            for (var i = 1; i < vc.length; i++) {
+                var ci = vc[i], row = [];
+                for (var r = 0; r < _origGrid.length; r++) row.push(_origGrid[r][ci]);
+                body.push(row);
+            }
+        }
+        // Locate best value
+        function findBest(vals) {
+            var best = null, idx = -1;
+            for (var k = 0; k < vals.length; k++) {
+                var v = parseFloat(vals[k]);
+                if (!isNaN(v) && (best === null || (minimize ? v < best : v > best))) { best = v; idx = k; }
+            }
+            return idx;
+        }
+        var bestR = -1, bestC = -1;
+        if (!_isT) {
+            var sPos = vc.indexOf(searchOrigIdx);
+            if (sPos >= 0) { bestR = findBest(body.map(function(row) { return row[sPos]; })); bestC = sPos; }
+        } else {
+            for (var i = 0; i < vc.length - 1; i++) { if (vc[i + 1] === searchOrigIdx) { bestR = i; break; } }
+            if (bestR >= 0) { var bk = findBest(body[bestR].slice(1)); bestC = bk >= 0 ? 1 + bk : -1; }
+        }
+        // Caption with shorthand note
+        var allText = hdrs.concat(body.reduce(function(a, b) { return a.concat(b); }, [])).join(' ');
+        var shorts = [];
+        if (/\bBidirectional\b/.test(allText))  shorts.push('bi = Bidirectional');
+        if (/\bUnidirectional\b/.test(allText)) shorts.push('uni = Unidirectional');
+        var capText = esc(caption) + (shorts.length ? ' (' + shorts.join(', ') + ')' : '');
+        // Build LaTeX
+        var nC = hdrs.length;
+        var colSpec = '|l|' + 'r|'.repeat(nC - 1);
+        var hdrLine = '\\rowcolor{gray!25} ' + hdrs.map(function(h) { return esc(abbrev(h)); }).join(' & ') + ' \\\\ \\hline';
+        var dataLines = body.map(function(row, ri) {
+            return row.map(function(v, ci) {
+                return mkCell(v, ci === 0, ri === bestR && ci === bestC);
+            }).join(' & ') + ' \\\\ \\hline';
+        });
         var lines = [
-            '% requires \\usepackage{booktabs}',
+            '% requires \\usepackage{colortbl,xcolor}',
             '\\begin{table}[h]', '\\centering',
-            '\\caption{' + esc(caption) + '}',
-            '\\begin{tabular}{' + colSpec + '}', '\\toprule',
-            hdrs.map(esc).join(' & ') + ' \\\\', '\\midrule',
-        ];
-        body.forEach(function(row) { lines.push(row.map(esc).join(' & ') + ' \\\\'); });
-        lines.push('\\bottomrule', '\\end{tabular}', '\\end{table}');
+            '{\\footnotesize',
+            '\\caption{' + capText + '}',
+            '\\begin{tabular}{' + colSpec + '}', '\\hline',
+            hdrLine,
+        ].concat(dataLines).concat(['\\end{tabular}', '}', '\\end{table}']);
         var ta = document.getElementById('latex-out');
         ta.value = lines.join('\n');
         ta.style.display = 'block';
@@ -400,7 +468,7 @@ else:
     sort_by_cols_js = "true" if SORT_BY_COLS else "false"
     styled = f"""<!DOCTYPE html>
 <html><head><style>
-body {{ font-family: monospace; padding: 1em; }}
+body {{ font-family: monospace; padding: 1em; font-size: 150%; }}
 div.wrap {{ overflow-x: auto; }}
 table {{ border-collapse: collapse; }}
 th, td {{ border: 1px solid #ccc; padding: 4px 10px; text-align: left; white-space: nowrap; }}
